@@ -16,7 +16,7 @@ setup(
 	license = 'MIT',
 	py_modules = ['xopen'],
 	classifiers = [
-		"Development Status :: 5 - Production/Stable",
+		"Development Status :: 4 - Beta",
 		"License :: OSI Approved :: MIT License",
 		"Programming Language :: Cython",
 		"Programming Language :: Python :: 2.6",
