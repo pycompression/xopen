@@ -40,21 +40,29 @@ else:
 class PipedGzipWriter(object):
 	"""
 	Write gzip-compressed files by running an external gzip process and piping
-	into it. On Python 2, this is faster than using gzip.open.
+	into it. On Python 2, this is faster than using gzip.open. If pigz is
+	available, that is used instead of gzip.
 	"""
+
 	def __init__(self, path, mode='w'):
 		self.outfile = open(path, mode)
 		self.devnull = open(os.devnull, 'w')
 		self.closed = False
+
+		# Setting close_fds to True in the Popen arguments is necessary due to
+		# <http://bugs.python.org/issue12786>.
+		kwargs = dict(stdin=PIPE, stdout=self.outfile, stderr=self.devnull, close_fds=True)
 		try:
-			# Setting close_fds to True is necessary due to
-			# http://bugs.python.org/issue12786
-			self.process = Popen(['gzip'], stdin=PIPE, stdout=self.outfile,
-				stderr=self.devnull, close_fds=True)
+			self.process = Popen(['pigz'], **kwargs)
+			self.program = 'pigz'
 		except IOError as e:
-			self.outfile.close()
-			self.devnull.close()
-			raise
+			try:
+				self.process = Popen(['gzip'], **kwargs)
+				self.program = 'gzip'
+			except IOError as e:
+				self.outfile.close()
+				self.devnull.close()
+				raise
 
 	def write(self, arg):
 		self.process.stdin.write(arg)
@@ -66,7 +74,7 @@ class PipedGzipWriter(object):
 		self.outfile.close()
 		self.devnull.close()
 		if retcode != 0:
-			raise IOError("Output gzip process terminated with exit code {0}".format(retcode))
+			raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
 
 	def __enter__(self):
 		return self
