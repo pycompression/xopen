@@ -51,6 +51,9 @@ The name ``xopen`` was taken from the C function of the same name in the
 
 Kyle Beauchamp <kyleb@counsyl.com> has contributed support for appending to files.
 
+Some ideas were taken from the `canopener project <https://github.com/selassid/canopener>`_.
+If you also want to open S3 files, you may want to use that module instead.
+
 
 Author
 ------
