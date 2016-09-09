@@ -15,7 +15,7 @@ try:
 	import lzma
 	files.append(base + '.xz')
 except ImportError:
-	pass
+	lzma = None
 
 
 major, minor = sys.version_info[0:2]
@@ -67,6 +67,56 @@ def test_no_context_manager_binary():
 		assert f.closed
 
 
+@raises(IOError)
+def test_nonexisting_file():
+	with xopen('this-file-does-not-exist') as f:
+		pass
+
+
+@raises(IOError)
+def test_nonexisting_file_gz():
+	with xopen('this-file-does-not-exist.gz') as f:
+		pass
+
+
+@raises(IOError)
+def test_nonexisting_file_bz2():
+	with xopen('this-file-does-not-exist.bz2') as f:
+		pass
+
+
+if lzma:
+	@raises(IOError)
+	def test_nonexisting_file_xz():
+		with xopen('this-file-does-not-exist.xz') as f:
+			pass
+
+
+@raises(IOError)
+def test_write_to_nonexisting_dir():
+	with xopen('this/path/does/not/exist/file.txt', 'w') as f:
+		pass
+
+
+@raises(IOError)
+def test_write_to_nonexisting_dir_gz():
+	with xopen('this/path/does/not/exist/file.gz', 'w') as f:
+		pass
+
+
+@raises(IOError)
+def test_write_to_nonexisting_dir_bz2():
+	with xopen('this/path/does/not/exist/file.bz2', 'w') as f:
+		pass
+
+
+if lzma:
+	@raises(IOError)
+	def test_write_to_nonexisting_dir():
+		with xopen('this/path/does/not/exist/file.xz', 'w') as f:
+			pass
+
+
 def test_append():
 	for ext in ["", ".gz"]:  # BZ2 does NOT support append
 		text = "AB"
@@ -101,9 +151,8 @@ def create_truncated_file(path):
 		f.truncate(os.stat(path).st_size - 10)
 
 
-# Disable these tests in Python 3.2 and 3.3
-if not ((3, 2) <= sys.version_info[:2] <= (3, 3)):
-	@raises(EOFError)
+if sys.version_info[:2] != (3, 3):
+	@raises(EOFError, IOError)
 	def test_truncated_gz():
 		with temporary_path('truncated.gz') as path:
 			create_truncated_file(path)
@@ -112,7 +161,7 @@ if not ((3, 2) <= sys.version_info[:2] <= (3, 3)):
 			f.close()
 
 
-	@raises(EOFError)
+	@raises(EOFError, IOError)
 	def test_truncated_gz_iter():
 		with temporary_path('truncated.gz') as path:
 			create_truncated_file(path)

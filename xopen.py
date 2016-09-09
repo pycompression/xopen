@@ -55,14 +55,19 @@ class PipedGzipWriter(object):
 		try:
 			self.process = Popen(['pigz'], **kwargs)
 			self.program = 'pigz'
-		except IOError as e:
+		except OSError as e:
+			# binary not found, try regular gzip
 			try:
 				self.process = Popen(['gzip'], **kwargs)
 				self.program = 'gzip'
-			except IOError as e:
+			except (IOError, OSError) as e:
 				self.outfile.close()
 				self.devnull.close()
 				raise
+		except IOError as e:
+			self.outfile.close()
+			self.devnull.close()
+			raise
 
 	def write(self, arg):
 		self.process.stdin.write(arg)
@@ -85,8 +90,13 @@ class PipedGzipWriter(object):
 
 class PipedGzipReader(object):
 	def __init__(self, path):
-		self.process = Popen(['gzip', '-cd', path], stdout=PIPE)
+		self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
 		self.closed = False
+		stderr = self.process.stderr.read()
+		if stderr:
+			# if gzip outputs *anything* on stderr, we assume something went wrong
+			self.close()
+			raise IOError(stderr)
 
 	def close(self):
 		self.closed = True
@@ -104,12 +114,12 @@ class PipedGzipReader(object):
 
 	def _raise_if_error(self):
 		"""
-		Raise EOFError if process is not running anymore and the
+		Raise IOError if process is not running anymore and the
 		exit code is nonzero.
 		"""
 		retcode = self.process.poll()
 		if retcode is not None and retcode != 0:
-			raise EOFError("gzip process returned non-zero exit code {0}. Is "
+			raise IOError("gzip process returned non-zero exit code {0}. Is "
 				"the input file truncated or corrupt?".format(retcode))
 
 	def read(self, *args):
@@ -210,13 +220,13 @@ def xopen(filename, mode='r'):
 			if 'r' in mode:
 				try:
 					return PipedGzipReader(filename)
-				except IOError:
+				except OSError:
 					# gzip not installed
 					return buffered_reader(gzip.open(filename, mode))
 			else:
 				try:
 					return PipedGzipWriter(filename, mode)
-				except IOError:
+				except OSError:
 					return buffered_writer(gzip.open(filename, mode))
 	else:
 		return open(filename, mode)
