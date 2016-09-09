@@ -118,6 +118,21 @@ class PipedGzipReader(object):
 		self.close()
 
 
+class Closing(object):
+	def __enter__(self):
+		return self
+
+	def __exit__(self, *exc_info):
+		self.close()
+
+
+class ClosingBZ2File(bz2.BZ2File, Closing):
+	"""
+	A better BZ2File that supports the context manager protocol.
+	This is relevant only for Python 2.6.
+	"""
+
+
 def xopen(filename, mode='r'):
 	"""
 	Replacement for the "open" function that can also open files that have
@@ -164,6 +179,8 @@ def xopen(filename, mode='r'):
 				return io.TextIOWrapper(bz2.BZ2File(filename, mode[0]))
 			else:
 				return bz2.BZ2File(filename, mode)
+		elif sys.version_info[:2] <= (2, 6):
+			return ClosingBZ2File(filename, mode)
 		else:
 			return bz2.BZ2File(filename, mode)
 	elif filename.endswith('.xz'):
