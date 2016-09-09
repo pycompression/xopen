@@ -1,0 +1,65 @@
+.. image:: https://travis-ci.org/marcelm/xopen.svg?branch=master
+    :target: https://travis-ci.org/marcelm/xopen
+
+.. image:: https://img.shields.io/pypi/v/xopen.svg?branch=master
+    :target: https://pypi.python.org/pypi/xopen
+
+=====
+xopen
+=====
+
+This small Python module provides a ``xopen`` function that works like the
+built-in ``open`` function, but can also deal with compressed files.
+Supported compression formats are gzip, bzip2 and xz. They are automatically
+recognized by their file extensions `.gz`, `.bz2` or `.xz`.
+
+The focus is on being as efficient as possible on all supported Python versions.
+For example, simply using ``gzip.open`` is slow in older Pythons, and it is
+a lot faster to use a ``gzip`` subprocess.
+
+This module has originally been developed as part of the `cutadapt
+tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
+manipulate sequencing data. It has been in successful use within that software
+for a few years.
+
+
+Usage
+-----
+
+Open a file for reading::
+
+    with open('file.txt.xz') as f:
+        content = f.read()
+
+Or without context manager::
+
+    f = open('file.txt.xz')
+    content = f.read()
+    f.close()
+
+Open a file for writing::
+
+    with open('file.txt.gz', mode='w') as f:
+        f.write('Hello')
+
+
+Credits
+-------
+
+The name ``xopen`` was taken from the C function of the same name in the
+`utils.h file which is part of BWA <https://github.com/lh3/bwa/blob/83662032a2192d5712996f36069ab02db82acf67/utils.h>`_.
+
+Kyle Beauchamp <kyleb@counsyl.com> has contributed support for appending to files.
+
+
+Author
+------
+
+Marcel Martin <mail@marcelm.net> (`@marcelm_ on Twitter <https://twitter.com/marcelm_>`_)
+
+Links
+-----
+
+* `Source code <https://github.com/marcelm/xopen/>`_
+* `Report an issue <https://github.com/marcelm/xopen/issues>`_
+* `Project page on PyPI (Python package index) <https://pypi.python.org/pypi/xopen/>`_
