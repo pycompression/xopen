@@ -37,7 +37,11 @@ else:
 	buffered_writer = io.BufferedWriter
 
 
-class GzipWriter(object):
+class PipedGzipWriter(object):
+	"""
+	Write gzip-compressed files by running an external gzip process and piping
+	into it. On Python 2, this is faster than using gzip.open.
+	"""
 	def __init__(self, path, mode='w'):
 		self.outfile = open(path, mode)
 		self.devnull = open(os.devnull, 'w')
@@ -71,7 +75,7 @@ class GzipWriter(object):
 		self.close()
 
 
-class GzipReader(object):
+class PipedGzipReader(object):
 	def __init__(self, path):
 		self.process = Popen(['gzip', '-cd', path], stdout=PIPE)
 		self.closed = False
@@ -180,13 +184,13 @@ def xopen(filename, mode='r'):
 			# rb/rt are equivalent in Py2
 			if 'r' in mode:
 				try:
-					return GzipReader(filename)
+					return PipedGzipReader(filename)
 				except IOError:
 					# gzip not installed
 					return buffered_reader(gzip.open(filename, mode))
 			else:
 				try:
-					return GzipWriter(filename, mode)
+					return PipedGzipWriter(filename, mode)
 				except IOError:
 					return buffered_writer(gzip.open(filename, mode))
 	else:
