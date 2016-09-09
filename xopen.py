@@ -9,7 +9,7 @@ import io
 import os
 from subprocess import Popen, PIPE
 
-PY3 = sys.version > '3'
+_PY3 = sys.version > '3'
 
 
 try:
@@ -23,7 +23,7 @@ except ImportError:
 	lzma = None
 
 
-if PY3:
+if _PY3:
 	basestring = str
 else:
 	basestring = basestring
@@ -41,6 +41,7 @@ class GzipWriter(object):
 	def __init__(self, path, mode='w'):
 		self.outfile = open(path, mode)
 		self.devnull = open(os.devnull, 'w')
+		self.closed = False
 		try:
 			# Setting close_fds to True is necessary due to
 			# http://bugs.python.org/issue12786
@@ -55,6 +56,7 @@ class GzipWriter(object):
 		self.process.stdin.write(arg)
 
 	def close(self):
+		self.closed = True
 		self.process.stdin.close()
 		retcode = self.process.wait()
 		self.outfile.close()
@@ -72,8 +74,10 @@ class GzipWriter(object):
 class GzipReader(object):
 	def __init__(self, path):
 		self.process = Popen(['gzip', '-cd', path], stdout=PIPE)
+		self.closed = False
 
 	def close(self):
+		self.closed = True
 		retcode = self.process.poll()
 		if retcode is None:
 			# still running
@@ -93,7 +97,8 @@ class GzipReader(object):
 		"""
 		retcode = self.process.poll()
 		if retcode is not None and retcode != 0:
-			raise EOFError("gzip process returned non-zero exit code {0}. Is the input file truncated or corrupt?".format(retcode))
+			raise EOFError("gzip process returned non-zero exit code {0}. Is "
+				"the input file truncated or corrupt?".format(retcode))
 
 	def read(self, *args):
 		data = self.process.stdout.read(*args)
@@ -132,14 +137,14 @@ def xopen(filename, mode='r'):
 		mode = 'wt'
 	if mode not in ('rt', 'rb', 'wt', 'wb', 'a'):
 		raise ValueError("mode '{0}' not supported".format(mode))
-	if not PY3:
+	if not _PY3:
 		mode = mode[0]
 	if not isinstance(filename, basestring):
 		raise ValueError("the filename must be a string")
 
 	# standard input and standard output handling
 	if filename == '-':
-		if not PY3:
+		if not _PY3:
 			return sys.stdin if 'r' in mode else sys.stdout
 		return dict(
 			rt=sys.stdin,
@@ -150,7 +155,7 @@ def xopen(filename, mode='r'):
 	if filename.endswith('.bz2'):
 		if bz2 is None:
 			raise ImportError("Cannot open bz2 files: The bz2 module is not available")
-		if PY3:
+		if _PY3:
 			if 't' in mode:
 				return io.TextIOWrapper(bz2.BZ2File(filename, mode[0]))
 			else:
@@ -162,7 +167,7 @@ def xopen(filename, mode='r'):
 			raise ImportError("Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
 		return lzma.open(filename, mode)
 	elif filename.endswith('.gz'):
-		if PY3:
+		if _PY3:
 			if 't' in mode:
 				# gzip.open in Python 3.2 does not support modes 'rt' and 'wt''
 				return io.TextIOWrapper(gzip.open(filename, mode[0]))
