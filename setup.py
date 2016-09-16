@@ -18,7 +18,6 @@ setup(
 	classifiers = [
 		"Development Status :: 4 - Beta",
 		"License :: OSI Approved :: MIT License",
-		"Programming Language :: Cython",
 		"Programming Language :: Python :: 2.6",
 		"Programming Language :: Python :: 2.7",
 		"Programming Language :: Python :: 3",
