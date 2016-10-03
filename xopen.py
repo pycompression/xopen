@@ -144,11 +144,12 @@ class Closing(object):
 		self.close()
 
 
-class ClosingBZ2File(bz2.BZ2File, Closing):
-	"""
-	A better BZ2File that supports the context manager protocol.
-	This is relevant only for Python 2.6.
-	"""
+if bz2 is not None:
+	class ClosingBZ2File(bz2.BZ2File, Closing):
+		"""
+		A better BZ2File that supports the context manager protocol.
+		This is relevant only for Python 2.6.
+		"""
 
 
 def xopen(filename, mode='r'):
