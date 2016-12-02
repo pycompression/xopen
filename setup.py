@@ -10,7 +10,7 @@ with open('README.rst') as f:
 
 setup(
 	name = 'xopen',
-	version = '0.1.0',
+	version = '0.1.1',
 	author = 'Marcel Martin',
 	author_email = 'mail@marcelm.net',
 	url = 'https://github.com/marcelm/xopen/',
