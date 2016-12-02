@@ -7,6 +7,7 @@ import gzip
 import sys
 import io
 import os
+import time
 from subprocess import Popen, PIPE
 
 _PY3 = sys.version > '3'
@@ -92,11 +93,10 @@ class PipedGzipReader(object):
 	def __init__(self, path):
 		self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
 		self.closed = False
-		stderr = self.process.stderr.read()
-		if stderr:
-			# if gzip outputs *anything* on stderr, we assume something went wrong
-			self.close()
-			raise IOError(stderr)
+		# Give gzip a little bit of time to report any errors (such as
+		# a non-existing file)
+		time.sleep(0.01)
+		self._raise_if_error()
 
 	def close(self):
 		self.closed = True
@@ -119,8 +119,8 @@ class PipedGzipReader(object):
 		"""
 		retcode = self.process.poll()
 		if retcode is not None and retcode != 0:
-			raise IOError("gzip process returned non-zero exit code {0}. Is "
-				"the input file truncated or corrupt?".format(retcode))
+			message = self.process.stderr.read().strip()
+			raise IOError(message)
 
 	def read(self, *args):
 		data = self.process.stdout.read(*args)
