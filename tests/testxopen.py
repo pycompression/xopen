@@ -4,6 +4,7 @@ import gzip
 import os
 import random
 import sys
+import signal
 from contextlib import contextmanager
 from nose.tools import raises
 from xopen import xopen
@@ -144,11 +145,34 @@ def test_append():
 
 def create_truncated_file(path):
 	# Random text
-	random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for _ in range(200))
+	random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for _ in range(1024))
+	# Make the text a lot bigger in order to ensure that it is larger than the
+	# pipe buffer size.
+	random_text *= 1024  # 1MB
 	with xopen(path, 'w') as f:
 		f.write(random_text)
 	with open(path, 'a') as f:
 		f.truncate(os.stat(path).st_size - 10)
+
+
+class TookTooLongError(Exception):
+	pass
+
+
+class timeout:
+	# copied from https://stackoverflow.com/a/22348885/715090
+	def __init__(self, seconds=1):
+		self.seconds = seconds
+
+	def handle_timeout(self, signum, frame):
+		raise TookTooLongError()
+
+	def __enter__(self):
+		signal.signal(signal.SIGALRM, self.handle_timeout)
+		signal.alarm(self.seconds)
+
+	def __exit__(self, type, value, traceback):
+		signal.alarm(0)
 
 
 if sys.version_info[:2] != (3, 3):
@@ -156,16 +180,18 @@ if sys.version_info[:2] != (3, 3):
 	def test_truncated_gz():
 		with temporary_path('truncated.gz') as path:
 			create_truncated_file(path)
-			f = xopen(path, 'r')
-			f.read()
-			f.close()
+			with timeout(seconds=2):
+				f = xopen(path, 'r')
+				f.read()
+				f.close()
 
 
 	@raises(EOFError, IOError)
 	def test_truncated_gz_iter():
 		with temporary_path('truncated.gz') as path:
 			create_truncated_file(path)
-			f = xopen(path, 'r')
-			for line in f:
-				pass
-			f.close()
+			with timeout(seconds=2):
+				f = xopen(path, 'r')
+				for line in f:
+					pass
+				f.close()
