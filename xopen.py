@@ -184,13 +184,10 @@ def xopen(filename, mode='r'):
 		if bz2 is None:
 			raise ImportError("Cannot open bz2 files: The bz2 module is not available")
 		if _PY3:
-			if 't' in mode:
-				return bz2.open(filename, mode)
-			else:
-				return bz2.BZ2File(filename, mode)
+			return bz2.open(filename, mode)
 		else:
 			if mode[0] == 'a':
-				raise ValueError("mode '{0}' not supported for with BZ2 compression".format(mode))
+				raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
 			if sys.version_info[:2] <= (2, 6):
 				return ClosingBZ2File(filename, mode)
 			else:
