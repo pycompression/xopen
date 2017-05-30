@@ -26,8 +26,6 @@ except ImportError:
 
 if _PY3:
 	basestring = str
-else:
-	basestring = basestring
 
 
 if sys.version_info < (2, 7):
