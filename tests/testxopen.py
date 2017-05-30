@@ -18,6 +18,10 @@ try:
 except ImportError:
 	lzma = None
 
+try:
+        import bz2
+except ImportError:
+	bz2 = None
 
 major, minor = sys.version_info[0:2]
 
@@ -119,19 +123,24 @@ if lzma:
 
 
 def test_append():
-	for ext in ["", ".gz"]:  # BZ2 does NOT support append
-		text = "AB"
-		if ext != "":
-			text = text.encode("utf-8")  # On Py3, need to send BYTES, not unicode
+	cases = ["", ".gz"]
+	if bz2 and sys.version_info > (3,):
+		# BZ2 does NOT support append in Py 2.
+		cases.append(".bz2")
+	if lzma:
+		cases.append(".xz")
+	for ext in cases:
+		# On Py3, need to send BYTES, not unicode. Let's do it for all.
+		text = "AB".encode("utf-8")
 		reference = text + text
 		with temporary_path('truncated.fastq' + ext) as path:
 			try:
 				os.unlink(path)
 			except OSError:
 				pass
-			with xopen(path, 'a') as f:
+			with xopen(path, 'ab') as f:
 				f.write(text)
-			with xopen(path, 'a') as f:
+			with xopen(path, 'ab') as f:
 				f.write(text)
 			with xopen(path, 'r') as f:
 				for appended in f:
@@ -139,6 +148,31 @@ def test_append():
 				try:
 					reference = reference.decode("utf-8")
 				except AttributeError:
+					pass
+				assert appended == reference
+
+
+def test_append_text():
+	cases = ["", ".gz"]
+	if bz2 and sys.version_info > (3,):
+		# BZ2 does NOT support append in Py 2.
+		cases.append(".bz2")
+	if lzma:
+		cases.append(".xz")
+	for ext in cases:  # BZ2 does NOT support append
+		text = "AB"
+		reference = text + text
+		with temporary_path('truncated.fastq' + ext) as path:
+			try:
+				os.unlink(path)
+			except OSError:
+				pass
+			with xopen(path, 'at') as f:
+				f.write(text)
+			with xopen(path, 'at') as f:
+				f.write(text)
+			with xopen(path, 'rt') as f:
+				for appended in f:
 					pass
 				assert appended == reference
 
