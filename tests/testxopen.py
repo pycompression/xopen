@@ -19,7 +19,7 @@ except ImportError:
 	lzma = None
 
 try:
-        import bz2
+	import bz2
 except ImportError:
 	bz2 = None
 
