@@ -161,12 +161,8 @@ def xopen(filename, mode='r'):
 	Append mode ('a', 'at', 'ab') is unavailable with BZ2 compression and
 	will raise an error.
 	"""
-	if mode == 'r':
-		mode = 'rt'
-	elif mode == 'w':
-		mode = 'wt'
-	elif mode == 'a':
-		mode = 'at'
+	if mode in ('r', 'w', 'a'):
+		mode += 't'
 	if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
 		raise ValueError("mode '{0}' not supported".format(mode))
 	if not _PY3:
@@ -176,12 +172,12 @@ def xopen(filename, mode='r'):
 
 	# standard input and standard output handling
 	if filename == '-':
-		if not _PY3:
-			return sys.stdin if 'r' in mode else sys.stdout
 		return dict(
+			r=sys.stdin,
 			rt=sys.stdin,
-			wt=sys.stdout,
 			rb=sys.stdin.buffer,
+			w=sys.stdout,
+			wt=sys.stdout,
 			wb=sys.stdout.buffer)[mode]
 
 	if filename.endswith('.bz2'):
