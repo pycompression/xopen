@@ -162,18 +162,22 @@ def xopen(filename, mode='r'):
 	the pipe to the gzip program). If the filename ends with .bz2, it's
 	opened as a bz2.BZ2File. Otherwise, the regular open() is used.
 
-	mode can be: 'rt', 'rb', 'a', 'wt', or 'wb'
-	Instead of 'rt' and 'wt', 'r' and 'w' can be used as abbreviations.
+	mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'
+	Instead of 'rt', 'wt' and 'at', 'r', 'w' and 'a' can be used as
+	abbreviations.
 
 	In Python 2, the 't' and 'b' characters are ignored.
 
-	Append mode ('a') is unavailable with BZ2 compression and will raise an error.
+	Append mode ('a', 'at', 'ab') is unavailable with BZ2 compression and
+	will raise an error.
 	"""
 	if mode == 'r':
 		mode = 'rt'
 	elif mode == 'w':
 		mode = 'wt'
-	if mode not in ('rt', 'rb', 'wt', 'wb', 'a'):
+	elif mode == 'a':
+		mode = 'at'
+	if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
 		raise ValueError("mode '{0}' not supported".format(mode))
 	if not _PY3:
 		mode = mode[0]
@@ -195,13 +199,16 @@ def xopen(filename, mode='r'):
 			raise ImportError("Cannot open bz2 files: The bz2 module is not available")
 		if _PY3:
 			if 't' in mode:
-				return io.TextIOWrapper(bz2.BZ2File(filename, mode[0]))
+				return bz2.open(filename, mode)
 			else:
 				return bz2.BZ2File(filename, mode)
-		elif sys.version_info[:2] <= (2, 6):
-			return ClosingBZ2File(filename, mode)
 		else:
-			return bz2.BZ2File(filename, mode)
+			if mode[0] == 'a':
+				raise ValueError("mode '{0}' not supported for with BZ2 compression".format(mode))
+			if sys.version_info[:2] <= (2, 6):
+				return ClosingBZ2File(filename, mode)
+			else:
+				return bz2.BZ2File(filename, mode)
 	elif filename.endswith('.xz'):
 		if lzma is None:
 			raise ImportError("Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
@@ -210,7 +217,10 @@ def xopen(filename, mode='r'):
 		if _PY3:
 			if 't' in mode:
 				# gzip.open in Python 3.2 does not support modes 'rt' and 'wt''
-				return io.TextIOWrapper(gzip.open(filename, mode[0]))
+				if sys.version_info > (3, 3):
+					return gzip.open(filename, mode)
+				else:
+					return io.TextIOWrapper(gzip.open(filename, mode[0]))
 			else:
 				if 'r' in mode:
 					return io.BufferedReader(gzip.open(filename, mode))
