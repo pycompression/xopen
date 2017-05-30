@@ -36,7 +36,19 @@ else:
 	buffered_writer = io.BufferedWriter
 
 
-class PipedGzipWriter(object):
+class Closing(object):
+	"""
+	Inherit from this class and implement a close() method to offer context
+	manager functionality.
+	"""
+	def __enter__(self):
+		return self
+
+	def __exit__(self, *exc_info):
+		self.close()
+
+
+class PipedGzipWriter(Closing):
 	"""
 	Write gzip-compressed files by running an external gzip process and piping
 	into it. On Python 2, this is faster than using gzip.open. If pigz is
@@ -80,14 +92,8 @@ class PipedGzipWriter(object):
 		if retcode != 0:
 			raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
 
-	def __enter__(self):
-		return self
 
-	def __exit__(self, *exc_info):
-		self.close()
-
-
-class PipedGzipReader(object):
+class PipedGzipReader(Closing):
 	def __init__(self, path):
 		self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
 		self.closed = False
@@ -126,20 +132,6 @@ class PipedGzipReader(object):
 			# wait for process to terminate until we check the exit code
 			self.process.wait()
 		self._raise_if_error()
-
-	def __enter__(self):
-		return self
-
-	def __exit__(self, *exc_info):
-		self.close()
-
-
-class Closing(object):
-	def __enter__(self):
-		return self
-
-	def __exit__(self, *exc_info):
-		self.close()
 
 
 if bz2 is not None:
