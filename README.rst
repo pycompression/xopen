@@ -22,7 +22,7 @@ tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
 manipulate sequencing data. It has been in successful use within that software
 for a few years.
 
-`xopen` is compatible with Python 2.6, 2.7, 3.3, 3.4, 3.5 and 3.6.
+``xopen`` is compatible with Python 2.6, 2.7, 3.3, 3.4, 3.5 and 3.6.
 
 
 Usage
@@ -30,18 +30,24 @@ Usage
 
 Open a file for reading::
 
-    with open('file.txt.xz') as f:
+    from xopen import xopen
+
+    with xopen('file.txt.xz') as f:
         content = f.read()
 
 Or without context manager::
 
-    f = open('file.txt.xz')
+    from xopen import xopen
+
+    f = xopen('file.txt.xz')
     content = f.read()
     f.close()
 
 Open a file for writing::
 
-    with open('file.txt.gz', mode='w') as f:
+    from xopen import xopen
+
+    with xopen('file.txt.gz', mode='w') as f:
         f.write('Hello')
 
 
