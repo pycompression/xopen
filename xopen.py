@@ -160,7 +160,7 @@ if bz2 is not None:
 		"""
 
 
-def xopen(filename, mode='r'):
+def xopen(filename, mode='r', compresslevel=6):
 	"""
 	Replacement for the "open" function that can also open files that have
 	been compressed with gzip, bzip2 or xz. If the filename is '-', standard
@@ -178,6 +178,8 @@ def xopen(filename, mode='r'):
 
 	Append mode ('a', 'at', 'ab') is unavailable with BZ2 compression and
 	will raise an error.
+
+	compresslevel is the gzip compression level. It is not used for bz2 and xz.
 	"""
 	if mode in ('r', 'w', 'a'):
 		mode += 't'
@@ -216,7 +218,7 @@ def xopen(filename, mode='r'):
 		return lzma.open(filename, mode)
 	elif filename.endswith('.gz'):
 		if _PY3:
-			return gzip.open(filename, mode, compresslevel=6)
+			return gzip.open(filename, mode, compresslevel=compresslevel)
 		if sys.version_info[:2] == (2, 7):
 			buffered_reader = io.BufferedReader
 			buffered_writer = io.BufferedWriter
@@ -233,6 +235,6 @@ def xopen(filename, mode='r'):
 			try:
 				return PipedGzipWriter(filename, mode)
 			except OSError:
-				return buffered_writer(gzip.open(filename, mode))
+				return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 	else:
 		return open(filename, mode)
