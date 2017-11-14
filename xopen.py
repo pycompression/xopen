@@ -42,6 +42,12 @@ class Closing(object):
 	def __exit__(self, *exc_info):
 		self.close()
 
+	def __del__(self):
+		try:
+			self.close()
+		except:
+			pass
+
 
 class PipedGzipWriter(Closing):
 	"""
