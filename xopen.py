@@ -201,17 +201,7 @@ def xopen(filename, mode='r'):
 		return lzma.open(filename, mode)
 	elif filename.endswith('.gz'):
 		if _PY3:
-			if 't' in mode:
-				# gzip.open in Python 3.2 does not support modes 'rt' and 'wt''
-				if sys.version_info > (3, 3):
-					return gzip.open(filename, mode)
-				else:
-					return io.TextIOWrapper(gzip.open(filename, mode[0]))
-			else:
-				if 'r' in mode:
-					return io.BufferedReader(gzip.open(filename, mode))
-				else:
-					return io.BufferedWriter(gzip.open(filename, mode))
+			return gzip.open(filename, mode)
 		else:
 			# rb/rt are equivalent in Py2
 			if 'r' in mode:
