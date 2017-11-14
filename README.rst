@@ -14,8 +14,9 @@ Supported compression formats are gzip, bzip2 and xz. They are automatically
 recognized by their file extensions `.gz`, `.bz2` or `.xz`.
 
 The focus is on being as efficient as possible on all supported Python versions.
-For example, simply using ``gzip.open`` is slow in older Pythons, and it is
-a lot faster to use a ``gzip`` subprocess.
+For example, simply using ``gzip.open`` is very slow in older Pythons, and
+it is a lot faster to use a ``gzip`` subprocess. For writing to gzip files,
+``xopen`` uses ``pigz`` when available.
 
 This module has originally been developed as part of the `cutadapt
 tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to

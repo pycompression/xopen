@@ -52,8 +52,9 @@ class Closing(object):
 class PipedGzipWriter(Closing):
 	"""
 	Write gzip-compressed files by running an external gzip or pigz process and
-	piping into it. This is faster than using gzip.open() on all Pythons at least
-	up to Python 3.6.
+	piping into it. On Python 2, this is faster than using gzip.open(). On
+	Python 3, it allows to run the compression in a separate process and can
+	therefore also be faster.
 	"""
 
 	def __init__(self, path, mode='wt'):
@@ -214,6 +215,8 @@ def xopen(filename, mode='r'):
 			raise ImportError("Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
 		return lzma.open(filename, mode)
 	elif filename.endswith('.gz'):
+		if _PY3:
+			return gzip.open(filename, mode, compresslevel=6)
 		if sys.version_info[:2] == (2, 7):
 			buffered_reader = io.BufferedReader
 			buffered_writer = io.BufferedWriter
