@@ -31,14 +31,6 @@ if _PY3:
 	basestring = str
 
 
-if sys.version_info < (2, 7):
-	buffered_reader = lambda x: x
-	buffered_writer = lambda x: x
-else:
-	buffered_reader = io.BufferedReader
-	buffered_writer = io.BufferedWriter
-
-
 class Closing(object):
 	"""
 	Inherit from this class and implement a close() method to offer context
@@ -53,14 +45,16 @@ class Closing(object):
 
 class PipedGzipWriter(Closing):
 	"""
-	Write gzip-compressed files by running an external gzip process and piping
-	into it. On Python 2, this is faster than using gzip.open. If pigz is
-	available, that is used instead of gzip.
+	Write gzip-compressed files by running an external gzip or pigz process and
+	piping into it. This is faster than using gzip.open() on all Pythons at least
+	up to Python 3.6.
 	"""
 
-	def __init__(self, path, mode='w'):
+	def __init__(self, path, mode='wt'):
+		if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
+			raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
 		self.outfile = open(path, mode)
-		self.devnull = open(os.devnull, 'w')
+		self.devnull = open(os.devnull, mode)
 		self.closed = False
 
 		# Setting close_fds to True in the Popen arguments is necessary due to
@@ -70,7 +64,7 @@ class PipedGzipWriter(Closing):
 			self.process = Popen(['pigz'], **kwargs)
 			self.program = 'pigz'
 		except OSError as e:
-			# binary not found, try regular gzip
+			# pigz not found, try regular gzip
 			try:
 				self.process = Popen(['gzip'], **kwargs)
 				self.program = 'gzip'
@@ -82,13 +76,17 @@ class PipedGzipWriter(Closing):
 			self.outfile.close()
 			self.devnull.close()
 			raise
+		if _PY3 and 'b' not in mode:
+			self._file = io.TextIOWrapper(self.process.stdin)
+		else:
+			self._file = self.process.stdin
 
 	def write(self, arg):
-		self.process.stdin.write(arg)
+		self._file.write(arg)
 
 	def close(self):
 		self.closed = True
-		self.process.stdin.close()
+		self._file.close()
 		retcode = self.process.wait()
 		self.outfile.close()
 		self.devnull.close()
@@ -97,8 +95,18 @@ class PipedGzipWriter(Closing):
 
 
 class PipedGzipReader(Closing):
-	def __init__(self, path):
+	def __init__(self, path, mode='r'):
+		if mode not in ('r', 'rt', 'rb'):
+			raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
 		self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
+		if _PY3 and not 'b' in mode:
+			self._file = io.TextIOWrapper(self.process.stdout)
+		else:
+			self._file = self.process.stdout
+		if _PY3:
+			self._stderr = io.TextIOWrapper(self.process.stderr)
+		else:
+			self._stderr = self.process.stderr
 		self.closed = False
 		# Give gzip a little bit of time to report any errors (such as
 		# a non-existing file)
@@ -114,7 +122,7 @@ class PipedGzipReader(Closing):
 		self._raise_if_error()
 
 	def __iter__(self):
-		for line in self.process.stdout:
+		for line in self._file:
 			yield line
 		self.process.wait()
 		self._raise_if_error()
@@ -126,11 +134,11 @@ class PipedGzipReader(Closing):
 		"""
 		retcode = self.process.poll()
 		if retcode is not None and retcode != 0:
-			message = self.process.stderr.read().strip()
+			message = self._stderr.read().strip()
 			raise IOError(message)
 
 	def read(self, *args):
-		data = self.process.stdout.read(*args)
+		data = self._file.read(*args)
 		if len(args) == 0 or args[0] <= 0:
 			# wait for process to terminate until we check the exit code
 			self.process.wait()
@@ -200,20 +208,22 @@ def xopen(filename, mode='r'):
 			raise ImportError("Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
 		return lzma.open(filename, mode)
 	elif filename.endswith('.gz'):
-		if _PY3:
-			return gzip.open(filename, mode)
+		if sys.version_info[:2] == (2, 7):
+			buffered_reader = io.BufferedReader
+			buffered_writer = io.BufferedWriter
 		else:
-			# rb/rt are equivalent in Py2
-			if 'r' in mode:
-				try:
-					return PipedGzipReader(filename)
-				except OSError:
-					# gzip not installed
-					return buffered_reader(gzip.open(filename, mode))
-			else:
-				try:
-					return PipedGzipWriter(filename, mode)
-				except OSError:
-					return buffered_writer(gzip.open(filename, mode))
+			buffered_reader = lambda x: x
+			buffered_writer = lambda x: x
+		if 'r' in mode:
+			try:
+				return PipedGzipReader(filename, mode)
+			except OSError:
+				# gzip not installed
+				return buffered_reader(gzip.open(filename, mode))
+		else:
+			try:
+				return PipedGzipWriter(filename, mode)
+			except OSError:
+				return buffered_writer(gzip.open(filename, mode))
 	else:
 		return open(filename, mode)
