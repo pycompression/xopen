@@ -150,6 +150,7 @@ class PipedGzipReader(Closing):
 			# wait for process to terminate until we check the exit code
 			self.process.wait()
 		self._raise_if_error()
+		return data
 
 
 if bz2 is not None:

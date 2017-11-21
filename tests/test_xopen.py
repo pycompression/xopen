@@ -7,7 +7,7 @@ import sys
 import signal
 from contextlib import contextmanager
 from nose.tools import raises
-from xopen import xopen
+from xopen import xopen, PipedGzipReader
 
 
 base = "tests/file.txt"
@@ -229,3 +229,13 @@ if sys.version_info[:2] != (3, 3):
 				for line in f:
 					pass
 				f.close()
+
+
+def test_bare_read_from_gz():
+	with xopen('tests/noeol.gz', 'rt') as f:
+		assert f.read() == 'hello'
+
+
+def test_read_piped_gzip():
+	with PipedGzipReader('tests/noeol.gz', 'rt') as f:
+		assert f.read() == 'hello'
