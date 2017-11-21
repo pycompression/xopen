@@ -237,4 +237,8 @@ def xopen(filename, mode='r', compresslevel=6):
 			except OSError:
 				return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 	else:
+		# Python 2.6 and 2.7 have io.open, which we could use to make the returned
+		# object consistent with the one returned in Python 3, but reading a file
+		# with io.open() is 100 times slower (!) on Python 2.6, and still about
+		# three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
 		return open(filename, mode)
