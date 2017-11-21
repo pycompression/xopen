@@ -232,10 +232,10 @@ if sys.version_info[:2] != (3, 3):
 
 
 def test_bare_read_from_gz():
-	with xopen('tests/noeol.gz', 'rt') as f:
+	with xopen('tests/hello.gz', 'rt') as f:
 		assert f.read() == 'hello'
 
 
 def test_read_piped_gzip():
-	with PipedGzipReader('tests/noeol.gz', 'rt') as f:
+	with PipedGzipReader('tests/hello.gz', 'rt') as f:
 		assert f.read() == 'hello'
