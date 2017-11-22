@@ -10,16 +10,18 @@ import os
 import time
 from subprocess import Popen, PIPE
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 
 _PY3 = sys.version > '3'
 
-
-try:
-	import bz2
-except ImportError:
-	bz2 = None
+if not _PY3:
+	import bz2file as bz2
+else:
+	try:
+		import bz2
+	except ImportError:
+		bz2 = None
 
 try:
 	import lzma
