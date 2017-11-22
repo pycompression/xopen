@@ -9,16 +9,16 @@ with open('README.rst') as f:
 	long_description = f.read()
 
 setup(
-	name = 'xopen',
-	version = '0.3.1',
-	author = 'Marcel Martin',
-	author_email = 'mail@marcelm.net',
-	url = 'https://github.com/marcelm/xopen/',
-	description = 'Open compressed files transparently',
-	long_description = long_description,
-	license = 'MIT',
-	py_modules = ['xopen'],
-	classifiers = [
+	name='xopen',
+	version='0.3.1',
+	author='Marcel Martin',
+	author_email='mail@marcelm.net',
+	url='https://github.com/marcelm/xopen/',
+	description='Open compressed files transparently',
+	long_description=long_description,
+	license='MIT',
+	py_modules=['xopen'],
+	classifiers=[
 		"Development Status :: 4 - Beta",
 		"License :: OSI Approved :: MIT License",
 		"Programming Language :: Python :: 2.6",
