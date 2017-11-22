@@ -63,6 +63,7 @@ class PipedGzipWriter(Closing):
 		self.outfile = open(path, mode)
 		self.devnull = open(os.devnull, mode)
 		self.closed = False
+		self.name = path
 
 		# Setting close_fds to True in the Popen arguments is necessary due to
 		# <http://bugs.python.org/issue12786>.
@@ -106,6 +107,7 @@ class PipedGzipReader(Closing):
 		if mode not in ('r', 'rt', 'rb'):
 			raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
 		self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
+		self.name = path
 		if _PY3 and not 'b' in mode:
 			self._file = io.TextIOWrapper(self.process.stdout)
 		else:
