@@ -220,8 +220,8 @@ def xopen(filename, mode='r', compresslevel=6):
 			raise ImportError("Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
 		return lzma.open(filename, mode)
 	elif filename.endswith('.gz'):
-		if _PY3:
-			return gzip.open(filename, mode, compresslevel=compresslevel)
+		if _PY3 and 'r' in mode:
+			return gzip.open(filename, mode)
 		if sys.version_info[:2] == (2, 7):
 			buffered_reader = io.BufferedReader
 			buffered_writer = io.BufferedWriter
