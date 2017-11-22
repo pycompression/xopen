@@ -10,7 +10,7 @@ import os
 import time
 from subprocess import Popen, PIPE
 
-__version__ = '0.3.0'
+__version__ = '0.3.1'
 
 
 _PY3 = sys.version > '3'

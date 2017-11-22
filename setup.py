@@ -1,8 +1,8 @@
 import sys
 from setuptools import setup
 
-if sys.version_info < (2, 6):
-	sys.stdout.write("At least Python 2.6 is required.\n")
+if sys.version_info < (2, 7):
+	sys.stdout.write("At least Python 2.7 is required.\n")
 	sys.exit(1)
 
 with open('README.rst') as f:
@@ -10,7 +10,7 @@ with open('README.rst') as f:
 
 setup(
 	name = 'xopen',
-	version = '0.3.0',
+	version = '0.3.1',
 	author = 'Marcel Martin',
 	author_email = 'mail@marcelm.net',
 	url = 'https://github.com/marcelm/xopen/',
