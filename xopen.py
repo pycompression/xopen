@@ -197,13 +197,16 @@ def xopen(filename, mode='r', compresslevel=6):
 
 	# standard input and standard output handling
 	if filename == '-':
-		return dict(
-			r=sys.stdin,
-			rt=sys.stdin,
-			rb=sys.stdin.buffer,
-			w=sys.stdout,
-			wt=sys.stdout,
-			wb=sys.stdout.buffer)[mode]
+		if not _PY3:
+			return dict(r=sys.stdin, w=sys.stdout)[mode]
+		else:
+			return dict(
+				r=sys.stdin,
+				rt=sys.stdin,
+				rb=sys.stdin.buffer,
+				w=sys.stdout,
+				wt=sys.stdout,
+				wb=sys.stdout.buffer)[mode]
 
 	if filename.endswith('.bz2'):
 		if bz2 is None:
