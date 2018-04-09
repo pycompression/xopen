@@ -15,7 +15,7 @@ else:
 
 setup(
 	name='xopen',
-	version='0.3.2',
+	version='0.3.3',
 	author='Marcel Martin',
 	author_email='mail@marcelm.net',
 	url='https://github.com/marcelm/xopen/',
