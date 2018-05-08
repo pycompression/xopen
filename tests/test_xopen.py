@@ -239,3 +239,13 @@ def test_bare_read_from_gz():
 def test_read_piped_gzip():
 	with PipedGzipReader('tests/hello.gz', 'rt') as f:
 		assert f.read() == 'hello'
+
+
+def test_flush():
+	with temporary_path('out.gz') as path:
+		f = xopen(path, 'wt')
+		f.write('hello')
+		f.flush()
+		# File is not closed here intentionally
+		f2 = xopen(path, 'rt')
+		assert f2.read() == 'hello'

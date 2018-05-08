@@ -94,6 +94,12 @@ class PipedGzipWriter(Closing):
 	def write(self, arg):
 		self._file.write(arg)
 
+	def flush(self):
+		for i in range(3):  # because I don’t know in which order to do this
+			self.process.stdin.flush()
+			self.outfile.flush()
+			self._file.flush()
+
 	def close(self):
 		self.closed = True
 		self._file.close()
