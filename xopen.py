@@ -59,7 +59,7 @@ class PipedGzipWriter(Closing):
 	therefore also be faster.
 	"""
 
-	def __init__(self, path, mode='wt'):
+	def __init__(self, path, mode='wt', compresslevel=6):
 		if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
 			raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
 		self.outfile = open(path, mode)
@@ -74,19 +74,24 @@ class PipedGzipWriter(Closing):
 		# <https://github.com/marcelm/cutadapt/issues/315>.
 		if sys.platform != 'win32':
 			kwargs['close_fds'] = True
+
+		if 'w' in mode and compresslevel != 6:
+			extra_args = ['-' + str(compresslevel)]
+		else:
+			extra_args = []
 		try:
-			self.process = Popen(['pigz'], **kwargs)
+			self.process = Popen(['pigz'] + extra_args, **kwargs)
 			self.program = 'pigz'
 		except OSError as e:
 			# pigz not found, try regular gzip
 			try:
-				self.process = Popen(['gzip'], **kwargs)
+				self.process = Popen(['gzip'] + extra_args, **kwargs)
 				self.program = 'gzip'
 			except (IOError, OSError) as e:
 				self.outfile.close()
 				self.devnull.close()
 				raise
-		except IOError as e:
+		except IOError as e:  # TODO IOError is the same as OSError on Python 3.3
 			self.outfile.close()
 			self.devnull.close()
 			raise
@@ -198,6 +203,8 @@ def xopen(filename, mode='r', compresslevel=6):
 		mode = mode[0]
 	if not isinstance(filename, basestring):
 		raise ValueError("the filename must be a string")
+	if compresslevel not in range(1, 10):
+		raise ValueError("compresslevel must be between 1 and 9")
 
 	# standard input and standard output handling
 	if filename == '-':
@@ -245,7 +252,7 @@ def xopen(filename, mode='r', compresslevel=6):
 				return buffered_reader(gzip.open(filename, mode))
 		else:
 			try:
-				return PipedGzipWriter(filename, mode)
+				return PipedGzipWriter(filename, mode, compresslevel)
 			except OSError:
 				return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 	else:
