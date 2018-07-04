@@ -15,7 +15,7 @@ else:
 
 setup(
 	name='xopen',
-	version='0.3.3',
+	version='0.3.4',
 	author='Marcel Martin',
 	author_email='mail@marcelm.net',
 	url='https://github.com/marcelm/xopen/',
@@ -33,5 +33,6 @@ setup(
 		"Programming Language :: Python :: 3.4",
 		"Programming Language :: Python :: 3.5",
 		"Programming Language :: Python :: 3.6",
+		"Programming Language :: Python :: 3.7",
 	]
 )
