@@ -67,9 +67,13 @@ class PipedGzipWriter(Closing):
 		self.closed = False
 		self.name = path
 
+		kwargs = dict(stdin=PIPE, stdout=self.outfile, stderr=self.devnull)
 		# Setting close_fds to True in the Popen arguments is necessary due to
 		# <http://bugs.python.org/issue12786>.
-		kwargs = dict(stdin=PIPE, stdout=self.outfile, stderr=self.devnull, close_fds=True)
+		# However, close_fds is not supported on Windows. See
+		# <https://github.com/marcelm/cutadapt/issues/315>.
+		if sys.platform != 'win32':
+			kwargs['close_fds'] = True
 		try:
 			self.process = Popen(['pigz'], **kwargs)
 			self.program = 'pigz'
