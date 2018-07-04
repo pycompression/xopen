@@ -8,11 +8,6 @@ if sys.version_info < (2, 7):
 with open('README.rst') as f:
 	long_description = f.read()
 
-if sys.version_info < (3, ):
-	requires = ['bz2file']
-else:
-	requires = []
-
 setup(
 	name='xopen',
 	version='0.3.5',  # update also the version in xopen.py!
@@ -23,7 +18,9 @@ setup(
 	long_description=long_description,
 	license='MIT',
 	py_modules=['xopen'],
-	install_requires=requires,
+	install_requires=[
+		'bz2file; python_version=="2.7"',
+	],
 	extras_require={
 		'dev': ['pytest'],
 	},
