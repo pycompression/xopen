@@ -1,17 +1,17 @@
 # coding: utf-8
 from __future__ import print_function, division, absolute_import
-import gzip
+
 import os
 import random
 import sys
 import signal
 from contextlib import contextmanager
-from nose.tools import raises
+import pytest
 from xopen import xopen, PipedGzipReader
 
 
 base = "tests/file.txt"
-files = [ base + ext for ext in ['', '.gz', '.bz2' ] ]
+files = [base + ext for ext in ['', '.gz', '.bz2']]
 try:
 	import lzma
 	files.append(base + '.xz')
@@ -72,54 +72,54 @@ def test_no_context_manager_binary():
 		assert f.closed
 
 
-@raises(IOError)
 def test_nonexisting_file():
-	with xopen('this-file-does-not-exist') as f:
-		pass
+	with pytest.raises(IOError):
+		with xopen('this-file-does-not-exist') as f:
+			pass
 
 
-@raises(IOError)
 def test_nonexisting_file_gz():
-	with xopen('this-file-does-not-exist.gz') as f:
-		pass
+	with pytest.raises(IOError):
+		with xopen('this-file-does-not-exist.gz') as f:
+			pass
 
 
-@raises(IOError)
 def test_nonexisting_file_bz2():
-	with xopen('this-file-does-not-exist.bz2') as f:
-		pass
+	with pytest.raises(IOError):
+		with xopen('this-file-does-not-exist.bz2') as f:
+			pass
 
 
 if lzma:
-	@raises(IOError)
 	def test_nonexisting_file_xz():
-		with xopen('this-file-does-not-exist.xz') as f:
+		with pytest.raises(IOError):
+			with xopen('this-file-does-not-exist.xz') as f:
+				pass
+
+
+def test_write_to_nonexisting_dir():
+	with pytest.raises(IOError):
+		with xopen('this/path/does/not/exist/file.txt', 'w') as f:
 			pass
 
 
-@raises(IOError)
-def test_write_to_nonexisting_dir():
-	with xopen('this/path/does/not/exist/file.txt', 'w') as f:
-		pass
-
-
-@raises(IOError)
 def test_write_to_nonexisting_dir_gz():
-	with xopen('this/path/does/not/exist/file.gz', 'w') as f:
-		pass
+	with pytest.raises(IOError):
+		with xopen('this/path/does/not/exist/file.gz', 'w') as f:
+			pass
 
 
-@raises(IOError)
 def test_write_to_nonexisting_dir_bz2():
-	with xopen('this/path/does/not/exist/file.bz2', 'w') as f:
-		pass
+	with pytest.raises(IOError):
+		with xopen('this/path/does/not/exist/file.bz2', 'w') as f:
+			pass
 
 
 if lzma:
-	@raises(IOError)
 	def test_write_to_nonexisting_dir():
-		with xopen('this/path/does/not/exist/file.xz', 'w') as f:
-			pass
+		with pytest.raises(IOError):
+			with xopen('this/path/does/not/exist/file.xz', 'w') as f:
+				pass
 
 
 def test_append():
@@ -210,25 +210,25 @@ class timeout:
 
 
 if sys.version_info[:2] != (3, 3):
-	@raises(EOFError, IOError)
 	def test_truncated_gz():
 		with temporary_path('truncated.gz') as path:
 			create_truncated_file(path)
 			with timeout(seconds=2):
-				f = xopen(path, 'r')
-				f.read()
-				f.close()
+				with pytest.raises((EOFError, IOError)):
+					f = xopen(path, 'r')
+					f.read()
+					f.close()
 
 
-	@raises(EOFError, IOError)
 	def test_truncated_gz_iter():
 		with temporary_path('truncated.gz') as path:
 			create_truncated_file(path)
 			with timeout(seconds=2):
-				f = xopen(path, 'r')
-				for line in f:
-					pass
-				f.close()
+				with pytest.raises((EOFError, IOError)):
+					f = xopen(path, 'r')
+					for line in f:
+						pass
+					f.close()
 
 
 def test_bare_read_from_gz():

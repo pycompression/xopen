@@ -24,6 +24,9 @@ setup(
 	license='MIT',
 	py_modules=['xopen'],
 	install_requires=requires,
+	extras_require={
+		'dev': ['pytest'],
+	},
 	classifiers=[
 		"Development Status :: 4 - Beta",
 		"License :: OSI Approved :: MIT License",

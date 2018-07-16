@@ -20,4 +20,4 @@ install:
   - pip install .
 
 script:
-  - nosetests -P tests
+  - pytest
