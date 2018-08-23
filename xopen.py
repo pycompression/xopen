@@ -184,19 +184,24 @@ if bz2 is not None:
 		"""
 
 
-def xopen(filename, mode='r', compresslevel=6):
+def xopen(filename, mode='r', compresslevel=6, threads=None):
 	"""
-	Replacement for the "open" function that can also open files that have
+	A replacement for the "open" function that can also open files that have
 	been compressed with gzip, bzip2 or xz. If the filename is '-', standard
-	output (mode 'w') or input (mode 'r') is returned. If the filename ends
-	with .gz, the file is opened with a pipe to the gzip program. If that
-	does not work, then gzip.open() is used (the gzip module is slower than
-	the pipe to the gzip program). If the filename ends with .bz2, it's
-	opened as a bz2.BZ2File. Otherwise, the regular open() is used.
+	output (mode 'w') or input (mode 'r') is returned.
 
-	mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'
-	Instead of 'rt', 'wt' and 'at', 'r', 'w' and 'a' can be used as
-	abbreviations.
+	The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2 and .xz is
+	xz/lzma.
+
+	When writing a gzip-compressed file, the following methods are tried in order to get the
+	best speed 1) using a pigz (parallel gzip) subprocess; 2) using a gzip subprocess;
+	3) gzip.open. A single gzip subprocess can be faster than gzip.open because it runs in a
+	separate process.
+
+	Uncompressed files are opened with the regular open().
+
+	mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'. Also, the 't' can be omitted,
+	so instead of 'rt', 'wt' and 'at', the abbreviations 'r', 'w' and 'a' can be used.
 
 	In Python 2, the 't' and 'b' characters are ignored.
 
@@ -204,6 +209,8 @@ def xopen(filename, mode='r', compresslevel=6):
 	will raise an error.
 
 	compresslevel is the gzip compression level. It is not used for bz2 and xz.
+
+	threads is the number of threads for pigz. If None, then the pigz default is used.
 	"""
 	if mode in ('r', 'w', 'a'):
 		mode += 't'
@@ -243,7 +250,8 @@ def xopen(filename, mode='r', compresslevel=6):
 				return bz2.BZ2File(filename, mode)
 	elif filename.endswith('.xz'):
 		if lzma is None:
-			raise ImportError("Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
+			raise ImportError(
+				"Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
 		return lzma.open(filename, mode)
 	elif filename.endswith('.gz'):
 		if _PY3 and 'r' in mode:
@@ -262,7 +270,7 @@ def xopen(filename, mode='r', compresslevel=6):
 				return buffered_reader(gzip.open(filename, mode))
 		else:
 			try:
-				return PipedGzipWriter(filename, mode, compresslevel)
+				return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
 			except OSError:
 				return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 	else:

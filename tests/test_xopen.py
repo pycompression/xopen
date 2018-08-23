@@ -239,3 +239,11 @@ def test_bare_read_from_gz():
 def test_read_piped_gzip():
 	with PipedGzipReader('tests/hello.gz', 'rt') as f:
 		assert f.read() == 'hello'
+
+
+def test_write_pigz_threads(tmpdir):
+	path = str(tmpdir.join('out.gz'))
+	with xopen(path, mode='w', threads=3) as f:
+		f.write('hello')
+	with xopen(path) as f:
+		assert f.read() == 'hello'
