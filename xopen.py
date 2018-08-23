@@ -129,7 +129,7 @@ class PipedGzipReader(Closing):
 			raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
 		self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
 		self.name = path
-		if _PY3 and not 'b' in mode:
+		if _PY3 and 'b' not in mode:
 			self._file = io.TextIOWrapper(self.process.stdout)
 		else:
 			self._file = self.process.stdout
@@ -184,6 +184,62 @@ if bz2 is not None:
 		"""
 
 
+def _open_stdin_or_out(mode):
+	if not _PY3:
+		return dict(r=sys.stdin, w=sys.stdout)[mode]
+	else:
+		return dict(
+			r=sys.stdin,
+			rt=sys.stdin,
+			rb=sys.stdin.buffer,
+			w=sys.stdout,
+			wt=sys.stdout,
+			wb=sys.stdout.buffer)[mode]
+
+
+def _open_bz2(filename, mode):
+	if bz2 is None:
+		raise ImportError("Cannot open bz2 files: The bz2 module is not available")
+	if _PY3:
+		return bz2.open(filename, mode)
+	else:
+		if mode[0] == 'a':
+			raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
+		if sys.version_info[:2] <= (2, 6):
+			return ClosingBZ2File(filename, mode)
+		else:
+			return bz2.BZ2File(filename, mode)
+
+
+def _open_xz(filename, mode):
+	if lzma is None:
+		raise ImportError(
+			"Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
+	return lzma.open(filename, mode)
+
+
+def _open_gz(filename, mode, compresslevel, threads):
+	if _PY3 and 'r' in mode:
+		return gzip.open(filename, mode)
+	if sys.version_info[:2] == (2, 7):
+		buffered_reader = io.BufferedReader
+		buffered_writer = io.BufferedWriter
+	else:
+		buffered_reader = lambda x: x
+		buffered_writer = lambda x: x
+	if 'r' in mode:
+		try:
+			return PipedGzipReader(filename, mode)
+		except OSError:
+			# gzip not installed
+			return buffered_reader(gzip.open(filename, mode))
+	else:
+		try:
+			return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+		except OSError:
+			return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
+
+
 def xopen(filename, mode='r', compresslevel=6, threads=None):
 	"""
 	A replacement for the "open" function that can also open files that have
@@ -223,56 +279,14 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
 	if compresslevel not in range(1, 10):
 		raise ValueError("compresslevel must be between 1 and 9")
 
-	# standard input and standard output handling
 	if filename == '-':
-		if not _PY3:
-			return dict(r=sys.stdin, w=sys.stdout)[mode]
-		else:
-			return dict(
-				r=sys.stdin,
-				rt=sys.stdin,
-				rb=sys.stdin.buffer,
-				w=sys.stdout,
-				wt=sys.stdout,
-				wb=sys.stdout.buffer)[mode]
-
-	if filename.endswith('.bz2'):
-		if bz2 is None:
-			raise ImportError("Cannot open bz2 files: The bz2 module is not available")
-		if _PY3:
-			return bz2.open(filename, mode)
-		else:
-			if mode[0] == 'a':
-				raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
-			if sys.version_info[:2] <= (2, 6):
-				return ClosingBZ2File(filename, mode)
-			else:
-				return bz2.BZ2File(filename, mode)
+		return _open_stdin_or_out(mode)
+	elif filename.endswith('.bz2'):
+		return _open_bz2(filename, mode)
 	elif filename.endswith('.xz'):
-		if lzma is None:
-			raise ImportError(
-				"Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
-		return lzma.open(filename, mode)
+		return _open_xz(filename, mode)
 	elif filename.endswith('.gz'):
-		if _PY3 and 'r' in mode:
-			return gzip.open(filename, mode)
-		if sys.version_info[:2] == (2, 7):
-			buffered_reader = io.BufferedReader
-			buffered_writer = io.BufferedWriter
-		else:
-			buffered_reader = lambda x: x
-			buffered_writer = lambda x: x
-		if 'r' in mode:
-			try:
-				return PipedGzipReader(filename, mode)
-			except OSError:
-				# gzip not installed
-				return buffered_reader(gzip.open(filename, mode))
-		else:
-			try:
-				return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-			except OSError:
-				return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
+		return _open_gz(filename, mode, compresslevel, threads)
 	else:
 		# Python 2.6 and 2.7 have io.open, which we could use to make the returned
 		# object consistent with the one returned in Python 3, but reading a file
