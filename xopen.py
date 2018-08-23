@@ -59,9 +59,16 @@ class PipedGzipWriter(Closing):
 	therefore also be faster.
 	"""
 
-	def __init__(self, path, mode='wt', compresslevel=6):
+	def __init__(self, path, mode='wt', compresslevel=6, threads=None):
+		"""
+		mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+		compresslevel -- gzip compression level
+		threads (int) -- number of pigz threads
+		"""
 		if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
 			raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
+
+		# TODO use a context manager
 		self.outfile = open(path, mode)
 		self.devnull = open(os.devnull, mode)
 		self.closed = False
@@ -80,7 +87,10 @@ class PipedGzipWriter(Closing):
 		else:
 			extra_args = []
 		try:
-			self.process = Popen(['pigz'] + extra_args, **kwargs)
+			pigz_args = ['pigz']
+			if threads is not None and threads > 0:
+				pigz_args += ['-p', str(threads)]
+			self.process = Popen(pigz_args + extra_args, **kwargs)
 			self.program = 'pigz'
 		except OSError as e:
 			# pigz not found, try regular gzip
