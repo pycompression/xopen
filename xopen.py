@@ -63,7 +63,7 @@ class PipedGzipWriter(Closing):
 		"""
 		mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
 		compresslevel -- gzip compression level
-		threads (int) -- number of pigz threads
+		threads (int) -- number of pigz threads (None means to let pigz decide)
 		"""
 		if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
 			raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
