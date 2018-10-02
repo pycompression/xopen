@@ -247,3 +247,19 @@ def test_write_pigz_threads(tmpdir):
 		f.write('hello')
 	with xopen(path) as f:
 		assert f.read() == 'hello'
+
+
+def test_write_stdout():
+	f = xopen('-', mode='w')
+	print("Hello", file=f)
+	f.close()
+	# ensure stdout is not closed
+	print("Still there?")
+
+
+def test_write_stdout_contextmanager():
+	# Do not close stdout
+	with xopen('-', mode='w') as f:
+		print("Hello", file=f)
+	# ensure stdout is not closed
+	print("Still there?")

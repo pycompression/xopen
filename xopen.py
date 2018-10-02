@@ -185,16 +185,15 @@ if bz2 is not None:
 
 
 def _open_stdin_or_out(mode):
+	# Do not return sys.stdin or sys.stdout directly as we want the returned object
+	# to be closable without closing sys.stdout.
+	std = dict(r=sys.stdin, w=sys.stdout)[mode[0]]
 	if not _PY3:
-		return dict(r=sys.stdin, w=sys.stdout)[mode]
-	else:
-		return dict(
-			r=sys.stdin,
-			rt=sys.stdin,
-			rb=sys.stdin.buffer,
-			w=sys.stdout,
-			wt=sys.stdout,
-			wb=sys.stdout.buffer)[mode]
+		# Enforce str type on Python 2
+		# Note that io.open is slower than regular open() on Python 2.7, but
+		# it appears to be the only API that has a closefd parameter.
+		mode = mode[0] + 'b'
+	return io.open(std.fileno(), mode=mode, closefd=False)
 
 
 def _open_bz2(filename, mode):
