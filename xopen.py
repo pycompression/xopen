@@ -38,6 +38,9 @@ class Closing(object):
 	Inherit from this class and implement a close() method to offer context
 	manager functionality.
 	"""
+	def close(self):
+		raise NotImplementedError
+
 	def __enter__(self):
 		return self
 
@@ -51,15 +54,26 @@ class Closing(object):
 			pass
 
 
-class PipedGzipWriter(Closing):
+class PipedProcessWriter(Closing):
 	"""
-	Write gzip-compressed files by running an external gzip or pigz process and
-	piping into it. On Python 2, this is faster than using gzip.open(). On
-	Python 3, it allows to run the compression in a separate process and can
-	therefore also be faster.
+	Write compressed files by running an external tool such as gzip and piping into it.
+	The advantages are:
+
+	- The compression is run in a separate process, which gives a speedup as multiple
+	  cores are used.
+	- Faster multi-core compression tools such as pigz, lbzip2 and pbzip2 can give even
+	  higher speedups.
+	- On Python 2, this circumvents the slow gzip.open() implementation.
+
+	The tool that is used must support the command-line options "-c" (and "-d"  (
+
+	pigz -p
+	lbzip2 -n
+	pbzip2 -l
+	
 	"""
 
-	def __init__(self, path, mode='wt', compresslevel=6, threads=None):
+	def __init__(self, path, mode='wt', compresslevel=6, threads=None, commands=('pigz', 'gzip')):
 		"""
 		mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
 		compresslevel -- gzip compression level
@@ -123,7 +137,7 @@ class PipedGzipWriter(Closing):
 			raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
 
 
-class PipedGzipReader(Closing):
+class PipedProcessReader(Closing):
 	def __init__(self, path, mode='r'):
 		if mode not in ('r', 'rt', 'rb'):
 			raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
@@ -229,13 +243,13 @@ def _open_gz(filename, mode, compresslevel, threads):
 		buffered_writer = lambda x: x
 	if 'r' in mode:
 		try:
-			return PipedGzipReader(filename, mode)
+			return PipedProcessReader(filename, mode)
 		except OSError:
 			# gzip not installed
 			return buffered_reader(gzip.open(filename, mode))
 	else:
 		try:
-			return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+			return PipedProcessWriter(filename, mode, compresslevel, threads=threads)
 		except OSError:
 			return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
