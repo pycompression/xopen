@@ -16,279 +16,279 @@ __version__ = '0.3.5'
 _PY3 = sys.version > '3'
 
 if not _PY3:
-	import bz2file as bz2
+    import bz2file as bz2
 else:
-	try:
-		import bz2
-	except ImportError:
-		bz2 = None
+    try:
+        import bz2
+    except ImportError:
+        bz2 = None
 
 try:
-	import lzma
+    import lzma
 except ImportError:
-	lzma = None
+    lzma = None
 
 
 if _PY3:
-	basestring = str
+    basestring = str
 
 
 class Closing(object):
-	"""
-	Inherit from this class and implement a close() method to offer context
-	manager functionality.
-	"""
-	def __enter__(self):
-		return self
+    """
+    Inherit from this class and implement a close() method to offer context
+    manager functionality.
+    """
+    def __enter__(self):
+        return self
 
-	def __exit__(self, *exc_info):
-		self.close()
+    def __exit__(self, *exc_info):
+        self.close()
 
-	def __del__(self):
-		try:
-			self.close()
-		except:
-			pass
+    def __del__(self):
+        try:
+            self.close()
+        except:
+            pass
 
 
 class PipedGzipWriter(Closing):
-	"""
-	Write gzip-compressed files by running an external gzip or pigz process and
-	piping into it. On Python 2, this is faster than using gzip.open(). On
-	Python 3, it allows to run the compression in a separate process and can
-	therefore also be faster.
-	"""
+    """
+    Write gzip-compressed files by running an external gzip or pigz process and
+    piping into it. On Python 2, this is faster than using gzip.open(). On
+    Python 3, it allows to run the compression in a separate process and can
+    therefore also be faster.
+    """
 
-	def __init__(self, path, mode='wt', compresslevel=6, threads=None):
-		"""
-		mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
-		compresslevel -- gzip compression level
-		threads (int) -- number of pigz threads (None means to let pigz decide)
-		"""
-		if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
-			raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
+    def __init__(self, path, mode='wt', compresslevel=6, threads=None):
+        """
+        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+        compresslevel -- gzip compression level
+        threads (int) -- number of pigz threads (None means to let pigz decide)
+        """
+        if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
+            raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
 
-		# TODO use a context manager
-		self.outfile = open(path, mode)
-		self.devnull = open(os.devnull, mode)
-		self.closed = False
-		self.name = path
+        # TODO use a context manager
+        self.outfile = open(path, mode)
+        self.devnull = open(os.devnull, mode)
+        self.closed = False
+        self.name = path
 
-		kwargs = dict(stdin=PIPE, stdout=self.outfile, stderr=self.devnull)
-		# Setting close_fds to True in the Popen arguments is necessary due to
-		# <http://bugs.python.org/issue12786>.
-		# However, close_fds is not supported on Windows. See
-		# <https://github.com/marcelm/cutadapt/issues/315>.
-		if sys.platform != 'win32':
-			kwargs['close_fds'] = True
+        kwargs = dict(stdin=PIPE, stdout=self.outfile, stderr=self.devnull)
+        # Setting close_fds to True in the Popen arguments is necessary due to
+        # <http://bugs.python.org/issue12786>.
+        # However, close_fds is not supported on Windows. See
+        # <https://github.com/marcelm/cutadapt/issues/315>.
+        if sys.platform != 'win32':
+            kwargs['close_fds'] = True
 
-		if 'w' in mode and compresslevel != 6:
-			extra_args = ['-' + str(compresslevel)]
-		else:
-			extra_args = []
-		try:
-			pigz_args = ['pigz']
-			if threads is not None and threads > 0:
-				pigz_args += ['-p', str(threads)]
-			self.process = Popen(pigz_args + extra_args, **kwargs)
-			self.program = 'pigz'
-		except OSError as e:
-			# pigz not found, try regular gzip
-			try:
-				self.process = Popen(['gzip'] + extra_args, **kwargs)
-				self.program = 'gzip'
-			except (IOError, OSError) as e:
-				self.outfile.close()
-				self.devnull.close()
-				raise
-		except IOError as e:  # TODO IOError is the same as OSError on Python 3.3
-			self.outfile.close()
-			self.devnull.close()
-			raise
-		if _PY3 and 'b' not in mode:
-			self._file = io.TextIOWrapper(self.process.stdin)
-		else:
-			self._file = self.process.stdin
+        if 'w' in mode and compresslevel != 6:
+            extra_args = ['-' + str(compresslevel)]
+        else:
+            extra_args = []
+        try:
+            pigz_args = ['pigz']
+            if threads is not None and threads > 0:
+                pigz_args += ['-p', str(threads)]
+            self.process = Popen(pigz_args + extra_args, **kwargs)
+            self.program = 'pigz'
+        except OSError as e:
+            # pigz not found, try regular gzip
+            try:
+                self.process = Popen(['gzip'] + extra_args, **kwargs)
+                self.program = 'gzip'
+            except (IOError, OSError) as e:
+                self.outfile.close()
+                self.devnull.close()
+                raise
+        except IOError as e:  # TODO IOError is the same as OSError on Python 3.3
+            self.outfile.close()
+            self.devnull.close()
+            raise
+        if _PY3 and 'b' not in mode:
+            self._file = io.TextIOWrapper(self.process.stdin)
+        else:
+            self._file = self.process.stdin
 
-	def write(self, arg):
-		self._file.write(arg)
+    def write(self, arg):
+        self._file.write(arg)
 
-	def close(self):
-		self.closed = True
-		self._file.close()
-		retcode = self.process.wait()
-		self.outfile.close()
-		self.devnull.close()
-		if retcode != 0:
-			raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
+    def close(self):
+        self.closed = True
+        self._file.close()
+        retcode = self.process.wait()
+        self.outfile.close()
+        self.devnull.close()
+        if retcode != 0:
+            raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
 
 
 class PipedGzipReader(Closing):
-	def __init__(self, path, mode='r'):
-		if mode not in ('r', 'rt', 'rb'):
-			raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
-		self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
-		self.name = path
-		if _PY3 and 'b' not in mode:
-			self._file = io.TextIOWrapper(self.process.stdout)
-		else:
-			self._file = self.process.stdout
-		if _PY3:
-			self._stderr = io.TextIOWrapper(self.process.stderr)
-		else:
-			self._stderr = self.process.stderr
-		self.closed = False
-		# Give gzip a little bit of time to report any errors (such as
-		# a non-existing file)
-		time.sleep(0.01)
-		self._raise_if_error()
+    def __init__(self, path, mode='r'):
+        if mode not in ('r', 'rt', 'rb'):
+            raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
+        self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
+        self.name = path
+        if _PY3 and 'b' not in mode:
+            self._file = io.TextIOWrapper(self.process.stdout)
+        else:
+            self._file = self.process.stdout
+        if _PY3:
+            self._stderr = io.TextIOWrapper(self.process.stderr)
+        else:
+            self._stderr = self.process.stderr
+        self.closed = False
+        # Give gzip a little bit of time to report any errors (such as
+        # a non-existing file)
+        time.sleep(0.01)
+        self._raise_if_error()
 
-	def close(self):
-		self.closed = True
-		retcode = self.process.poll()
-		if retcode is None:
-			# still running
-			self.process.terminate()
-		self._raise_if_error()
+    def close(self):
+        self.closed = True
+        retcode = self.process.poll()
+        if retcode is None:
+            # still running
+            self.process.terminate()
+        self._raise_if_error()
 
-	def __iter__(self):
-		for line in self._file:
-			yield line
-		self.process.wait()
-		self._raise_if_error()
+    def __iter__(self):
+        for line in self._file:
+            yield line
+        self.process.wait()
+        self._raise_if_error()
 
-	def _raise_if_error(self):
-		"""
-		Raise IOError if process is not running anymore and the
-		exit code is nonzero.
-		"""
-		retcode = self.process.poll()
-		if retcode is not None and retcode != 0:
-			message = self._stderr.read().strip()
-			raise IOError(message)
+    def _raise_if_error(self):
+        """
+        Raise IOError if process is not running anymore and the
+        exit code is nonzero.
+        """
+        retcode = self.process.poll()
+        if retcode is not None and retcode != 0:
+            message = self._stderr.read().strip()
+            raise IOError(message)
 
-	def read(self, *args):
-		data = self._file.read(*args)
-		if len(args) == 0 or args[0] <= 0:
-			# wait for process to terminate until we check the exit code
-			self.process.wait()
-		self._raise_if_error()
-		return data
+    def read(self, *args):
+        data = self._file.read(*args)
+        if len(args) == 0 or args[0] <= 0:
+            # wait for process to terminate until we check the exit code
+            self.process.wait()
+        self._raise_if_error()
+        return data
 
 
 if bz2 is not None:
-	class ClosingBZ2File(bz2.BZ2File, Closing):
-		"""
-		A better BZ2File that supports the context manager protocol.
-		This is relevant only for Python 2.6.
-		"""
+    class ClosingBZ2File(bz2.BZ2File, Closing):
+        """
+        A better BZ2File that supports the context manager protocol.
+        This is relevant only for Python 2.6.
+        """
 
 
 def _open_stdin_or_out(mode):
-	# Do not return sys.stdin or sys.stdout directly as we want the returned object
-	# to be closable without closing sys.stdout.
-	std = dict(r=sys.stdin, w=sys.stdout)[mode[0]]
-	if not _PY3:
-		# Enforce str type on Python 2
-		# Note that io.open is slower than regular open() on Python 2.7, but
-		# it appears to be the only API that has a closefd parameter.
-		mode = mode[0] + 'b'
-	return io.open(std.fileno(), mode=mode, closefd=False)
+    # Do not return sys.stdin or sys.stdout directly as we want the returned object
+    # to be closable without closing sys.stdout.
+    std = dict(r=sys.stdin, w=sys.stdout)[mode[0]]
+    if not _PY3:
+        # Enforce str type on Python 2
+        # Note that io.open is slower than regular open() on Python 2.7, but
+        # it appears to be the only API that has a closefd parameter.
+        mode = mode[0] + 'b'
+    return io.open(std.fileno(), mode=mode, closefd=False)
 
 
 def _open_bz2(filename, mode):
-	if bz2 is None:
-		raise ImportError("Cannot open bz2 files: The bz2 module is not available")
-	if _PY3:
-		return bz2.open(filename, mode)
-	else:
-		if mode[0] == 'a':
-			raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
-		if sys.version_info[:2] <= (2, 6):
-			return ClosingBZ2File(filename, mode)
-		else:
-			return bz2.BZ2File(filename, mode)
+    if bz2 is None:
+        raise ImportError("Cannot open bz2 files: The bz2 module is not available")
+    if _PY3:
+        return bz2.open(filename, mode)
+    else:
+        if mode[0] == 'a':
+            raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
+        if sys.version_info[:2] <= (2, 6):
+            return ClosingBZ2File(filename, mode)
+        else:
+            return bz2.BZ2File(filename, mode)
 
 
 def _open_xz(filename, mode):
-	if lzma is None:
-		raise ImportError(
-			"Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
-	return lzma.open(filename, mode)
+    if lzma is None:
+        raise ImportError(
+            "Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
+    return lzma.open(filename, mode)
 
 
 def _open_gz(filename, mode, compresslevel, threads):
-	if _PY3 and 'r' in mode:
-		return gzip.open(filename, mode)
-	if sys.version_info[:2] == (2, 7):
-		buffered_reader = io.BufferedReader
-		buffered_writer = io.BufferedWriter
-	else:
-		buffered_reader = lambda x: x
-		buffered_writer = lambda x: x
-	if 'r' in mode:
-		try:
-			return PipedGzipReader(filename, mode)
-		except OSError:
-			# gzip not installed
-			return buffered_reader(gzip.open(filename, mode))
-	else:
-		try:
-			return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-		except OSError:
-			return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
+    if _PY3 and 'r' in mode:
+        return gzip.open(filename, mode)
+    if sys.version_info[:2] == (2, 7):
+        buffered_reader = io.BufferedReader
+        buffered_writer = io.BufferedWriter
+    else:
+        buffered_reader = lambda x: x
+        buffered_writer = lambda x: x
+    if 'r' in mode:
+        try:
+            return PipedGzipReader(filename, mode)
+        except OSError:
+            # gzip not installed
+            return buffered_reader(gzip.open(filename, mode))
+    else:
+        try:
+            return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+        except OSError:
+            return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
 
 def xopen(filename, mode='r', compresslevel=6, threads=None):
-	"""
-	A replacement for the "open" function that can also open files that have
-	been compressed with gzip, bzip2 or xz. If the filename is '-', standard
-	output (mode 'w') or input (mode 'r') is returned.
+    """
+    A replacement for the "open" function that can also open files that have
+    been compressed with gzip, bzip2 or xz. If the filename is '-', standard
+    output (mode 'w') or input (mode 'r') is returned.
 
-	The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2 and .xz is
-	xz/lzma.
+    The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2 and .xz is
+    xz/lzma.
 
-	When writing a gzip-compressed file, the following methods are tried in order to get the
-	best speed 1) using a pigz (parallel gzip) subprocess; 2) using a gzip subprocess;
-	3) gzip.open. A single gzip subprocess can be faster than gzip.open because it runs in a
-	separate process.
+    When writing a gzip-compressed file, the following methods are tried in order to get the
+    best speed 1) using a pigz (parallel gzip) subprocess; 2) using a gzip subprocess;
+    3) gzip.open. A single gzip subprocess can be faster than gzip.open because it runs in a
+    separate process.
 
-	Uncompressed files are opened with the regular open().
+    Uncompressed files are opened with the regular open().
 
-	mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'. Also, the 't' can be omitted,
-	so instead of 'rt', 'wt' and 'at', the abbreviations 'r', 'w' and 'a' can be used.
+    mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'. Also, the 't' can be omitted,
+    so instead of 'rt', 'wt' and 'at', the abbreviations 'r', 'w' and 'a' can be used.
 
-	In Python 2, the 't' and 'b' characters are ignored.
+    In Python 2, the 't' and 'b' characters are ignored.
 
-	Append mode ('a', 'at', 'ab') is unavailable with BZ2 compression and
-	will raise an error.
+    Append mode ('a', 'at', 'ab') is unavailable with BZ2 compression and
+    will raise an error.
 
-	compresslevel is the gzip compression level. It is not used for bz2 and xz.
+    compresslevel is the gzip compression level. It is not used for bz2 and xz.
 
-	threads is the number of threads for pigz. If None, then the pigz default is used.
-	"""
-	if mode in ('r', 'w', 'a'):
-		mode += 't'
-	if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
-		raise ValueError("mode '{0}' not supported".format(mode))
-	if not _PY3:
-		mode = mode[0]
-	if not isinstance(filename, basestring):
-		raise ValueError("the filename must be a string")
-	if compresslevel not in range(1, 10):
-		raise ValueError("compresslevel must be between 1 and 9")
+    threads is the number of threads for pigz. If None, then the pigz default is used.
+    """
+    if mode in ('r', 'w', 'a'):
+        mode += 't'
+    if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
+        raise ValueError("mode '{0}' not supported".format(mode))
+    if not _PY3:
+        mode = mode[0]
+    if not isinstance(filename, basestring):
+        raise ValueError("the filename must be a string")
+    if compresslevel not in range(1, 10):
+        raise ValueError("compresslevel must be between 1 and 9")
 
-	if filename == '-':
-		return _open_stdin_or_out(mode)
-	elif filename.endswith('.bz2'):
-		return _open_bz2(filename, mode)
-	elif filename.endswith('.xz'):
-		return _open_xz(filename, mode)
-	elif filename.endswith('.gz'):
-		return _open_gz(filename, mode, compresslevel, threads)
-	else:
-		# Python 2.6 and 2.7 have io.open, which we could use to make the returned
-		# object consistent with the one returned in Python 3, but reading a file
-		# with io.open() is 100 times slower (!) on Python 2.6, and still about
-		# three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
-		return open(filename, mode)
+    if filename == '-':
+        return _open_stdin_or_out(mode)
+    elif filename.endswith('.bz2'):
+        return _open_bz2(filename, mode)
+    elif filename.endswith('.xz'):
+        return _open_xz(filename, mode)
+    elif filename.endswith('.gz'):
+        return _open_gz(filename, mode, compresslevel, threads)
+    else:
+        # Python 2.6 and 2.7 have io.open, which we could use to make the returned
+        # object consistent with the one returned in Python 3, but reading a file
+        # with io.open() is 100 times slower (!) on Python 2.6, and still about
+        # three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
+        return open(filename, mode)
