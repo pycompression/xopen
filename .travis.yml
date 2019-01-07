@@ -18,3 +18,21 @@ install:
 
 script:
   - python -m pytest
+
+env:
+  global:
+    - TWINE_USERNAME=marcelm
+
+jobs:
+  include:
+    - stage: deploy
+      services:
+        - docker
+      python: "3.6"
+      install: python3 -m pip install twine
+      if: tag IS present
+      script:
+        - |
+          python3 setup.py sdist
+          ls -l dist/
+          python3 -m twine upload dist/*
