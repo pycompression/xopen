@@ -10,7 +10,8 @@ with open('README.rst') as f:
 
 setup(
     name='xopen',
-    version='0.3.5',  # update also the version in xopen.py!
+    use_scm_version=True,
+    setup_requires=['setuptools_scm'],  # Support pip versions that don’t know about pyproject.toml
     author='Marcel Martin',
     author_email='mail@marcelm.net',
     url='https://github.com/marcelm/xopen/',
