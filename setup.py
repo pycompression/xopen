@@ -11,7 +11,7 @@ with open('README.rst') as f:
 setup(
     name='xopen',
     use_scm_version=True,
-    setup_requires=['setuptools_scm'],  # Support pip versions that don’t know about pyproject.toml
+    setup_requires=['setuptools_scm'],  # Support pip versions that don't know about pyproject.toml
     author='Marcel Martin',
     author_email='mail@marcelm.net',
     url='https://github.com/marcelm/xopen/',
