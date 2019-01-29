@@ -64,6 +64,15 @@ Some ideas were taken from the `canopener project <https://github.com/selassid/c
 If you also want to open S3 files, you may want to use that module instead.
 
 
+Changes
+-------
+
+v0.5.0
+~~~~~~
+* By default, pigz is now only allowed to use at most four threads. This hopefully reduces
+  problems some users had with too many threads when opening many files at the same time.
+
+
 Author
 ------
 

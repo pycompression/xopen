@@ -39,6 +39,33 @@ if _PY3:
     basestring = str
 
 
+def _available_cpu_count():
+    """
+    Number of available virtual or physical CPUs on this system
+    Adapted from http://stackoverflow.com/a/1006301/715090
+    """
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        pass
+    import re
+    try:
+        with open('/proc/self/status') as f:
+            status = f.read()
+        m = re.search(r'(?m)^Cpus_allowed:\s*(.*)$', status)
+        if m:
+            res = bin(int(m.group(1).replace(',', ''), 16)).count('1')
+            if res > 0:
+                return res
+    except IOError:
+        pass
+    try:
+        import multiprocessing
+        return multiprocessing.cpu_count()
+    except (ImportError, NotImplementedError):
+        return 1
+
+
 class Closing(object):
     """
     Inherit from this class and implement a close() method to offer context
@@ -69,7 +96,9 @@ class PipedGzipWriter(Closing):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- gzip compression level
-        threads (int) -- number of pigz threads (None means to let pigz decide)
+        threads (int) -- number of pigz threads. If this is set to None, a reasonable default is
+            used. At the moment, this means that the number of available CPU cores is used, capped
+            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
         """
         if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
             raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
@@ -92,22 +121,25 @@ class PipedGzipWriter(Closing):
             extra_args = ['-' + str(compresslevel)]
         else:
             extra_args = []
+
+        pigz_args = ['pigz']
+        if threads is None:
+            threads = min(_available_cpu_count(), 4)
+        if threads != 0:
+            pigz_args += ['-p', str(threads)]
         try:
-            pigz_args = ['pigz']
-            if threads is not None and threads > 0:
-                pigz_args += ['-p', str(threads)]
             self.process = Popen(pigz_args + extra_args, **kwargs)
             self.program = 'pigz'
-        except OSError as e:
+        except OSError:
             # pigz not found, try regular gzip
             try:
                 self.process = Popen(['gzip'] + extra_args, **kwargs)
                 self.program = 'gzip'
-            except (IOError, OSError) as e:
+            except (IOError, OSError):
                 self.outfile.close()
                 self.devnull.close()
                 raise
-        except IOError as e:  # TODO IOError is the same as OSError on Python 3.3
+        except IOError:  # TODO IOError is the same as OSError on Python 3.3
             self.outfile.close()
             self.devnull.close()
             raise
