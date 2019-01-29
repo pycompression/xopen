@@ -30,7 +30,7 @@ jobs:
       services:
         - docker
       python: "3.6"
-      install: python3 -m pip install twine
+      install: python3 -m pip install twine 'requests-toolbelt!=0.9.0'
       if: tag IS present
       script:
         - |
