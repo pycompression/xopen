@@ -20,6 +20,7 @@ except ImportError:
 
 base = "tests/file.txt"
 files = [base + ext for ext in extensions]
+CONTENT = 'Testing, testing ...\nThe second line.\n'
 
 # File extensions for which appending is supported
 append_extensions = extensions[:]
@@ -215,3 +216,36 @@ def test_write_stdout_contextmanager():
         print("Hello", file=f)
     # ensure stdout is not closed
     print("Still there?")
+
+
+if sys.version_info[:2] >= (3, 4):
+    # pathlib was added in Python 3.4
+    from pathlib import Path
+
+    @pytest.mark.parametrize("file", files)
+    def test_read_pathlib(file):
+        path = Path(file)
+        with xopen(path, mode='rt') as f:
+            assert f.read() == CONTENT
+
+    @pytest.mark.parametrize("file", files)
+    def test_read_pathlib_binary(file):
+        path = Path(file)
+        with xopen(path, mode='rb') as f:
+            assert f.read() == bytes(CONTENT, 'ascii')
+
+    @pytest.mark.parametrize("ext", extensions)
+    def test_write_pathlib(ext, tmpdir):
+        path = Path(str(tmpdir)) / ('hello.txt' + ext)
+        with xopen(path, mode='wt') as f:
+            f.write('hello')
+        with xopen(path, mode='rt') as f:
+            assert f.read() == 'hello'
+
+    @pytest.mark.parametrize("ext", extensions)
+    def test_write_pathlib_binary(ext, tmpdir):
+        path = Path(str(tmpdir)) / ('hello.txt' + ext)
+        with xopen(path, mode='wb') as f:
+            f.write(b'hello')
+        with xopen(path, mode='rb') as f:
+            assert f.read() == b'hello'

@@ -38,6 +38,22 @@ except ImportError:
 if _PY3:
     basestring = str
 
+try:
+    import pathlib  # Exists in Python 3.4+
+except ImportError:
+    pathlib = None
+
+try:
+    from os import fspath  # Exists in Python 3.6+
+except ImportError:
+    def fspath(path):
+        if hasattr(path, "__fspath__"):
+            return path.__fspath__()
+        # Python 3.4 and 3.5 do not support the file system path protocol
+        if pathlib is not None and isinstance(path, pathlib.Path):
+            return str(path)
+        return path
+
 
 def _available_cpu_count():
     """
@@ -311,6 +327,7 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
         raise ValueError("mode '{0}' not supported".format(mode))
     if not _PY3:
         mode = mode[0]
+    filename = fspath(filename)
     if not isinstance(filename, basestring):
         raise ValueError("the filename must be a string")
     if compresslevel not in range(1, 10):
