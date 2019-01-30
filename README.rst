@@ -71,6 +71,7 @@ v0.5.0
 ~~~~~~
 * By default, pigz is now only allowed to use at most four threads. This hopefully reduces
   problems some users had with too many threads when opening many files at the same time.
+* xopen now accepts pathlib.Path objects.
 
 
 Author
