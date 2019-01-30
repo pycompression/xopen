@@ -10,20 +10,21 @@ import pytest
 from xopen import xopen, PipedGzipReader
 
 
-base = "tests/file.txt"
-files = [base + ext for ext in ['', '.gz', '.bz2']]
+extensions = ["", ".gz", ".bz2"]
+
 try:
     import lzma
-    files.append(base + '.xz')
+    extensions.append(".xz")
 except ImportError:
     lzma = None
 
-try:
-    import bz2
-except ImportError:
-    bz2 = None
+base = "tests/file.txt"
+files = [base + ext for ext in extensions]
 
-major, minor = sys.version_info[0:2]
+# File extensions for which appending is supported
+append_extensions = extensions[:]
+if sys.version_info[0] == 2:
+    append_extensions.remove(".bz2")
 
 
 @contextmanager
@@ -36,145 +37,96 @@ def temporary_path(name):
     os.remove(path)
 
 
-def test_xopen_text():
-    for name in files:
-        with xopen(name, 'rt') as f:
-            lines = list(f)
-            assert len(lines) == 2
-            assert lines[1] == 'The second line.\n', name
-
-
-def test_xopen_binary():
-    for name in files:
-        with xopen(name, 'rb') as f:
-            lines = list(f)
-            assert len(lines) == 2
-            assert lines[1] == b'The second line.\n', name
-
-
-def test_no_context_manager_text():
-    for name in files:
-        f = xopen(name, 'rt')
+@pytest.mark.parametrize("name", files)
+def test_xopen_text(name):
+    with xopen(name, 'rt') as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == 'The second line.\n', name
-        f.close()
-        assert f.closed
 
 
-def test_no_context_manager_binary():
-    for name in files:
-        f = xopen(name, 'rb')
+@pytest.mark.parametrize("name", files)
+def test_xopen_binary(name):
+    with xopen(name, 'rb') as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == b'The second line.\n', name
-        f.close()
-        assert f.closed
 
 
-def test_nonexisting_file():
+@pytest.mark.parametrize("name", files)
+def test_no_context_manager_text(name):
+    f = xopen(name, 'rt')
+    lines = list(f)
+    assert len(lines) == 2
+    assert lines[1] == 'The second line.\n', name
+    f.close()
+    assert f.closed
+
+
+@pytest.mark.parametrize("name", files)
+def test_no_context_manager_binary(name):
+    f = xopen(name, 'rb')
+    lines = list(f)
+    assert len(lines) == 2
+    assert lines[1] == b'The second line.\n', name
+    f.close()
+    assert f.closed
+
+
+@pytest.mark.parametrize("ext", extensions)
+def test_nonexisting_file(ext):
     with pytest.raises(IOError):
-        with xopen('this-file-does-not-exist') as f:
+        with xopen('this-file-does-not-exist' + ext) as f:
             pass
 
 
-def test_nonexisting_file_gz():
+@pytest.mark.parametrize("ext", extensions)
+def test_write_to_nonexisting_dir(ext):
     with pytest.raises(IOError):
-        with xopen('this-file-does-not-exist.gz') as f:
+        with xopen('this/path/does/not/exist/file.txt' + ext, 'w') as f:
             pass
 
 
-def test_nonexisting_file_bz2():
-    with pytest.raises(IOError):
-        with xopen('this-file-does-not-exist.bz2') as f:
+@pytest.mark.parametrize("ext", append_extensions)
+def test_append(ext):
+    text = "AB".encode("utf-8")
+    reference = text + text
+    with temporary_path('truncated.fastq' + ext) as path:
+        try:
+            os.unlink(path)
+        except OSError:
             pass
-
-
-if lzma:
-    def test_nonexisting_file_xz():
-        with pytest.raises(IOError):
-            with xopen('this-file-does-not-exist.xz') as f:
+        with xopen(path, 'ab') as f:
+            f.write(text)
+        with xopen(path, 'ab') as f:
+            f.write(text)
+        with xopen(path, 'r') as f:
+            for appended in f:
                 pass
-
-
-def test_write_to_nonexisting_dir():
-    with pytest.raises(IOError):
-        with xopen('this/path/does/not/exist/file.txt', 'w') as f:
-            pass
-
-
-def test_write_to_nonexisting_dir_gz():
-    with pytest.raises(IOError):
-        with xopen('this/path/does/not/exist/file.gz', 'w') as f:
-            pass
-
-
-def test_write_to_nonexisting_dir_bz2():
-    with pytest.raises(IOError):
-        with xopen('this/path/does/not/exist/file.bz2', 'w') as f:
-            pass
-
-
-if lzma:
-    def test_write_to_nonexisting_dir():
-        with pytest.raises(IOError):
-            with xopen('this/path/does/not/exist/file.xz', 'w') as f:
-                pass
-
-
-def test_append():
-    cases = ["", ".gz"]
-    if bz2 and sys.version_info > (3,):
-        # BZ2 does NOT support append in Py 2.
-        cases.append(".bz2")
-    if lzma:
-        cases.append(".xz")
-    for ext in cases:
-        # On Py3, need to send BYTES, not unicode. Let's do it for all.
-        text = "AB".encode("utf-8")
-        reference = text + text
-        with temporary_path('truncated.fastq' + ext) as path:
             try:
-                os.unlink(path)
-            except OSError:
+                reference = reference.decode("utf-8")
+            except AttributeError:
                 pass
-            with xopen(path, 'ab') as f:
-                f.write(text)
-            with xopen(path, 'ab') as f:
-                f.write(text)
-            with xopen(path, 'r') as f:
-                for appended in f:
-                    pass
-                try:
-                    reference = reference.decode("utf-8")
-                except AttributeError:
-                    pass
-                assert appended == reference
+            assert appended == reference
 
 
-def test_append_text():
-    cases = ["", ".gz"]
-    if bz2 and sys.version_info > (3,):
-        # BZ2 does NOT support append in Py 2.
-        cases.append(".bz2")
-    if lzma:
-        cases.append(".xz")
-    for ext in cases:  # BZ2 does NOT support append
-        text = "AB"
-        reference = text + text
-        with temporary_path('truncated.fastq' + ext) as path:
-            try:
-                os.unlink(path)
-            except OSError:
+@pytest.mark.parametrize("ext", append_extensions)
+def test_append_text(ext):
+    text = "AB"
+    reference = text + text
+    with temporary_path('truncated.fastq' + ext) as path:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        with xopen(path, 'at') as f:
+            f.write(text)
+        with xopen(path, 'at') as f:
+            f.write(text)
+        with xopen(path, 'rt') as f:
+            for appended in f:
                 pass
-            with xopen(path, 'at') as f:
-                f.write(text)
-            with xopen(path, 'at') as f:
-                f.write(text)
-            with xopen(path, 'rt') as f:
-                for appended in f:
-                    pass
-                assert appended == reference
+            assert appended == reference
 
 
 def create_truncated_file(path):
