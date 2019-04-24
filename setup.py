@@ -1,5 +1,5 @@
 import sys
-from setuptools import setup
+from setuptools import setup, find_packages
 
 if sys.version_info < (2, 7):
     sys.stdout.write("At least Python 2.7 is required.\n")
@@ -18,7 +18,8 @@ setup(
     description='Open compressed files transparently',
     long_description=long_description,
     license='MIT',
-    py_modules=['xopen'],
+    package_dir={'': 'src'},
+    packages=find_packages('src'),
     install_requires=[
         'bz2file; python_version=="2.7"',
     ],
