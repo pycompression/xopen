@@ -4,3 +4,4 @@ __pycache__/
 *~
 .tox
 venv/
+src/xopen/_version.py

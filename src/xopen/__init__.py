@@ -9,14 +9,8 @@ import io
 import os
 import time
 from subprocess import Popen, PIPE
-from pkg_resources import get_distribution, DistributionNotFound
 
-
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    # package is not installed
-    pass
+from ._version import version as __version__
 
 
 _PY3 = sys.version > '3'
