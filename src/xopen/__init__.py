@@ -205,6 +205,13 @@ class PipedGzipReader(Closing):
         self.process.wait()
         self._raise_if_error()
 
+    def __next__(self):
+        line = self._file.readline()
+        if line:
+            return line
+        else:
+            raise StopIteration()
+
     def _raise_if_error(self):
         """
         Raise IOError if process is not running anymore and the
