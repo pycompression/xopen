@@ -278,8 +278,6 @@ def _open_xz(filename, mode):
 
 
 def _open_gz(filename, mode, compresslevel, threads):
-    if _PY3 and 'r' in mode:
-        return gzip.open(filename, mode)
     if sys.version_info[:2] == (2, 7):
         buffered_reader = io.BufferedReader
         buffered_writer = io.BufferedWriter
@@ -291,7 +289,10 @@ def _open_gz(filename, mode, compresslevel, threads):
             return PipedGzipReader(filename, mode)
         except OSError:
             # gzip not installed
-            return buffered_reader(gzip.open(filename, mode))
+            if _PY3:
+                return gzip.open(filename, mode)
+            else:
+                return buffered_reader(gzip.open(filename, mode))
     else:
         try:
             return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
