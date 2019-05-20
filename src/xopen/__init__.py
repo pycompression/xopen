@@ -223,6 +223,9 @@ class PipedGzipReader(Closing):
         self._raise_if_error()
         return data
 
+    def readinto(self, *args):
+        data = self._file.readinto(*args)
+        return data
 
 if bz2 is not None:
     class ClosingBZ2File(bz2.BZ2File, Closing):
