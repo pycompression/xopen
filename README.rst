@@ -44,12 +44,12 @@ Or without context manager::
     content = f.read()
     f.close()
 
-Open a file for writing::
+Open a file in binary mode for writing::
 
     from xopen import xopen
 
-    with xopen('file.txt.gz', mode='w') as f:
-        f.write('Hello')
+    with xopen('file.txt.gz', mode='wb') as f:
+        f.write(b'Hello')
 
 
 Credits
