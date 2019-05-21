@@ -14,9 +14,11 @@ Supported compression formats are gzip, bzip2 and xz. They are automatically
 recognized by their file extensions `.gz`, `.bz2` or `.xz`.
 
 The focus is on being as efficient as possible on all supported Python versions.
-For example, simply using ``gzip.open`` is very slow in older Pythons, and
-it is a lot faster to use a ``gzip`` subprocess. For writing to gzip files,
-``xopen`` uses ``pigz`` when available.
+For example, ``xopen`` uses ``pigz``, which is a parallel version of ``gzip``,
+to open ``.gz`` files, which is faster than using the built-in ``gzip.open``
+function. ``pigz`` can use multiple threads when compressing, but is also faster
+when reading ``.gz`` files, so it is used both for reading and writing if it is
+available.
 
 This module has originally been developed as part of the `cutadapt
 tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
@@ -66,6 +68,11 @@ If you also want to open S3 files, you may want to use that module instead.
 
 Changes
 -------
+
+development version
+~~~~~~~~~~~~~~~~~~~
+* For reading from gzipped files, xopen will now use a ``pigz`` subprocess.
+  This is faster than using ``gzip.open``.
 
 v0.5.0
 ~~~~~~
