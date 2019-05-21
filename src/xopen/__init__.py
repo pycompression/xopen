@@ -288,11 +288,8 @@ def _open_gz(filename, mode, compresslevel, threads):
         try:
             return PipedGzipReader(filename, mode)
         except OSError:
-            # gzip not installed
-            if _PY3:
-                return gzip.open(filename, mode)
-            else:
-                return buffered_reader(gzip.open(filename, mode))
+            # pigz is not installed
+            return buffered_reader(gzip.open(filename, mode))
     else:
         try:
             return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
