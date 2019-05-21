@@ -284,16 +284,20 @@ def _open_gz(filename, mode, compresslevel, threads):
     else:
         buffered_reader = lambda x: x
         buffered_writer = lambda x: x
+    if _PY3:
+        exc = FileNotFoundError  # was introduced in Python 3.3
+    else:
+        exc = OSError
     if 'r' in mode:
         try:
             return PipedGzipReader(filename, mode)
-        except OSError:
+        except exc:
             # pigz is not installed
             return buffered_reader(gzip.open(filename, mode))
     else:
         try:
             return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-        except OSError:
+        except exc:
             return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
 
