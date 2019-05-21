@@ -172,10 +172,19 @@ class PipedGzipWriter(Closing):
 
 
 class PipedGzipReader(Closing):
+    """
+    Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
+    used to speed up writing, when it can use many compression threads, it is
+    also faster than gzip when reading (three times faster).
+    """
+
     def __init__(self, path, mode='r'):
+        """
+        Raise an OSError when pigz could not be found.
+        """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
-        self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
+        self.process = Popen(['pigz', '-cd', path], stdout=PIPE, stderr=PIPE)
         self.name = path
         if _PY3 and 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)
@@ -186,7 +195,7 @@ class PipedGzipReader(Closing):
         else:
             self._stderr = self.process.stderr
         self.closed = False
-        # Give gzip a little bit of time to report any errors (such as
+        # Give the subprocess a little bit of time to report any errors (such as
         # a non-existing file)
         time.sleep(0.01)
         self._raise_if_error()
