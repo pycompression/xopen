@@ -74,6 +74,27 @@ def test_no_context_manager_binary(name):
     assert f.closed
 
 
+@pytest.mark.parametrize("name", files)
+def test_readinto(name):
+    # Test whether .readinto() works
+    content = CONTENT.encode('utf-8')
+    with xopen(name, 'rb') as f:
+        b = bytearray(len(content) + 100)
+        length = f.readinto(b)
+        assert length == len(content)
+        assert b[:length] == content
+
+
+def test_pipedgzipreader_readinto():
+    # Test whether PipedGzipReader.readinto works
+    content = CONTENT.encode('utf-8')
+    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+        b = bytearray(len(content) + 100)
+        length = f.readinto(b)
+        assert length == len(content)
+        assert b[:length] == content
+
+
 @pytest.mark.parametrize("ext", extensions)
 def test_nonexisting_file(ext):
     with pytest.raises(IOError):
