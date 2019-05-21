@@ -299,9 +299,9 @@ def _open_gz(filename, mode, compresslevel, threads):
 
 def xopen(filename, mode='r', compresslevel=6, threads=None):
     """
-    A replacement for the "open" function that can also open files that have
-    been compressed with gzip, bzip2 or xz. If the filename is '-', standard
-    output (mode 'w') or input (mode 'r') is returned.
+    A replacement for the "open" function that can also read and write
+    compressed files transparently. The supported compression formats are gzip,
+    bzip2 and xz. If the filename is '-', standard output (mode 'w') or input (mode 'r') is returned.
 
     The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2 and .xz is
     xz/lzma.
@@ -318,12 +318,14 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
 
     In Python 2, the 't' and 'b' characters are ignored.
 
-    Append mode ('a', 'at', 'ab') is unavailable with BZ2 compression and
+    Append mode ('a', 'at', 'ab') is not available with BZ2 compression and
     will raise an error.
 
     compresslevel is the gzip compression level. It is not used for bz2 and xz.
 
-    threads is the number of threads for pigz. If None, then the pigz default is used.
+    threads is the number of threads for pigz. If left at None, then the pigz
+    default is used. With pigz 2.4, this is "the number of online processors,
+    or 8 if unknown".
     """
     if mode in ('r', 'w', 'a'):
         mode += 't'
