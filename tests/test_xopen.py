@@ -7,7 +7,7 @@ import sys
 import signal
 from contextlib import contextmanager
 import pytest
-from xopen import xopen, PipedGzipReader
+from xopen import xopen, PipedGzipReader, PipedGzipWriter
 
 
 extensions = ["", ".gz", ".bz2"]
@@ -93,6 +93,18 @@ def test_pipedgzipreader_readinto():
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
+
+
+@pytest.mark.parametrize("ext", extensions)
+def test_xopen_has_iter_method(ext, tmpdir):
+    path = str(tmpdir.join("out" + ext))
+    with xopen(path, mode='w') as f:
+        assert hasattr(f, '__iter__')
+
+
+def test_pipedgzipwriter_has_iter_method(tmpdir):
+    with PipedGzipWriter(tmpdir / 'out.gz') as f:
+        assert hasattr(f, '__iter__')
 
 
 @pytest.mark.parametrize("ext", extensions)

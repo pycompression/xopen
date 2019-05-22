@@ -170,6 +170,12 @@ class PipedGzipWriter(Closing):
         if retcode != 0:
             raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
 
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise io.UnsupportedOperation('not readable')
+
 
 class PipedGzipReader(Closing):
     """
