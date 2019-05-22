@@ -236,13 +236,6 @@ class PipedGzipReader(Closing):
         data = self._file.readinto(*args)
         return data
 
-if bz2 is not None:
-    class ClosingBZ2File(bz2.BZ2File, Closing):
-        """
-        A better BZ2File that supports the context manager protocol.
-        This is relevant only for Python 2.6.
-        """
-
 
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
@@ -264,10 +257,7 @@ def _open_bz2(filename, mode):
     else:
         if mode[0] == 'a':
             raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
-        if sys.version_info[:2] <= (2, 6):
-            return ClosingBZ2File(filename, mode)
-        else:
-            return bz2.BZ2File(filename, mode)
+        return bz2.BZ2File(filename, mode)
 
 
 def _open_xz(filename, mode):
