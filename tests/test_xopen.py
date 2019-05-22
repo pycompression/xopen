@@ -103,7 +103,7 @@ def test_xopen_has_iter_method(ext, tmpdir):
 
 
 def test_pipedgzipwriter_has_iter_method(tmpdir):
-    with PipedGzipWriter(tmpdir / 'out.gz') as f:
+    with PipedGzipWriter(str(tmpdir.join("out.gz"))) as f:
         assert hasattr(f, '__iter__')
 
 
