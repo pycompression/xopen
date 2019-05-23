@@ -58,9 +58,14 @@ Credits
 -------
 
 The name ``xopen`` was taken from the C function of the same name in the
-`utils.h file which is part of BWA <https://github.com/lh3/bwa/blob/83662032a2192d5712996f36069ab02db82acf67/utils.h>`_.
+`utils.h file which is part of
+BWA <https://github.com/lh3/bwa/blob/83662032a2192d5712996f36069ab02db82acf67/utils.h>`_.
 
-Kyle Beauchamp <https://github.com/kyleabeauchamp/> has contributed support for appending to files.
+Kyle Beauchamp <https://github.com/kyleabeauchamp/> has contributed support for
+appending to files.
+
+Ruben Vorderman <https://github.com/rhpvorderman/> contributed improvements to
+make reading gzipped files faster.
 
 Some ideas were taken from the `canopener project <https://github.com/selassid/canopener>`_.
 If you also want to open S3 files, you may want to use that module instead.
@@ -69,10 +74,11 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
-development version
-~~~~~~~~~~~~~~~~~~~
+v0.6.0
+~~~~~~
 * For reading from gzipped files, xopen will now use a ``pigz`` subprocess.
   This is faster than using ``gzip.open``.
+* Python 2 supported will be dropped in one of the next releases.
 
 v0.5.0
 ~~~~~~
