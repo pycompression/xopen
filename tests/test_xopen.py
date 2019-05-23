@@ -7,7 +7,7 @@ import sys
 import signal
 from contextlib import contextmanager
 import pytest
-from xopen import xopen, PipedGzipReader
+from xopen import xopen, PipedGzipReader, PipedGzipWriter
 
 
 extensions = ["", ".gz", ".bz2"]
@@ -28,6 +28,16 @@ if sys.version_info[0] == 2:
     append_extensions.remove(".bz2")
 
 
+@pytest.fixture(params=extensions)
+def ext(request):
+    return request.param
+
+
+@pytest.fixture(params=files)
+def fname(request):
+    return request.param
+
+
 @contextmanager
 def temporary_path(name):
     directory = os.path.join(os.path.dirname(__file__), 'testtmp')
@@ -38,61 +48,86 @@ def temporary_path(name):
     os.remove(path)
 
 
-@pytest.mark.parametrize("name", files)
-def test_xopen_text(name):
-    with xopen(name, 'rt') as f:
+def test_xopen_text(fname):
+    with xopen(fname, 'rt') as f:
         lines = list(f)
         assert len(lines) == 2
-        assert lines[1] == 'The second line.\n', name
+        assert lines[1] == 'The second line.\n', fname
 
 
-@pytest.mark.parametrize("name", files)
-def test_xopen_binary(name):
-    with xopen(name, 'rb') as f:
+def test_xopen_binary(fname):
+    with xopen(fname, 'rb') as f:
         lines = list(f)
         assert len(lines) == 2
-        assert lines[1] == b'The second line.\n', name
+        assert lines[1] == b'The second line.\n', fname
 
 
-@pytest.mark.parametrize("name", files)
-def test_no_context_manager_text(name):
-    f = xopen(name, 'rt')
+def test_no_context_manager_text(fname):
+    f = xopen(fname, 'rt')
     lines = list(f)
     assert len(lines) == 2
-    assert lines[1] == 'The second line.\n', name
+    assert lines[1] == 'The second line.\n', fname
     f.close()
     assert f.closed
 
 
-@pytest.mark.parametrize("name", files)
-def test_no_context_manager_binary(name):
-    f = xopen(name, 'rb')
+def test_no_context_manager_binary(fname):
+    f = xopen(fname, 'rb')
     lines = list(f)
     assert len(lines) == 2
-    assert lines[1] == b'The second line.\n', name
+    assert lines[1] == b'The second line.\n', fname
     f.close()
     assert f.closed
 
 
-@pytest.mark.parametrize("ext", extensions)
+def test_readinto(fname):
+    # Test whether .readinto() works
+    content = CONTENT.encode('utf-8')
+    with xopen(fname, 'rb') as f:
+        b = bytearray(len(content) + 100)
+        length = f.readinto(b)
+        assert length == len(content)
+        assert b[:length] == content
+
+
+def test_pipedgzipreader_readinto():
+    # Test whether PipedGzipReader.readinto works
+    content = CONTENT.encode('utf-8')
+    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+        b = bytearray(len(content) + 100)
+        length = f.readinto(b)
+        assert length == len(content)
+        assert b[:length] == content
+
+
+def test_xopen_has_iter_method(ext, tmpdir):
+    path = str(tmpdir.join("out" + ext))
+    with xopen(path, mode='w') as f:
+        assert hasattr(f, '__iter__')
+
+
+def test_pipedgzipwriter_has_iter_method(tmpdir):
+    with PipedGzipWriter(str(tmpdir.join("out.gz"))) as f:
+        assert hasattr(f, '__iter__')
+
+
 def test_nonexisting_file(ext):
     with pytest.raises(IOError):
         with xopen('this-file-does-not-exist' + ext) as f:
             pass
 
 
-@pytest.mark.parametrize("ext", extensions)
 def test_write_to_nonexisting_dir(ext):
     with pytest.raises(IOError):
         with xopen('this/path/does/not/exist/file.txt' + ext, 'w') as f:
             pass
 
 
-@pytest.mark.parametrize("ext", append_extensions)
-def test_append(ext):
+@pytest.mark.parametrize("aext", append_extensions)
+def test_append(aext):
     text = "AB".encode("utf-8")
     reference = text + text
-    with temporary_path('truncated.fastq' + ext) as path:
+    with temporary_path('truncated.fastq' + aext) as path:
         try:
             os.unlink(path)
         except OSError:
@@ -111,11 +146,11 @@ def test_append(ext):
             assert appended == reference
 
 
-@pytest.mark.parametrize("ext", append_extensions)
-def test_append_text(ext):
+@pytest.mark.parametrize("aext", append_extensions)
+def test_append_text(aext):
     text = "AB"
     reference = text + text
-    with temporary_path('truncated.fastq' + ext) as path:
+    with temporary_path('truncated.fastq' + aext) as path:
         try:
             os.unlink(path)
         except OSError:
@@ -222,19 +257,16 @@ if sys.version_info[:2] >= (3, 4):
     # pathlib was added in Python 3.4
     from pathlib import Path
 
-    @pytest.mark.parametrize("file", files)
-    def test_read_pathlib(file):
-        path = Path(file)
+    def test_read_pathlib(fname):
+        path = Path(fname)
         with xopen(path, mode='rt') as f:
             assert f.read() == CONTENT
 
-    @pytest.mark.parametrize("file", files)
-    def test_read_pathlib_binary(file):
-        path = Path(file)
+    def test_read_pathlib_binary(fname):
+        path = Path(fname)
         with xopen(path, mode='rb') as f:
             assert f.read() == bytes(CONTENT, 'ascii')
 
-    @pytest.mark.parametrize("ext", extensions)
     def test_write_pathlib(ext, tmpdir):
         path = Path(str(tmpdir)) / ('hello.txt' + ext)
         with xopen(path, mode='wt') as f:
@@ -242,7 +274,6 @@ if sys.version_info[:2] >= (3, 4):
         with xopen(path, mode='rt') as f:
             assert f.read() == 'hello'
 
-    @pytest.mark.parametrize("ext", extensions)
     def test_write_pathlib_binary(ext, tmpdir):
         path = Path(str(tmpdir)) / ('hello.txt' + ext)
         with xopen(path, mode='wb') as f:

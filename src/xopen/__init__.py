@@ -170,12 +170,27 @@ class PipedGzipWriter(Closing):
         if retcode != 0:
             raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
 
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        raise io.UnsupportedOperation('not readable')
+
 
 class PipedGzipReader(Closing):
+    """
+    Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
+    used to speed up writing, when it can use many compression threads, it is
+    also faster than gzip when reading (three times faster).
+    """
+
     def __init__(self, path, mode='r'):
+        """
+        Raise an OSError when pigz could not be found.
+        """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
-        self.process = Popen(['gzip', '-cd', path], stdout=PIPE, stderr=PIPE)
+        self.process = Popen(['pigz', '-cd', path], stdout=PIPE, stderr=PIPE)
         self.name = path
         if _PY3 and 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)
@@ -186,7 +201,7 @@ class PipedGzipReader(Closing):
         else:
             self._stderr = self.process.stderr
         self.closed = False
-        # Give gzip a little bit of time to report any errors (such as
+        # Give the subprocess a little bit of time to report any errors (such as
         # a non-existing file)
         time.sleep(0.01)
         self._raise_if_error()
@@ -234,13 +249,6 @@ class PipedGzipReader(Closing):
         data = self._file.readinto(*args)
         return data
 
-if bz2 is not None:
-    class ClosingBZ2File(bz2.BZ2File, Closing):
-        """
-        A better BZ2File that supports the context manager protocol.
-        This is relevant only for Python 2.6.
-        """
-
 
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
@@ -262,10 +270,7 @@ def _open_bz2(filename, mode):
     else:
         if mode[0] == 'a':
             raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
-        if sys.version_info[:2] <= (2, 6):
-            return ClosingBZ2File(filename, mode)
-        else:
-            return bz2.BZ2File(filename, mode)
+        return bz2.BZ2File(filename, mode)
 
 
 def _open_xz(filename, mode):
@@ -282,19 +287,20 @@ def _open_gz(filename, mode, compresslevel, threads):
     else:
         buffered_reader = lambda x: x
         buffered_writer = lambda x: x
+    if _PY3:
+        exc = FileNotFoundError  # was introduced in Python 3.3
+    else:
+        exc = OSError
     if 'r' in mode:
         try:
             return PipedGzipReader(filename, mode)
-        except OSError:
-            # gzip not installed
-            if _PY3:
-                return gzip.open(filename, mode)
-            else:
-                return buffered_reader(gzip.open(filename, mode))
+        except exc:
+            # pigz is not installed
+            return buffered_reader(gzip.open(filename, mode))
     else:
         try:
             return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-        except OSError:
+        except exc:
             return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
 
