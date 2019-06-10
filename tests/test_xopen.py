@@ -20,7 +20,8 @@ except ImportError:
 
 base = "tests/file.txt"
 files = [base + ext for ext in extensions]
-CONTENT = 'Testing, testing ...\nThe second line.\n'
+CONTENT_LINES = ['Testing, testing ...\n', 'The second line.\n']
+CONTENT = ''.join(CONTENT_LINES)
 
 # File extensions for which appending is supported
 append_extensions = extensions[:]
@@ -98,6 +99,28 @@ def test_pipedgzipreader_readinto():
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
+
+
+def test_readline(fname):
+    first_line = CONTENT_LINES[0].encode('utf-8')
+    with xopen(fname, 'rb') as f:
+        assert f.readline() == first_line
+
+
+def test_readline_text(fname):
+    with xopen(fname, 'r') as f:
+        assert f.readline() == CONTENT_LINES[0]
+
+
+def test_readline_pipedgzipreader():
+    first_line = CONTENT_LINES[0].encode('utf-8')
+    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+        assert f.readline() == first_line
+
+
+def test_readline_text_pipedgzipreader():
+    with PipedGzipReader("tests/file.txt.gz", "r") as f:
+        assert f.readline() == CONTENT_LINES[0]
 
 
 def test_xopen_has_iter_method(ext, tmpdir):

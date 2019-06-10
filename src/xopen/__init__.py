@@ -242,6 +242,14 @@ class PipedGzipReader(Closing):
         data = self._file.readinto(*args)
         return data
 
+    def readline(self, *args):
+        data = self._file.readline(*args)
+        if len(args) == 0 or args[0] <= 0:
+            # wait for process to terminate until we check the exit code
+            self.process.wait()
+        self._raise_if_error()
+        return data
+
 
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
