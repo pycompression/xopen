@@ -250,6 +250,12 @@ class PipedGzipReader(Closing):
         self._raise_if_error()
         return data
 
+    def seekable(self):
+        return False
+
+    def peek(self, n=None):
+        return self._file.peek(n)
+
 
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
