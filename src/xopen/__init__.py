@@ -256,8 +256,9 @@ class PipedGzipReader(Closing):
     def peek(self, n=None):
         return self._file.peek(n)
 
-    def readable(self):
-        return self._file.readable()
+    if _PY3:
+        def readable(self):
+            return self._file.readable()
 
     def writable(self):
         return self._file.writable()
