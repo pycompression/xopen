@@ -1,6 +1,7 @@
 # coding: utf-8
 from __future__ import print_function, division, absolute_import
 
+import io
 import os
 import random
 import sys
@@ -99,6 +100,12 @@ def test_pipedgzipreader_readinto():
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
+
+
+def test_pipedgzipreader_textiowrapper():
+    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+        wrapped = io.TextIOWrapper(f)
+        assert wrapped.read() == CONTENT
 
 
 def test_readline(fname):

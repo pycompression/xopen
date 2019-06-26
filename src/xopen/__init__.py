@@ -251,10 +251,16 @@ class PipedGzipReader(Closing):
         return data
 
     def seekable(self):
-        return False
+        return self._file.seekable()
 
     def peek(self, n=None):
         return self._file.peek(n)
+
+    def readable(self):
+        return self._file.readable()
+
+    def writable(self):
+        return self._file.writable()
 
 
 def _open_stdin_or_out(mode):
