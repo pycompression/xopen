@@ -263,6 +263,9 @@ class PipedGzipReader(Closing):
     def writable(self):
         return self._file.writable()
 
+    def flush(self):
+        return None
+
 
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
