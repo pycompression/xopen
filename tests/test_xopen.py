@@ -145,13 +145,13 @@ def test_pipedgzipwriter_has_iter_method(tmpdir):
 def test_nonexisting_file(ext):
     with pytest.raises(IOError):
         with xopen('this-file-does-not-exist' + ext) as f:
-            pass
+            pass  # pragma: no cover
 
 
 def test_write_to_nonexisting_dir(ext):
     with pytest.raises(IOError):
         with xopen('this/path/does/not/exist/file.txt' + ext, 'w') as f:
-            pass
+            pass  # pragma: no cover
 
 
 @pytest.mark.parametrize("aext", append_extensions)
@@ -218,7 +218,7 @@ class timeout:
         self.seconds = seconds
 
     def handle_timeout(self, signum, frame):
-        raise TookTooLongError()
+        raise TookTooLongError()  # pragma: no cover
 
     def __enter__(self):
         signal.signal(signal.SIGALRM, self.handle_timeout)
@@ -236,7 +236,7 @@ if sys.version_info[:2] != (3, 3):
                 with pytest.raises((EOFError, IOError)):
                     f = xopen(path, 'r')
                     f.read()
-                    f.close()
+                    f.close()  # pragma: no cover
 
 
     def test_truncated_gz_iter():
@@ -247,7 +247,7 @@ if sys.version_info[:2] != (3, 3):
                     f = xopen(path, 'r')
                     for line in f:
                         pass
-                    f.close()
+                    f.close()  # pragma: no cover
 
 
 def test_bare_read_from_gz():
