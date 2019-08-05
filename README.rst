@@ -4,6 +4,10 @@
 .. image:: https://img.shields.io/pypi/v/xopen.svg?branch=master
     :target: https://pypi.python.org/pypi/xopen
 
+.. image:: https://codecov.io/gh/marcelm/xopen/branch/master/graph/badge.svg
+  :target: https://codecov.io/gh/marcelm/xopen
+  :alt:
+
 =====
 xopen
 =====

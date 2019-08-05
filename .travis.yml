@@ -15,12 +15,16 @@ python:
   - "3.8-dev"
 
 install:
+  - pip install pytest-cov codecov
   - pip install .
 
 script:
   - sudo apt-get update && sudo apt-get install -y pigz
   - python setup.py --version  # Detect encoding problems
-  - python -m pytest
+  - python -m pytest --cov=src/ --cov=tests/
+
+after_success:
+  - codecov
 
 env:
   global:
