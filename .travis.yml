@@ -37,6 +37,7 @@ jobs:
       script:
         - |
           python3 setup.py sdist
+          python3 -m pip wheel -w dist/ .
           ls -l dist/
           python3 -m twine upload dist/*
 
