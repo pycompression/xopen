@@ -15,15 +15,16 @@ python:
   - "3.8-dev"
 
 install:
-  - pip install pytest-cov codecov
+  - sudo apt-get update && sudo apt-get install -y pigz
+  - pip install --upgrade coverage codecov
   - pip install .
 
 script:
-  - sudo apt-get update && sudo apt-get install -y pigz
   - python setup.py --version  # Detect encoding problems
-  - python -m pytest --cov=src/ --cov=tests/
+  - coverage run -m pytest
 
 after_success:
+  - coverage combine
   - codecov
 
 env:
