@@ -358,8 +358,6 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if not _PY3:
         mode = mode[0]
     filename = fspath(filename)
-    if not isinstance(filename, basestring):
-        raise ValueError("the filename must be a string")
     if compresslevel not in range(1, 10):
         raise ValueError("compresslevel must be between 1 and 9")
 
