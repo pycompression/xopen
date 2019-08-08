@@ -43,9 +43,12 @@ except ImportError:
     def fspath(path):
         if hasattr(path, "__fspath__"):
             return path.__fspath__()
-        # Python 3.4 and 3.5 do not support the file system path protocol
+        # Python 3.4 and 3.5 have pathlib, but do not support the file system
+        # path protocol
         if pathlib is not None and isinstance(path, pathlib.Path):
             return str(path)
+        if not isinstance(path, basestring):
+            raise TypeError("path must be a string")
         return path
 
 
