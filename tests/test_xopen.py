@@ -170,10 +170,7 @@ def test_append(aext):
         with xopen(path, 'r') as f:
             for appended in f:
                 pass
-            try:
-                reference = reference.decode("utf-8")
-            except AttributeError:
-                pass
+            reference = reference.decode("utf-8")
             assert appended == reference
 
 
