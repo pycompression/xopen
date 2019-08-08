@@ -154,6 +154,26 @@ def test_write_to_nonexisting_dir(ext):
             pass  # pragma: no cover
 
 
+def test_invalid_mode():
+    with pytest.raises(ValueError):
+        with xopen("tests/file.txt.gz", mode="hallo") as f:
+            pass  # pragma: no cover
+
+
+def test_filename_not_a_string():
+    with pytest.raises(TypeError):
+        with xopen(123, mode="r") as f:
+            pass  # pragma: no cover
+
+
+def test_invalid_compression_level(tmpdir):
+    path = str(tmpdir.join("out.gz"))
+    with pytest.raises(ValueError) as e:
+        with xopen(path, mode="w", compresslevel=17) as f:
+            f.write("hello")  # pragma: no cover
+    assert "between 1 and 9" in e.value.args[0]
+
+
 @pytest.mark.parametrize("aext", append_extensions)
 def test_append(aext):
     text = "AB".encode("utf-8")
