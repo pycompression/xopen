@@ -234,12 +234,7 @@ class PipedGzipReader(Closing):
             raise IOError(message)
 
     def read(self, *args):
-        data = self._file.read(*args)
-        if len(args) == 0 or args[0] <= 0:
-            # wait for process to terminate until we check the exit code
-            self.process.wait()
-        self._raise_if_error()
-        return data
+        return self._file.read(*args)
 
     def readinto(self, *args):
         return self._file.readinto(*args)
