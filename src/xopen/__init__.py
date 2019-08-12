@@ -245,12 +245,7 @@ class PipedGzipReader(Closing):
         return self._file.readinto(*args)
 
     def readline(self, *args):
-        data = self._file.readline(*args)
-        if len(args) == 0 or args[0] <= 0:
-            # wait for process to terminate until we check the exit code
-            self.process.wait()
-        self._raise_if_error()
-        return data
+        return self._file.readline(*args)
 
     def seekable(self):
         return self._file.seekable()
