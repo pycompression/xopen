@@ -266,6 +266,25 @@ def test_truncated_gz_iter():
                 f.close()  # pragma: no cover
 
 
+def test_truncated_gz_with():
+    with temporary_path('truncated.gz') as path:
+        create_truncated_file(path)
+        with timeout(seconds=2):
+            with pytest.raises((EOFError, IOError)):
+                with xopen(path, 'r') as f:
+                    f.read()
+
+
+def test_truncated_gz_iter_with():
+    with temporary_path('truncated.gz') as path:
+        create_truncated_file(path)
+        with timeout(seconds=2):
+            with pytest.raises((EOFError, IOError)):
+                with xopen(path, 'r') as f:
+                    for line in f:
+                        pass
+
+
 def test_bare_read_from_gz():
     with xopen('tests/hello.gz', 'rt') as f:
         assert f.read() == 'hello'
