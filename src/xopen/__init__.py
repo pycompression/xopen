@@ -242,8 +242,7 @@ class PipedGzipReader(Closing):
         return data
 
     def readinto(self, *args):
-        data = self._file.readinto(*args)
-        return data
+        return self._file.readinto(*args)
 
     def readline(self, *args):
         data = self._file.readline(*args)
