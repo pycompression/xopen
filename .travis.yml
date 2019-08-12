@@ -12,14 +12,20 @@ python:
   - "3.5"
   - "3.6"
   - "3.7"
+  - "3.8-dev"
 
 install:
+  - sudo apt-get update && sudo apt-get install -y pigz
+  - pip install --upgrade coverage codecov
   - pip install .
 
 script:
-  - sudo apt-get update && sudo apt-get install -y pigz
   - python setup.py --version  # Detect encoding problems
-  - python -m pytest
+  - coverage run -m pytest
+
+after_success:
+  - coverage combine
+  - codecov
 
 env:
   global:
@@ -36,5 +42,9 @@ jobs:
       script:
         - |
           python3 setup.py sdist
+          python3 -m pip wheel -w dist/ .
           ls -l dist/
           python3 -m twine upload dist/*
+
+  allowed_failures:
+    - python: "3.8-dev"

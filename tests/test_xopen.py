@@ -1,6 +1,7 @@
 # coding: utf-8
 from __future__ import print_function, division, absolute_import
 
+import io
 import os
 import random
 import sys
@@ -20,7 +21,8 @@ except ImportError:
 
 base = "tests/file.txt"
 files = [base + ext for ext in extensions]
-CONTENT = 'Testing, testing ...\nThe second line.\n'
+CONTENT_LINES = ['Testing, testing ...\n', 'The second line.\n']
+CONTENT = ''.join(CONTENT_LINES)
 
 # File extensions for which appending is supported
 append_extensions = extensions[:]
@@ -100,6 +102,35 @@ def test_pipedgzipreader_readinto():
         assert b[:length] == content
 
 
+if sys.version_info[0] != 2:
+    def test_pipedgzipreader_textiowrapper():
+        with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+            wrapped = io.TextIOWrapper(f)
+            assert wrapped.read() == CONTENT
+
+
+def test_readline(fname):
+    first_line = CONTENT_LINES[0].encode('utf-8')
+    with xopen(fname, 'rb') as f:
+        assert f.readline() == first_line
+
+
+def test_readline_text(fname):
+    with xopen(fname, 'r') as f:
+        assert f.readline() == CONTENT_LINES[0]
+
+
+def test_readline_pipedgzipreader():
+    first_line = CONTENT_LINES[0].encode('utf-8')
+    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+        assert f.readline() == first_line
+
+
+def test_readline_text_pipedgzipreader():
+    with PipedGzipReader("tests/file.txt.gz", "r") as f:
+        assert f.readline() == CONTENT_LINES[0]
+
+
 def test_xopen_has_iter_method(ext, tmpdir):
     path = str(tmpdir.join("out" + ext))
     with xopen(path, mode='w') as f:
@@ -114,13 +145,33 @@ def test_pipedgzipwriter_has_iter_method(tmpdir):
 def test_nonexisting_file(ext):
     with pytest.raises(IOError):
         with xopen('this-file-does-not-exist' + ext) as f:
-            pass
+            pass  # pragma: no cover
 
 
 def test_write_to_nonexisting_dir(ext):
     with pytest.raises(IOError):
         with xopen('this/path/does/not/exist/file.txt' + ext, 'w') as f:
-            pass
+            pass  # pragma: no cover
+
+
+def test_invalid_mode():
+    with pytest.raises(ValueError):
+        with xopen("tests/file.txt.gz", mode="hallo") as f:
+            pass  # pragma: no cover
+
+
+def test_filename_not_a_string():
+    with pytest.raises(TypeError):
+        with xopen(123, mode="r") as f:
+            pass  # pragma: no cover
+
+
+def test_invalid_compression_level(tmpdir):
+    path = str(tmpdir.join("out.gz"))
+    with pytest.raises(ValueError) as e:
+        with xopen(path, mode="w", compresslevel=17) as f:
+            f.write("hello")  # pragma: no cover
+    assert "between 1 and 9" in e.value.args[0]
 
 
 @pytest.mark.parametrize("aext", append_extensions)
@@ -139,10 +190,7 @@ def test_append(aext):
         with xopen(path, 'r') as f:
             for appended in f:
                 pass
-            try:
-                reference = reference.decode("utf-8")
-            except AttributeError:
-                pass
+            reference = reference.decode("utf-8")
             assert appended == reference
 
 
@@ -187,7 +235,7 @@ class timeout:
         self.seconds = seconds
 
     def handle_timeout(self, signum, frame):
-        raise TookTooLongError()
+        raise TookTooLongError()  # pragma: no cover
 
     def __enter__(self):
         signal.signal(signal.SIGALRM, self.handle_timeout)
@@ -205,7 +253,7 @@ if sys.version_info[:2] != (3, 3):
                 with pytest.raises((EOFError, IOError)):
                     f = xopen(path, 'r')
                     f.read()
-                    f.close()
+                    f.close()  # pragma: no cover
 
 
     def test_truncated_gz_iter():
@@ -216,7 +264,7 @@ if sys.version_info[:2] != (3, 3):
                     f = xopen(path, 'r')
                     for line in f:
                         pass
-                    f.close()
+                    f.close()  # pragma: no cover
 
 
 def test_bare_read_from_gz():

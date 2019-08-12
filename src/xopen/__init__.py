@@ -43,9 +43,12 @@ except ImportError:
     def fspath(path):
         if hasattr(path, "__fspath__"):
             return path.__fspath__()
-        # Python 3.4 and 3.5 do not support the file system path protocol
+        # Python 3.4 and 3.5 have pathlib, but do not support the file system
+        # path protocol
         if pathlib is not None and isinstance(path, pathlib.Path):
             return str(path)
+        if not isinstance(path, basestring):
+            raise TypeError("path must be a string")
         return path
 
 
@@ -239,6 +242,30 @@ class PipedGzipReader(Closing):
         data = self._file.readinto(*args)
         return data
 
+    def readline(self, *args):
+        data = self._file.readline(*args)
+        if len(args) == 0 or args[0] <= 0:
+            # wait for process to terminate until we check the exit code
+            self.process.wait()
+        self._raise_if_error()
+        return data
+
+    def seekable(self):
+        return self._file.seekable()
+
+    def peek(self, n=None):
+        return self._file.peek(n)
+
+    if _PY3:
+        def readable(self):
+            return self._file.readable()
+
+    def writable(self):
+        return self._file.writable()
+
+    def flush(self):
+        return None
+
 
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
@@ -296,9 +323,9 @@ def _open_gz(filename, mode, compresslevel, threads):
 
 def xopen(filename, mode='r', compresslevel=6, threads=None):
     """
-    A replacement for the "open" function that can also open files that have
-    been compressed with gzip, bzip2 or xz. If the filename is '-', standard
-    output (mode 'w') or input (mode 'r') is returned.
+    A replacement for the "open" function that can also read and write
+    compressed files transparently. The supported compression formats are gzip,
+    bzip2 and xz. If the filename is '-', standard output (mode 'w') or input (mode 'r') is returned.
 
     The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2 and .xz is
     xz/lzma.
@@ -315,12 +342,14 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
 
     In Python 2, the 't' and 'b' characters are ignored.
 
-    Append mode ('a', 'at', 'ab') is unavailable with BZ2 compression and
+    Append mode ('a', 'at', 'ab') is not available with BZ2 compression and
     will raise an error.
 
     compresslevel is the gzip compression level. It is not used for bz2 and xz.
 
-    threads is the number of threads for pigz. If None, then the pigz default is used.
+    threads is the number of threads for pigz. If left at None, then the pigz
+    default is used. With pigz 2.4, this is "the number of online processors,
+    or 8 if unknown".
     """
     if mode in ('r', 'w', 'a'):
         mode += 't'
@@ -329,8 +358,6 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if not _PY3:
         mode = mode[0]
     filename = fspath(filename)
-    if not isinstance(filename, basestring):
-        raise ValueError("the filename must be a string")
     if compresslevel not in range(1, 10):
         raise ValueError("compresslevel must be between 1 and 9")
 
