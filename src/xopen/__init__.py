@@ -231,24 +231,13 @@ class PipedGzipReader(Closing):
             raise IOError(message)
 
     def read(self, *args):
-        data = self._file.read(*args)
-        if len(args) == 0 or args[0] <= 0:
-            # wait for process to terminate until we check the exit code
-            self.process.wait()
-        self._raise_if_error()
-        return data
+        return self._file.read(*args)
 
     def readinto(self, *args):
-        data = self._file.readinto(*args)
-        return data
+        return self._file.readinto(*args)
 
     def readline(self, *args):
-        data = self._file.readline(*args)
-        if len(args) == 0 or args[0] <= 0:
-            # wait for process to terminate until we check the exit code
-            self.process.wait()
-        self._raise_if_error()
-        return data
+        return self._file.readline(*args)
 
     def seekable(self):
         return self._file.seekable()
@@ -256,9 +245,13 @@ class PipedGzipReader(Closing):
     def peek(self, n=None):
         return self._file.peek(n)
 
-    if _PY3:
-        def readable(self):
+    def readable(self):
+        if _PY3:
             return self._file.readable()
+        else:
+            return NotImplementedError(
+                "Python 2 does not support the readable() method."
+            )
 
     def writable(self):
         return self._file.writable()
