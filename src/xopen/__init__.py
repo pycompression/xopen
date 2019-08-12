@@ -183,7 +183,7 @@ class PipedGzipWriter(Closing):
 class PipedGzipReader(Closing):
     """
     Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
-    used to speed up writing, when it can use many compression threads, it is
+    used to speed up writing by using many compression threads, it is
     also faster than gzip when reading (three times faster).
     """
 

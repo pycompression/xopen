@@ -245,26 +245,25 @@ class timeout:
         signal.alarm(0)
 
 
-if sys.version_info[:2] != (3, 3):
-    def test_truncated_gz():
-        with temporary_path('truncated.gz') as path:
-            create_truncated_file(path)
-            with timeout(seconds=2):
-                with pytest.raises((EOFError, IOError)):
-                    f = xopen(path, 'r')
-                    f.read()
-                    f.close()  # pragma: no cover
+def test_truncated_gz():
+    with temporary_path('truncated.gz') as path:
+        create_truncated_file(path)
+        with timeout(seconds=2):
+            with pytest.raises((EOFError, IOError)):
+                f = xopen(path, 'r')
+                f.read()
+                f.close()  # pragma: no cover
 
 
-    def test_truncated_gz_iter():
-        with temporary_path('truncated.gz') as path:
-            create_truncated_file(path)
-            with timeout(seconds=2):
-                with pytest.raises((EOFError, IOError)):
-                    f = xopen(path, 'r')
-                    for line in f:
-                        pass
-                    f.close()  # pragma: no cover
+def test_truncated_gz_iter():
+    with temporary_path('truncated.gz') as path:
+        create_truncated_file(path)
+        with timeout(seconds=2):
+            with pytest.raises((EOFError, IOError)):
+                f = xopen(path, 'r')
+                for line in f:
+                    pass
+                f.close()  # pragma: no cover
 
 
 def test_bare_read_from_gz():
