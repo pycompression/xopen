@@ -40,14 +40,18 @@ def fname(request):
     return request.param
 
 
-@contextmanager
-def temporary_path(name):
-    directory = os.path.join(os.path.dirname(__file__), 'testtmp')
-    if not os.path.isdir(directory):
-        os.mkdir(directory)
-    path = os.path.join(directory, name)
-    yield path
-    os.remove(path)
+@pytest.fixture
+def truncated_gzip(tmpdir):
+    path = str(tmpdir.join("truncated.gz"))
+    random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for _ in range(1024))
+    # Make the text a lot bigger in order to ensure that it is larger than the
+    # pipe buffer size.
+    random_text *= 1024  # 1MiB
+    with xopen(path, 'w') as f:
+        f.write(random_text)
+    with open(path, 'a') as f:
+        f.truncate(os.stat(path).st_size - 10)
+    return path
 
 
 def test_xopen_text(fname):
@@ -175,54 +179,34 @@ def test_invalid_compression_level(tmpdir):
 
 
 @pytest.mark.parametrize("aext", append_extensions)
-def test_append(aext):
+def test_append(aext, tmpdir):
     text = "AB".encode("utf-8")
     reference = text + text
-    with temporary_path('truncated.fastq' + aext) as path:
-        try:
-            os.unlink(path)
-        except OSError:
+    path = str(tmpdir.join("the-file" + aext))
+    with xopen(path, "ab") as f:
+        f.write(text)
+    with xopen(path, "ab") as f:
+        f.write(text)
+    with xopen(path, "r") as f:
+        for appended in f:
             pass
-        with xopen(path, 'ab') as f:
-            f.write(text)
-        with xopen(path, 'ab') as f:
-            f.write(text)
-        with xopen(path, 'r') as f:
-            for appended in f:
-                pass
-            reference = reference.decode("utf-8")
-            assert appended == reference
+        reference = reference.decode("utf-8")
+        assert appended == reference
 
 
 @pytest.mark.parametrize("aext", append_extensions)
-def test_append_text(aext):
+def test_append_text(aext, tmpdir):
     text = "AB"
     reference = text + text
-    with temporary_path('truncated.fastq' + aext) as path:
-        try:
-            os.unlink(path)
-        except OSError:
+    path = str(tmpdir.join("the-file" + aext))
+    with xopen(path, "at") as f:
+        f.write(text)
+    with xopen(path, "at") as f:
+        f.write(text)
+    with xopen(path, "rt") as f:
+        for appended in f:
             pass
-        with xopen(path, 'at') as f:
-            f.write(text)
-        with xopen(path, 'at') as f:
-            f.write(text)
-        with xopen(path, 'rt') as f:
-            for appended in f:
-                pass
-            assert appended == reference
-
-
-def create_truncated_file(path):
-    # Random text
-    random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for _ in range(1024))
-    # Make the text a lot bigger in order to ensure that it is larger than the
-    # pipe buffer size.
-    random_text *= 1024  # 1MB
-    with xopen(path, 'w') as f:
-        f.write(random_text)
-    with open(path, 'a') as f:
-        f.truncate(os.stat(path).st_size - 10)
+        assert appended == reference
 
 
 class TookTooLongError(Exception):
@@ -245,44 +229,36 @@ class timeout:
         signal.alarm(0)
 
 
-def test_truncated_gz():
-    with temporary_path('truncated.gz') as path:
-        create_truncated_file(path)
-        with timeout(seconds=2):
-            with pytest.raises((EOFError, IOError)):
-                f = xopen(path, 'r')
+def test_truncated_gz(truncated_gzip):
+    with timeout(seconds=2):
+        with pytest.raises((EOFError, IOError)):
+            f = xopen(truncated_gzip, "r")
+            f.read()
+            f.close()  # pragma: no cover
+
+
+def test_truncated_gz_iter(truncated_gzip):
+    with timeout(seconds=2):
+        with pytest.raises((EOFError, IOError)):
+            f = xopen(truncated_gzip, 'r')
+            for line in f:
+                pass
+            f.close()  # pragma: no cover
+
+
+def test_truncated_gz_with(truncated_gzip):
+    with timeout(seconds=2):
+        with pytest.raises((EOFError, IOError)):
+            with xopen(truncated_gzip, 'r') as f:
                 f.read()
-                f.close()  # pragma: no cover
 
 
-def test_truncated_gz_iter():
-    with temporary_path('truncated.gz') as path:
-        create_truncated_file(path)
-        with timeout(seconds=2):
-            with pytest.raises((EOFError, IOError)):
-                f = xopen(path, 'r')
+def test_truncated_gz_iter_with(truncated_gzip):
+    with timeout(seconds=2):
+        with pytest.raises((EOFError, IOError)):
+            with xopen(truncated_gzip, 'r') as f:
                 for line in f:
                     pass
-                f.close()  # pragma: no cover
-
-
-def test_truncated_gz_with():
-    with temporary_path('truncated.gz') as path:
-        create_truncated_file(path)
-        with timeout(seconds=2):
-            with pytest.raises((EOFError, IOError)):
-                with xopen(path, 'r') as f:
-                    f.read()
-
-
-def test_truncated_gz_iter_with():
-    with temporary_path('truncated.gz') as path:
-        create_truncated_file(path)
-        with timeout(seconds=2):
-            with pytest.raises((EOFError, IOError)):
-                with xopen(path, 'r') as f:
-                    for line in f:
-                        pass
 
 
 def test_bare_read_from_gz():
