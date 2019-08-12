@@ -215,10 +215,7 @@ class PipedGzipReader(Closing):
         self._raise_if_error()
 
     def __iter__(self):
-        for line in self._file:
-            yield line
-        self.process.wait()
-        self._raise_if_error()
+        return self._file
 
     def _raise_if_error(self):
         """
