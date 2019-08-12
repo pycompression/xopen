@@ -253,9 +253,13 @@ class PipedGzipReader(Closing):
     def peek(self, n=None):
         return self._file.peek(n)
 
-    if _PY3:
-        def readable(self):
+    def readable(self):
+        if _PY3:
             return self._file.readable()
+        else:
+            return NotImplementedError(
+                "Python 2 does not support the readable() method."
+            )
 
     def writable(self):
         return self._file.writable()
