@@ -215,6 +215,7 @@ class PipedGzipReader(Closing):
         if retcode is None:
             # still running
             self.process.terminate()
+        self.process.wait()
         self._raise_if_error()
 
     def __iter__(self):
