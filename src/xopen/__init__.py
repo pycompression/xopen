@@ -229,7 +229,7 @@ class PipedGzipReader(Closing):
         retcode = self.process.poll()
         if retcode is not None and retcode != 0:
             message = self._stderr.read().strip()
-            raise IOError(message)
+            raise IOError("{} (exit code {})".format(message, retcode))
 
     def read(self, *args):
         return self._file.read(*args)
