@@ -6,6 +6,7 @@ import os
 import random
 import sys
 import signal
+import time
 from contextlib import contextmanager
 import pytest
 from xopen import xopen, PipedGzipReader, PipedGzipWriter
@@ -41,7 +42,7 @@ def fname(request):
 
 
 @pytest.fixture
-def truncated_gzip(tmpdir):
+def large_gzip(tmpdir):
     path = str(tmpdir.join("truncated.gz"))
     random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for _ in range(1024))
     # Make the text a lot bigger in order to ensure that it is larger than the
@@ -49,9 +50,14 @@ def truncated_gzip(tmpdir):
     random_text *= 1024  # 1MiB
     with xopen(path, 'w') as f:
         f.write(random_text)
-    with open(path, 'a') as f:
-        f.truncate(os.stat(path).st_size - 10)
     return path
+
+
+@pytest.fixture
+def truncated_gzip(large_gzip):
+    with open(large_gzip, 'a') as f:
+        f.truncate(os.stat(large_gzip).st_size - 10)
+    return large_gzip
 
 
 def test_xopen_text(fname):
@@ -144,6 +150,14 @@ def test_xopen_has_iter_method(ext, tmpdir):
 def test_pipedgzipwriter_has_iter_method(tmpdir):
     with PipedGzipWriter(str(tmpdir.join("out.gz"))) as f:
         assert hasattr(f, '__iter__')
+
+
+@pytest.mark.parametrize("mode", ["rb", "rt"])
+def test_pipedgzipreader_close(large_gzip, mode):
+    with PipedGzipReader(large_gzip, mode=mode) as f:
+        f.readline()
+        time.sleep(0.2)
+    # The subprocess should be properly terminated now
 
 
 def test_nonexisting_file(ext):
