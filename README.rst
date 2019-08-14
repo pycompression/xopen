@@ -78,6 +78,10 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
+v0.8.0
+~~~~~~
+* Speed improvements when iterating over gzipped files.
+
 v0.6.0
 ~~~~~~
 * For reading from gzipped files, xopen will now use a ``pigz`` subprocess.
