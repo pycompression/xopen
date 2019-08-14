@@ -8,6 +8,7 @@ import sys
 import io
 import os
 import time
+import signal
 from subprocess import Popen, PIPE
 
 from ._version import version as __version__
@@ -215,19 +216,26 @@ class PipedGzipReader(Closing):
         if retcode is None:
             # still running
             self.process.terminate()
+            allow_sigterm = True
+        else:
+            allow_sigterm = False
         self.process.wait()
-        self._raise_if_error()
+        self._raise_if_error(allow_sigterm=allow_sigterm)
 
     def __iter__(self):
         return self._file
 
-    def _raise_if_error(self):
+    def _raise_if_error(self, allow_sigterm=False):
         """
-        Raise IOError if process is not running anymore and the
-        exit code is nonzero.
+        Raise IOError if process is not running anymore and the exit code is
+        nonzero. If allow_sigterm is set and a SIGTERM exit code is
+        encountered, no error is raised.
         """
         retcode = self.process.poll()
-        if retcode is not None and retcode != 0:
+        if (
+            retcode is not None and retcode != 0
+            and not (allow_sigterm and retcode == -signal.SIGTERM)
+        ):
             message = self._stderr.read().strip()
             raise IOError("{} (exit code {})".format(message, retcode))
 
