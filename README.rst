@@ -1,8 +1,13 @@
 .. image:: https://travis-ci.org/marcelm/xopen.svg?branch=master
-    :target: https://travis-ci.org/marcelm/xopen
-
+  :target: https://travis-ci.org/marcelm/xopen
+  :alt: 
+  
 .. image:: https://img.shields.io/pypi/v/xopen.svg?branch=master
-    :target: https://pypi.python.org/pypi/xopen
+  :target: https://pypi.python.org/pypi/xopen
+
+.. image:: https://img.shields.io/conda/v/conda-forge/xopen.svg
+  :target: https://anaconda.org/conda-forge/xopen
+  :alt:
 
 .. image:: https://codecov.io/gh/marcelm/xopen/branch/master/graph/badge.svg
   :target: https://codecov.io/gh/marcelm/xopen
