@@ -43,11 +43,11 @@ def fname(request):
 
 @pytest.fixture
 def large_gzip(tmpdir):
-    path = str(tmpdir.join("truncated.gz"))
-    random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ') for _ in range(1024))
+    path = str(tmpdir.join("large.gz"))
+    random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ\n') for _ in range(1024))
     # Make the text a lot bigger in order to ensure that it is larger than the
     # pipe buffer size.
-    random_text *= 1024  # 1MiB
+    random_text *= 1024
     with xopen(path, 'w') as f:
         f.write(random_text)
     return path
@@ -158,6 +158,21 @@ def test_pipedgzipreader_close(large_gzip, mode):
         f.readline()
         time.sleep(0.2)
     # The subprocess should be properly terminated now
+
+
+def test_partial_gzip_iteration_closes_correctly(large_gzip):
+    class LineReader:
+        def __init__(self, file):
+            self.file = xopen(file, "rb")
+
+        def __iter__(self):
+            wrapper = io.TextIOWrapper(self.file)
+            for line in wrapper:
+                yield line
+
+    f = LineReader(large_gzip)
+    next(iter(f))
+    f.file.close()
 
 
 def test_nonexisting_file(ext):

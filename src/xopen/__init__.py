@@ -166,6 +166,8 @@ class PipedGzipWriter(Closing):
         self._file.write(arg)
 
     def close(self):
+        if self.closed:
+            return
         self.closed = True
         self._file.close()
         retcode = self.process.wait()
@@ -211,6 +213,8 @@ class PipedGzipReader(Closing):
         self._raise_if_error()
 
     def close(self):
+        if self.closed:
+            return
         self.closed = True
         retcode = self.process.poll()
         if retcode is None:
