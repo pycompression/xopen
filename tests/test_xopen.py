@@ -160,6 +160,7 @@ def test_pipedgzipreader_close(large_gzip, mode):
     # The subprocess should be properly terminated now
 
 
+@pytest.mark.skipif(sys.version_info < (3, ), reason="Python 3 needed")
 def test_partial_gzip_iteration_closes_correctly(large_gzip):
     class LineReader:
         def __init__(self, file):
