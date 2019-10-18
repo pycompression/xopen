@@ -190,13 +190,19 @@ class PipedGzipReader(Closing):
     also faster than gzip when reading (three times faster).
     """
 
-    def __init__(self, path, mode='r'):
+    def __init__(self, path, mode='r', threads=None):
         """
         Raise an OSError when pigz could not be found.
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
-        self.process = Popen(['pigz', '-cd', path], stdout=PIPE, stderr=PIPE)
+        if threads is None:
+            threads = min(_available_cpu_count(), 4)
+        
+        pigz_args = ['pigz', '-cd', path]
+        if threads != 0:
+            pigz_args += ['-p', str(threads)]
+        self.process = Popen(pigz_args, stdout=PIPE, stderr=PIPE)
         self.name = path
         if _PY3 and 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)
@@ -316,7 +322,7 @@ def _open_gz(filename, mode, compresslevel, threads):
         exc = OSError
     if 'r' in mode:
         try:
-            return PipedGzipReader(filename, mode)
+            return PipedGzipReader(filename, mode, threads=threads)
         except exc:
             # pigz is not installed
             return buffered_reader(gzip.open(filename, mode))
