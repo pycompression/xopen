@@ -12,7 +12,7 @@ python:
   - "3.5"
   - "3.6"
   - "3.7"
-  - "3.8-dev"
+  - "3.8"
 
 install:
   - sudo apt-get update && sudo apt-get install -y pigz
@@ -45,6 +45,3 @@ jobs:
           python3 -m pip wheel -w dist/ .
           ls -l dist/
           python3 -m twine upload dist/*
-
-  allowed_failures:
-    - python: "3.8-dev"
