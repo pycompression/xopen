@@ -97,7 +97,7 @@ v0.6.0
 ~~~~~~
 * For reading from gzipped files, xopen will now use a ``pigz`` subprocess.
   This is faster than using ``gzip.open``.
-* Python 2 supported will be dropped in one of the next releases.
+* Python 2 support will be dropped in one of the next releases.
 
 v0.5.0
 ~~~~~~
