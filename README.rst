@@ -83,6 +83,12 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
+v0.8.3
+~~~~~~
+* When reading gzipped files, let ``pigz`` use at most four threads by default.
+  This limit previously only applied when writing to a file.
+* Support Python 3.8
+
 v0.8.0
 ~~~~~~
 * Speed improvements when iterating over gzipped files.
