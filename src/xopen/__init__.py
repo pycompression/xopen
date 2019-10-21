@@ -196,9 +196,7 @@ class PipedGzipReader(Closing):
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
-        if threads is None:
-            threads = min(_available_cpu_count(), 4)
-        
+
         pigz_args = ['pigz', '-cd', path]
         if threads != 0:
             pigz_args += ['-p', str(threads)]
