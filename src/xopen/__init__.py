@@ -198,7 +198,7 @@ class PipedGzipReader(Closing):
             raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
 
         pigz_args = ['pigz', '-cd', path]
-        if threads != 0:
+        if threads != 0 and threads is not None:
             pigz_args += ['-p', str(threads)]
         self.process = Popen(pigz_args, stdout=PIPE, stderr=PIPE)
         self.name = path
