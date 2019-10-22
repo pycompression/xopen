@@ -199,7 +199,7 @@ class PipedGzipReader(Closing):
 
         pigz_args = ['pigz', '-cd', path]
 
-        if not threads:
+        if threads is None:
             # Single threaded behaviour by default because:
             # - Using a single thread to read a file is the least unexpected
             #   behaviour. (For users of xopen, who do not know which backend is used.)
