@@ -196,12 +196,20 @@ class PipedGzipReader(Closing):
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
-        if threads is None:
-            threads = min(_available_cpu_count(), 4)
-        
+
         pigz_args = ['pigz', '-cd', path]
-        if threads != 0:
-            pigz_args += ['-p', str(threads)]
+
+        if not threads:
+            # Single threaded behaviour by default because:
+            # - Using a single thread to read a file is the least unexpected
+            #   behaviour. (For users of xopen, who do not know which backend is used.)
+            # - There is quite a substantial overhead (+25% CPU time) when
+            #   using multiple threads while there is only a 10% gain in wall
+            #   clock time.
+            threads = 1
+
+        pigz_args += ['-p', str(threads)]
+
         self.process = Popen(pigz_args, stdout=PIPE, stderr=PIPE)
         self.name = path
         if _PY3 and 'b' not in mode:
