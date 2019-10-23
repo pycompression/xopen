@@ -83,6 +83,14 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
+v0.8.4
+~~~~~~
+* When reading gzipped files, force ``pigz`` to use only a single process.
+  ``pigz`` cannot use multiple cores anyway when decompressing. By default,
+  it would use extra I/O processes, which slightly reduces wall-clock time,
+  but increases CPU time. Single-core decompression with ``pigz`` is still
+  about twice as fast as regular ``gzip``.
+
 v0.8.3
 ~~~~~~
 * When reading gzipped files, let ``pigz`` use at most four threads by default.
