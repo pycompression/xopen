@@ -101,9 +101,13 @@ class Closing(object):
 class PipedGzipWriter(Closing):
     """
     Write gzip-compressed files by running an external gzip or pigz process and
-    piping into it. On Python 2, this is faster than using gzip.open(). On
-    Python 3, it allows to run the compression in a separate process and can
-    therefore also be faster.
+    piping into it. pigz is tried first. It is fast because it can compress using
+    multiple cores.
+
+    If pigz is not available, a gzip subprocess is used. On Python 2, this saves
+    CPU time because gzip.GzipFile is slower. On Python 3, gzip.GzipFile is on
+    par with gzip itself, but running an external gzip can still reduce wall-clock
+    time because the compression happens in a separate process.
     """
 
     def __init__(self, path, mode='wt', compresslevel=6, threads=None):
@@ -187,7 +191,8 @@ class PipedGzipReader(Closing):
     """
     Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
     used to speed up writing by using many compression threads, it is
-    also faster than gzip when reading (three times faster).
+    also faster when reading, even when forced to use a single thread
+    (ca. 2x speedup).
     """
 
     def __init__(self, path, mode='r', threads=None):
@@ -345,17 +350,11 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     """
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
-    bzip2 and xz. If the filename is '-', standard output (mode 'w') or input (mode 'r') is returned.
+    bzip2 and xz. If the filename is '-', standard output (mode 'w') or
+    standard input (mode 'r') is returned.
 
-    The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2 and .xz is
-    xz/lzma.
-
-    When writing a gzip-compressed file, the following methods are tried in order to get the
-    best speed 1) using a pigz (parallel gzip) subprocess; 2) using a gzip subprocess;
-    3) gzip.open. A single gzip subprocess can be faster than gzip.open because it runs in a
-    separate process.
-
-    Uncompressed files are opened with the regular open().
+    The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2, .xz is
+    xz/lzma and no compression assumed otherwise.
 
     mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'. Also, the 't' can be omitted,
     so instead of 'rt', 'wt' and 'at', the abbreviations 'r', 'w' and 'a' can be used.
@@ -365,11 +364,13 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     Append mode ('a', 'at', 'ab') is not available with BZ2 compression and
     will raise an error.
 
-    compresslevel is the gzip compression level. It is not used for bz2 and xz.
+    compresslevel is the compression level for writing to gzip files.
+    This parameter is ignored for the other compression formats.
 
-    threads is the number of threads for pigz. If left at None, then the pigz
-    default is used. With pigz 2.4, this is "the number of online processors,
-    or 8 if unknown".
+    threads only has a meaning when reading or writing gzip files.
+
+    When threads is None (the default), reading or writing a gzip file is done with a pigz
+    (parallel gzip) subprocess if possible. See PipedGzipWriter and PipedGzipReader.
     """
     if mode in ('r', 'w', 'a'):
         mode += 't'
