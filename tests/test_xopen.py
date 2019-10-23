@@ -309,6 +309,20 @@ def test_write_pigz_threads(tmpdir):
         assert f.read() == 'hello'
 
 
+if sys.version_info[0] >= 3:
+    def test_read_gzip_no_threads():
+        import gzip
+        with xopen("tests/hello.gz", "rb", threads=0) as f:
+            assert isinstance(f, gzip.GzipFile), f
+
+
+    def test_write_gzip_no_threads(tmpdir):
+        import gzip
+        path = str(tmpdir.join("out.gz"))
+        with xopen(path, "wb", threads=0) as f:
+            assert isinstance(f, gzip.GzipFile), f
+
+
 def test_write_stdout():
     f = xopen('-', mode='w')
     print("Hello", file=f)

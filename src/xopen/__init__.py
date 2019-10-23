@@ -333,17 +333,27 @@ def _open_gz(filename, mode, compresslevel, threads):
         exc = FileNotFoundError  # was introduced in Python 3.3
     else:
         exc = OSError
+
     if 'r' in mode:
-        try:
+        def with_threads():
             return PipedGzipReader(filename, mode, threads=threads)
-        except exc:
-            # pigz is not installed
+
+        def without_threads():
             return buffered_reader(gzip.open(filename, mode))
     else:
-        try:
+        def with_threads():
             return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-        except exc:
+
+        def without_threads():
             return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
+
+    if threads == 0:
+        return without_threads()
+    try:
+        return with_threads()
+    except exc:
+        # pigz is not installed, use fallback
+        return without_threads()
 
 
 def xopen(filename, mode='r', compresslevel=6, threads=None):
@@ -371,6 +381,8 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
 
     When threads is None (the default), reading or writing a gzip file is done with a pigz
     (parallel gzip) subprocess if possible. See PipedGzipWriter and PipedGzipReader.
+
+    When threads = 0, no subprocess is used.
     """
     if mode in ('r', 'w', 'a'):
         mode += 't'
