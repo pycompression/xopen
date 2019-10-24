@@ -128,7 +128,32 @@ class PipedGzipWriter(Closing):
         self.closed = False
         self.name = path
 
-        kwargs = dict(stdin=PIPE, stdout=self.outfile, stderr=self.devnull)
+        if threads is None:
+            threads = min(_available_cpu_count(), 4)
+        try:
+            self.process, self.program = self._open_process(
+                mode, compresslevel, threads, self.outfile, self.devnull)
+        except (IOError, OSError):
+            self.outfile.close()
+            self.devnull.close()
+            raise
+
+        if _PY3 and 'b' not in mode:
+            self._file = io.TextIOWrapper(self.process.stdin)
+        else:
+            self._file = self.process.stdin
+
+    @staticmethod
+    def _open_process(mode, compresslevel, threads, outfile, devnull):
+        pigz_args = ['pigz']
+        if threads != 0:
+            pigz_args += ['-p', str(threads)]
+        extra_args = []
+        if 'w' in mode and compresslevel != 6:
+            extra_args += ['-' + str(compresslevel)]
+
+        kwargs = dict(stdin=PIPE, stdout=outfile, stderr=devnull)
+
         # Setting close_fds to True in the Popen arguments is necessary due to
         # <http://bugs.python.org/issue12786>.
         # However, close_fds is not supported on Windows. See
@@ -136,36 +161,14 @@ class PipedGzipWriter(Closing):
         if sys.platform != 'win32':
             kwargs['close_fds'] = True
 
-        if 'w' in mode and compresslevel != 6:
-            extra_args = ['-' + str(compresslevel)]
-        else:
-            extra_args = []
-
-        pigz_args = ['pigz']
-        if threads is None:
-            threads = min(_available_cpu_count(), 4)
-        if threads != 0:
-            pigz_args += ['-p', str(threads)]
         try:
-            self.process = Popen(pigz_args + extra_args, **kwargs)
-            self.program = 'pigz'
-        except OSError:
+            process = Popen(pigz_args + extra_args, **kwargs)
+            program = 'pigz'
+        except OSError:  # TODO Use FileNotFound instead (Python 3)
             # pigz not found, try regular gzip
-            try:
-                self.process = Popen(['gzip'] + extra_args, **kwargs)
-                self.program = 'gzip'
-            except (IOError, OSError):
-                self.outfile.close()
-                self.devnull.close()
-                raise
-        except IOError:  # TODO IOError is the same as OSError on Python 3.3
-            self.outfile.close()
-            self.devnull.close()
-            raise
-        if _PY3 and 'b' not in mode:
-            self._file = io.TextIOWrapper(self.process.stdin)
-        else:
-            self._file = self.process.stdin
+            process = Popen(['gzip'] + extra_args, **kwargs)
+            program = 'gzip'
+        return process, program
 
     def write(self, arg):
         self._file.write(arg)
