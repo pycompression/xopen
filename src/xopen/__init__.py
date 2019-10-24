@@ -3,6 +3,8 @@ Open compressed files transparently.
 """
 from __future__ import print_function, division, absolute_import
 
+__all__ = ["xopen", "PipedGzipWriter", "PipedGzipReader", "__version__"]
+
 import gzip
 import sys
 import io
@@ -94,7 +96,7 @@ class Closing(object):
     def __del__(self):
         try:
             self.close()
-        except:
+        except Exception:
             pass
 
 
