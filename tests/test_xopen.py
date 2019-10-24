@@ -177,25 +177,25 @@ def test_partial_gzip_iteration_closes_correctly(large_gzip):
 
 def test_nonexisting_file(ext):
     with pytest.raises(IOError):
-        with xopen('this-file-does-not-exist' + ext) as f:
+        with xopen('this-file-does-not-exist' + ext):
             pass  # pragma: no cover
 
 
 def test_write_to_nonexisting_dir(ext):
     with pytest.raises(IOError):
-        with xopen('this/path/does/not/exist/file.txt' + ext, 'w') as f:
+        with xopen('this/path/does/not/exist/file.txt' + ext, 'w'):
             pass  # pragma: no cover
 
 
 def test_invalid_mode():
     with pytest.raises(ValueError):
-        with xopen("tests/file.txt.gz", mode="hallo") as f:
+        with xopen("tests/file.txt.gz", mode="hallo"):
             pass  # pragma: no cover
 
 
 def test_filename_not_a_string():
     with pytest.raises(TypeError):
-        with xopen(123, mode="r") as f:
+        with xopen(123, mode="r"):
             pass  # pragma: no cover
 
 
