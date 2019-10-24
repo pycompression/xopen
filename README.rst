@@ -90,6 +90,8 @@ v0.8.4
   it would use extra I/O processes, which slightly reduces wall-clock time,
   but increases CPU time. Single-core decompression with ``pigz`` is still
   about twice as fast as regular ``gzip``.
+* Allow ``threads=0`` for specifying that no external ``pigz``/``gzip``
+  process should be used (then regular ``gzip.open()`` is used instead).
 
 v0.8.3
 ~~~~~~
