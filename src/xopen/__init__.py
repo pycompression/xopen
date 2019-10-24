@@ -119,7 +119,8 @@ class PipedGzipWriter(Closing):
             at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
         """
         if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
-            raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
+            raise ValueError(
+                "Mode is '{}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
 
         # TODO use a context manager
         self.outfile = open(path, mode)
@@ -178,7 +179,8 @@ class PipedGzipWriter(Closing):
         self.outfile.close()
         self.devnull.close()
         if retcode != 0:
-            raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
+            raise IOError(
+                "Output {} process terminated with exit code {}".format(self.program, retcode))
 
     def __iter__(self):
         return self
@@ -200,7 +202,7 @@ class PipedGzipReader(Closing):
         Raise an OSError when pigz could not be found.
         """
         if mode not in ('r', 'rt', 'rb'):
-            raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
+            raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
 
         pigz_args = ['pigz', '-cd', path]
 
@@ -311,7 +313,7 @@ def _open_bz2(filename, mode):
         return bz2.open(filename, mode)
     else:
         if mode[0] == 'a':
-            raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
+            raise ValueError("Mode '{}' not supported with BZ2 compression".format(mode))
         return bz2.BZ2File(filename, mode)
 
 
@@ -375,7 +377,7 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if mode in ('r', 'w', 'a'):
         mode += 't'
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
-        raise ValueError("mode '{0}' not supported".format(mode))
+        raise ValueError("Mode '{}' not supported".format(mode))
     if not _PY3:
         mode = mode[0]
     filename = fspath(filename)
