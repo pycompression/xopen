@@ -7,7 +7,6 @@ import random
 import sys
 import signal
 import time
-from contextlib import contextmanager
 import pytest
 from xopen import xopen, PipedGzipReader, PipedGzipWriter
 
