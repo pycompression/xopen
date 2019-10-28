@@ -3,6 +3,8 @@ Open compressed files transparently.
 """
 from __future__ import print_function, division, absolute_import
 
+__all__ = ["xopen", "PipedGzipWriter", "PipedGzipReader", "__version__"]
+
 import gzip
 import sys
 import io
@@ -94,7 +96,7 @@ class Closing(object):
     def __del__(self):
         try:
             self.close()
-        except:
+        except Exception:
             pass
 
 
@@ -119,7 +121,8 @@ class PipedGzipWriter(Closing):
             at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
         """
         if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
-            raise ValueError("Mode is '{0}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
+            raise ValueError(
+                "Mode is '{}', but it must be 'w', 'wt', 'wb', 'a', 'at' or 'ab'".format(mode))
 
         # TODO use a context manager
         self.outfile = open(path, mode)
@@ -127,7 +130,32 @@ class PipedGzipWriter(Closing):
         self.closed = False
         self.name = path
 
-        kwargs = dict(stdin=PIPE, stdout=self.outfile, stderr=self.devnull)
+        if threads is None:
+            threads = min(_available_cpu_count(), 4)
+        try:
+            self.process, self.program = self._open_process(
+                mode, compresslevel, threads, self.outfile, self.devnull)
+        except (IOError, OSError):
+            self.outfile.close()
+            self.devnull.close()
+            raise
+
+        if _PY3 and 'b' not in mode:
+            self._file = io.TextIOWrapper(self.process.stdin)
+        else:
+            self._file = self.process.stdin
+
+    @staticmethod
+    def _open_process(mode, compresslevel, threads, outfile, devnull):
+        pigz_args = ['pigz']
+        if threads != 0:
+            pigz_args += ['-p', str(threads)]
+        extra_args = []
+        if 'w' in mode and compresslevel != 6:
+            extra_args += ['-' + str(compresslevel)]
+
+        kwargs = dict(stdin=PIPE, stdout=outfile, stderr=devnull)
+
         # Setting close_fds to True in the Popen arguments is necessary due to
         # <http://bugs.python.org/issue12786>.
         # However, close_fds is not supported on Windows. See
@@ -135,36 +163,14 @@ class PipedGzipWriter(Closing):
         if sys.platform != 'win32':
             kwargs['close_fds'] = True
 
-        if 'w' in mode and compresslevel != 6:
-            extra_args = ['-' + str(compresslevel)]
-        else:
-            extra_args = []
-
-        pigz_args = ['pigz']
-        if threads is None:
-            threads = min(_available_cpu_count(), 4)
-        if threads != 0:
-            pigz_args += ['-p', str(threads)]
         try:
-            self.process = Popen(pigz_args + extra_args, **kwargs)
-            self.program = 'pigz'
-        except OSError:
+            process = Popen(pigz_args + extra_args, **kwargs)
+            program = 'pigz'
+        except OSError:  # TODO Use FileNotFound instead (Python 3)
             # pigz not found, try regular gzip
-            try:
-                self.process = Popen(['gzip'] + extra_args, **kwargs)
-                self.program = 'gzip'
-            except (IOError, OSError):
-                self.outfile.close()
-                self.devnull.close()
-                raise
-        except IOError:  # TODO IOError is the same as OSError on Python 3.3
-            self.outfile.close()
-            self.devnull.close()
-            raise
-        if _PY3 and 'b' not in mode:
-            self._file = io.TextIOWrapper(self.process.stdin)
-        else:
-            self._file = self.process.stdin
+            process = Popen(['gzip'] + extra_args, **kwargs)
+            program = 'gzip'
+        return process, program
 
     def write(self, arg):
         self._file.write(arg)
@@ -178,7 +184,8 @@ class PipedGzipWriter(Closing):
         self.outfile.close()
         self.devnull.close()
         if retcode != 0:
-            raise IOError("Output {0} process terminated with exit code {1}".format(self.program, retcode))
+            raise IOError(
+                "Output {} process terminated with exit code {}".format(self.program, retcode))
 
     def __iter__(self):
         return self
@@ -200,7 +207,7 @@ class PipedGzipReader(Closing):
         Raise an OSError when pigz could not be found.
         """
         if mode not in ('r', 'rt', 'rb'):
-            raise ValueError("Mode is '{0}', but it must be 'r', 'rt' or 'rb'".format(mode))
+            raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
 
         pigz_args = ['pigz', '-cd', path]
 
@@ -311,7 +318,7 @@ def _open_bz2(filename, mode):
         return bz2.open(filename, mode)
     else:
         if mode[0] == 'a':
-            raise ValueError("mode '{0}' not supported with BZ2 compression".format(mode))
+            raise ValueError("Mode '{}' not supported with BZ2 compression".format(mode))
         return bz2.BZ2File(filename, mode)
 
 
@@ -387,7 +394,7 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if mode in ('r', 'w', 'a'):
         mode += 't'
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
-        raise ValueError("mode '{0}' not supported".format(mode))
+        raise ValueError("Mode '{}' not supported".format(mode))
     if not _PY3:
         mode = mode[0]
     filename = fspath(filename)

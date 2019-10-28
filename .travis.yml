@@ -45,3 +45,8 @@ jobs:
           python3 -m pip wheel -w dist/ .
           ls -l dist/
           python3 -m twine upload dist/xopen-*
+
+    - name: flake8
+      python: "3.6"
+      install: python3 -m pip install flake8
+      script: flake8 src/ tests/
