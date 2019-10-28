@@ -314,7 +314,6 @@ if sys.version_info[0] >= 3:
         with xopen("tests/hello.gz", "rb", threads=0) as f:
             assert isinstance(f, gzip.GzipFile), f
 
-
     def test_write_gzip_no_threads(tmpdir):
         import gzip
         path = str(tmpdir.join("out.gz"))
