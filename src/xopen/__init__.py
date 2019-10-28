@@ -341,26 +341,19 @@ def _open_gz(filename, mode, compresslevel, threads):
     else:
         exc = OSError
 
+    if threads != 0:
+        try:
+            if 'r' in mode:
+                return PipedGzipReader(filename, mode, threads=threads)
+            else:
+                return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+        except exc:
+            pass  # We try without threads.
+
     if 'r' in mode:
-        def open_with_threads():
-            return PipedGzipReader(filename, mode, threads=threads)
-
-        def open_without_threads():
-            return buffered_reader(gzip.open(filename, mode))
+        return buffered_reader(gzip.open(filename, mode))
     else:
-        def open_with_threads():
-            return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-
-        def open_without_threads():
-            return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
-
-    if threads == 0:
-        return open_without_threads()
-    try:
-        return open_with_threads()
-    except exc:
-        # pigz is not installed, use fallback
-        return open_without_threads()
+        return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
 
 def xopen(filename, mode='r', compresslevel=6, threads=None):
