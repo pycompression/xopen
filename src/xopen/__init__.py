@@ -402,10 +402,12 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
         return _open_xz(filename, mode)
     elif filename.endswith('.gz'):
         return _open_gz(filename, mode, compresslevel, threads)
-    elif mode.startswith("rb"):
+    elif mode.startswith("r"):
         # Test up to the first 6 bytes to detect the file format.
         with open(filename, "rb") as fh:
             bs = fh.read(6)
+            if not _PY3:
+                bs = bytearray(bs)
         if bs[0] == 0x1f and bs[1] == 0x8b:
             # https://tools.ietf.org/html/rfc1952#page-6
             return _open_gz(filename, mode, compresslevel, threads)
@@ -413,7 +415,8 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
             # https://en.wikipedia.org/wiki/List_of_file_signatures
             return _open_bz2(filename, mode)
         elif bs[0] == 0xfd and bs[1] == 0x37 and bs[2] == 0x7a and\
-            bs[3] == 0x58 and bs[4] == 0x5a and bs[5] == 0x00:
+             bs[3] == 0x58 and bs[4] == 0x5a and bs[5] == 0x00 and _PY3:
+            # lzma module is not available for python 2.7
             # https://tukaani.org/xz/xz-file-format.txt
             return _open_xz(filename, mode)
         else:

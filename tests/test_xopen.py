@@ -121,10 +121,6 @@ def test_bytetested_gzip():
     with xopen("tests/file.txt.gz.test", "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
-def test_bytetested_xz():
-    with xopen("tests/file.txt.xz.test", "rb") as fh:
-        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
-
 def test_bytetested_bz2():
     with xopen("tests/file.txt.bz2.test", "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
@@ -376,3 +372,8 @@ if sys.version_info[:2] >= (3, 4):
             f.write(b'hello')
         with xopen(path, mode='rb') as f:
             assert f.read() == b'hello'
+
+    # lzma module is not available for python 2.7
+    def test_bytetested_xz():
+        with xopen("tests/file.txt.xz.test", "rb") as fh:
+            assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
