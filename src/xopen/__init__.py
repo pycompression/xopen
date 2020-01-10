@@ -403,9 +403,9 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     elif filename.endswith('.gz'):
         return _open_gz(filename, mode, compresslevel, threads)
     elif mode.startswith("rb"):
-        # Test up to the first 8 bytes to detect the file format.
+        # Test up to the first 6 bytes to detect the file format.
         with open(filename, "rb") as fh:
-            bs = fh.read(8)
+            bs = fh.read(6)
         if bs[0] == 0x1f and bs[1] == 0x8b:
             # https://tools.ietf.org/html/rfc1952#page-6
             return _open_gz(filename, mode, compresslevel, threads)
