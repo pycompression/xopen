@@ -117,6 +117,18 @@ if sys.version_info[0] != 2:
             wrapped = io.TextIOWrapper(f)
             assert wrapped.read() == CONTENT
 
+def test_bytetested_gzip():
+    with xopen("tests/file.txt.gz.test", "rb") as fh:
+        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
+
+def test_bytetested_xz():
+    with xopen("tests/file.txt.xz.test", "rb") as fh:
+        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
+
+def test_bytetested_bz2():
+    with xopen("tests/file.txt.bz2.test", "rb") as fh:
+        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
+
 
 def test_readline(fname):
     first_line = CONTENT_LINES[0].encode('utf-8')
