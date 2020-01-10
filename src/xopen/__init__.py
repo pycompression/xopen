@@ -406,7 +406,6 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
         # Test up to the first 8 bytes to detect the file format.
         with open(filename, "rb") as fh:
             bs = fh.read(8)
-        print(bs)
         if bs[0] == 0x1f and bs[1] == 0x8b:
             # https://tools.ietf.org/html/rfc1952#page-6
             return _open_gz(filename, mode, compresslevel, threads)
