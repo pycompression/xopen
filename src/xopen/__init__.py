@@ -1,7 +1,6 @@
 """
 Open compressed files transparently.
 """
-from __future__ import print_function, division, absolute_import
 
 __all__ = ["xopen", "PipedGzipWriter", "PipedGzipReader", "__version__"]
 
@@ -73,7 +72,7 @@ def _available_cpu_count():
             res = bin(int(m.group(1).replace(',', ''), 16)).count('1')
             if res > 0:
                 return res
-    except IOError:
+    except OSError:
         pass
     try:
         import multiprocessing
@@ -82,7 +81,7 @@ def _available_cpu_count():
         return 1
 
 
-class Closing(object):
+class Closing:
     """
     Inherit from this class and implement a close() method to offer context
     manager functionality.
@@ -135,7 +134,7 @@ class PipedGzipWriter(Closing):
         try:
             self.process, self.program = self._open_process(
                 mode, compresslevel, threads, self.outfile, self.devnull)
-        except (IOError, OSError):
+        except OSError:
             self.outfile.close()
             self.devnull.close()
             raise
@@ -184,7 +183,7 @@ class PipedGzipWriter(Closing):
         self.outfile.close()
         self.devnull.close()
         if retcode != 0:
-            raise IOError(
+            raise OSError(
                 "Output {} process terminated with exit code {}".format(self.program, retcode))
 
     def __iter__(self):
@@ -267,7 +266,7 @@ class PipedGzipReader(Closing):
             and not (allow_sigterm and retcode == -signal.SIGTERM)
         ):
             message = self._stderr.read().strip()
-            raise IOError("{} (exit code {})".format(message, retcode))
+            raise OSError("{} (exit code {})".format(message, retcode))
 
     def read(self, *args):
         return self._file.read(*args)
@@ -308,7 +307,7 @@ def _open_stdin_or_out(mode):
         # Note that io.open is slower than regular open() on Python 2.7, but
         # it appears to be the only API that has a closefd parameter.
         mode = mode[0] + 'b'
-    return io.open(std.fileno(), mode=mode, closefd=False)
+    return open(std.fileno(), mode=mode, closefd=False)
 
 
 def _open_bz2(filename, mode):

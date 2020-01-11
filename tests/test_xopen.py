@@ -1,6 +1,3 @@
-# coding: utf-8
-from __future__ import print_function, division, absolute_import
-
 import io
 import os
 import random
@@ -167,8 +164,7 @@ def test_partial_gzip_iteration_closes_correctly(large_gzip):
 
         def __iter__(self):
             wrapper = io.TextIOWrapper(self.file)
-            for line in wrapper:
-                yield line
+            yield from wrapper
 
     f = LineReader(large_gzip)
     next(iter(f))
@@ -209,7 +205,7 @@ def test_invalid_compression_level(tmpdir):
 
 @pytest.mark.parametrize("aext", append_extensions)
 def test_append(aext, tmpdir):
-    text = "AB".encode("utf-8")
+    text = b"AB"
     reference = text + text
     path = str(tmpdir.join("the-file" + aext))
     with xopen(path, "ab") as f:
