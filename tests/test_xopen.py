@@ -117,11 +117,13 @@ if sys.version_info[0] != 2:
             wrapped = io.TextIOWrapper(f)
             assert wrapped.read() == CONTENT
 
-def test_bytetested_gzip():
+
+def test_detect_gzip_file_format_from_content():
     with xopen("tests/file.txt.gz.test", "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
-def test_bytetested_bz2():
+
+def test_detect_bz2_file_format_from_content():
     with xopen("tests/file.txt.bz2.test", "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
@@ -374,6 +376,6 @@ if sys.version_info[:2] >= (3, 4):
             assert f.read() == b'hello'
 
     # lzma module is not available for python 2.7
-    def test_bytetested_xz():
+    def test_detect_xz_file_format_from_content():
         with xopen("tests/file.txt.xz.test", "rb") as fh:
             assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
