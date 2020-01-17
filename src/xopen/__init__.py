@@ -16,7 +16,6 @@ import stat
 
 from ._version import version as __version__
 
-
 _PY3 = sys.version > '3'
 
 if not _PY3:
@@ -31,7 +30,6 @@ try:
     import lzma
 except ImportError:
     lzma = None
-
 
 if _PY3:
     basestring = str
@@ -88,6 +86,7 @@ class Closing(object):
     Inherit from this class and implement a close() method to offer context
     manager functionality.
     """
+
     def __enter__(self):
         return self
 
@@ -357,12 +356,11 @@ def _open_gz(filename, mode, compresslevel, threads):
         return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
 
-def _detect_format_from_content(filename, mode):
+def _detect_format_from_content(filename, mode, compresslevel, threads):
     """
     Attempts to detect file format from the content.
     If the file mode isn't a 'read' mode or the file isn't a 'regular' file, function
-    returns None. Otherwise, we return the format we've detected "gz" or "bz2" or
-    "xz" or None if it cannot be detected.
+    returns None. Otherwise, we return the open function of the format we've detected.
     """
     try:
         if mode.startswith("r") and stat.S_ISREG(os.stat(filename).st_mode):
@@ -372,17 +370,30 @@ def _detect_format_from_content(filename, mode):
                     bs = bytearray(bs)
             if bs[:2] == b'\x1f\x8b':
                 # https://tools.ietf.org/html/rfc1952#page-6
-                return "gz"
+                return _open_gz(filename, mode, compresslevel, threads)
             elif bs[:3] == b'\x42\x5a\x68':
                 # https://en.wikipedia.org/wiki/List_of_file_signatures
-                return "bz2"
+                return _open_bz2(filename, mode)
             elif bs[:6] == b'\xfd\x37\x7a\x58\x5a\x00' and _PY3:
                 # lzma module is not available for python 2.7
                 # https://tukaani.org/xz/xz-file-format.txt
-                return "xz"
+                return _open_xz(filename, mode)
     except OSError as e:
         # users expect IOError not OSError
         raise IOError(e)
+
+
+def _detect_format_from_name(filename, mode, compresslevel, threads):
+    if filename == '-':
+        return _open_stdin_or_out(mode)
+    elif filename.endswith('.bz2'):
+        return _open_bz2(filename, mode)
+    elif filename.endswith('.xz'):
+        return _open_xz(filename, mode)
+    elif filename.endswith('.gz'):
+        return _open_gz(filename, mode, compresslevel, threads)
+    else:
+        return None
 
 
 def xopen(filename, mode='r', compresslevel=6, threads=None):
@@ -423,17 +434,11 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if compresslevel not in range(1, 10):
         raise ValueError("compresslevel must be between 1 and 9")
 
-    if filename == '-':
-        return _open_stdin_or_out(mode)
-    elif filename.endswith('.bz2') or _detect_format_from_content(filename, mode) == "bz2":
-        return _open_bz2(filename, mode)
-    elif filename.endswith('.xz') or _detect_format_from_content(filename, mode) == "xz":
-        return _open_xz(filename, mode)
-    elif filename.endswith('.gz') or _detect_format_from_content(filename, mode) == "gz":
-        return _open_gz(filename, mode, compresslevel, threads)
-    else:
-        # Python 2.6 and 2.7 have io.open, which we could use to make the returned
-        # object consistent with the one returned in Python 3, but reading a file
-        # with io.open() is 100 times slower (!) on Python 2.6, and still about
-        # three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
-        return open(filename, mode)
+    # Python 2.6 and 2.7 have io.open, which we could use to make the returned
+    # object consistent with the one returned in Python 3, but reading a file
+    # with io.open() is 100 times slower (!) on Python 2.6, and still about
+    # three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
+
+    return _detect_format_from_name(filename, mode, compresslevel, threads) or \
+        _detect_format_from_content(filename, mode, compresslevel, threads) or \
+        open(filename, mode)
