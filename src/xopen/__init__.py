@@ -249,7 +249,9 @@ class PipedGzipReader(Closing):
         else:
             allow_sigterm = False
         self.process.wait()
+        self._file.close()
         self._raise_if_error(allow_sigterm=allow_sigterm)
+        self._stderr.close()
 
     def __iter__(self):
         return self._file
@@ -266,6 +268,8 @@ class PipedGzipReader(Closing):
             and not (allow_sigterm and retcode == -signal.SIGTERM)
         ):
             message = self._stderr.read().strip()
+            self._file.close()
+            self._stderr.close()
             raise OSError("{} (exit code {})".format(message, retcode))
 
     def read(self, *args):
