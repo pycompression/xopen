@@ -356,42 +356,42 @@ def _open_gz(filename, mode, compresslevel, threads):
         return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
 
-def _detect_format_from_content(filename, mode, compresslevel, threads):
+def _detect_format_from_content(filename):
     """
-    Attempts to detect file format from the content.
-    If the file mode isn't a 'read' mode or the file isn't a 'regular' file, function
-    returns None. Otherwise, we return the open function of the format we've detected.
+    Attempts to detect file format from the content by reading the first
+    6 bytes. Returns None if no format could be detected.
     """
     try:
-        if mode.startswith("r") and stat.S_ISREG(os.stat(filename).st_mode):
+        if stat.S_ISREG(os.stat(filename).st_mode):
             with open(filename, "rb") as fh:
                 bs = fh.read(6)
                 if not _PY3:
                     bs = bytearray(bs)
             if bs[:2] == b'\x1f\x8b':
                 # https://tools.ietf.org/html/rfc1952#page-6
-                return _open_gz(filename, mode, compresslevel, threads)
+                return "gz"
             elif bs[:3] == b'\x42\x5a\x68':
                 # https://en.wikipedia.org/wiki/List_of_file_signatures
-                return _open_bz2(filename, mode)
+                return "bz2"
             elif bs[:6] == b'\xfd\x37\x7a\x58\x5a\x00' and _PY3:
                 # lzma module is not available for python 2.7
                 # https://tukaani.org/xz/xz-file-format.txt
-                return _open_xz(filename, mode)
-    except OSError as e:
-        # users expect IOError not OSError
-        raise IOError(e)
+                return "xz"
+    except OSError:
+        return None
 
 
-def _detect_format_from_name(filename, mode, compresslevel, threads):
-    if filename == '-':
-        return _open_stdin_or_out(mode)
-    elif filename.endswith('.bz2'):
-        return _open_bz2(filename, mode)
+def _detect_format_from_extension(filename):
+    """
+    Attempts to detect file format from the filename extension.
+    Returns None if no format could be detected.
+    """
+    if filename.endswith('.bz2'):
+        return "bz2"
     elif filename.endswith('.xz'):
-        return _open_xz(filename, mode)
+        return "xz"
     elif filename.endswith('.gz'):
-        return _open_gz(filename, mode, compresslevel, threads)
+        return "gz"
     else:
         return None
 
@@ -434,11 +434,22 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if compresslevel not in range(1, 10):
         raise ValueError("compresslevel must be between 1 and 9")
 
-    # Python 2.6 and 2.7 have io.open, which we could use to make the returned
-    # object consistent with the one returned in Python 3, but reading a file
-    # with io.open() is 100 times slower (!) on Python 2.6, and still about
-    # three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
+    if filename == '-':
+        return _open_stdin_or_out(mode)
 
-    return _detect_format_from_name(filename, mode, compresslevel, threads) or \
-        _detect_format_from_content(filename, mode, compresslevel, threads) or \
-        open(filename, mode)
+    detected_format = _detect_format_from_extension(filename)
+    if detected_format is None and "w" not in mode:
+        detected_format = _detect_format_from_content(filename)
+
+    if detected_format == "gz":
+        return _open_gz(filename, mode, compresslevel, threads)
+    elif detected_format == "xz":
+        return _open_xz(filename, mode)
+    elif detected_format == "bz2":
+        return _open_bz2(filename, mode)
+    else:
+        # Python 2.6 and 2.7 have io.open, which we could use to make the returned
+        # object consistent with the one returned in Python 3, but reading a file
+        # with io.open() is 100 times slower (!) on Python 2.6, and still about
+        # three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
+        return open(filename, mode)
