@@ -11,9 +11,9 @@ import os
 import time
 import signal
 from subprocess import Popen, PIPE
+import stat
 
 from ._version import version as __version__
-
 
 _PY3 = sys.version > '3'
 
@@ -29,7 +29,6 @@ try:
     import lzma
 except ImportError:
     lzma = None
-
 
 if _PY3:
     basestring = str
@@ -86,6 +85,7 @@ class Closing:
     Inherit from this class and implement a close() method to offer context
     manager functionality.
     """
+
     def __enter__(self):
         return self
 
@@ -359,6 +359,46 @@ def _open_gz(filename, mode, compresslevel, threads):
         return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
 
 
+def _detect_format_from_content(filename):
+    """
+    Attempts to detect file format from the content by reading the first
+    6 bytes. Returns None if no format could be detected.
+    """
+    try:
+        if stat.S_ISREG(os.stat(filename).st_mode):
+            with open(filename, "rb") as fh:
+                bs = fh.read(6)
+                if not _PY3:
+                    bs = bytearray(bs)
+            if bs[:2] == b'\x1f\x8b':
+                # https://tools.ietf.org/html/rfc1952#page-6
+                return "gz"
+            elif bs[:3] == b'\x42\x5a\x68':
+                # https://en.wikipedia.org/wiki/List_of_file_signatures
+                return "bz2"
+            elif bs[:6] == b'\xfd\x37\x7a\x58\x5a\x00' and _PY3:
+                # lzma module is not available for python 2.7
+                # https://tukaani.org/xz/xz-file-format.txt
+                return "xz"
+    except OSError:
+        return None
+
+
+def _detect_format_from_extension(filename):
+    """
+    Attempts to detect file format from the filename extension.
+    Returns None if no format could be detected.
+    """
+    if filename.endswith('.bz2'):
+        return "bz2"
+    elif filename.endswith('.xz'):
+        return "xz"
+    elif filename.endswith('.gz'):
+        return "gz"
+    else:
+        return None
+
+
 def xopen(filename, mode='r', compresslevel=6, threads=None):
     """
     A replacement for the "open" function that can also read and write
@@ -399,12 +439,17 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
 
     if filename == '-':
         return _open_stdin_or_out(mode)
-    elif filename.endswith('.bz2'):
-        return _open_bz2(filename, mode)
-    elif filename.endswith('.xz'):
-        return _open_xz(filename, mode)
-    elif filename.endswith('.gz'):
+
+    detected_format = _detect_format_from_extension(filename)
+    if detected_format is None and "w" not in mode:
+        detected_format = _detect_format_from_content(filename)
+
+    if detected_format == "gz":
         return _open_gz(filename, mode, compresslevel, threads)
+    elif detected_format == "xz":
+        return _open_xz(filename, mode)
+    elif detected_format == "bz2":
+        return _open_bz2(filename, mode)
     else:
         # Python 2.6 and 2.7 have io.open, which we could use to make the returned
         # object consistent with the one returned in Python 3, but reading a file

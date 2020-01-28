@@ -115,6 +115,16 @@ if sys.version_info[0] != 2:
             assert wrapped.read() == CONTENT
 
 
+def test_detect_gzip_file_format_from_content():
+    with xopen("tests/file.txt.gz.test", "rb") as fh:
+        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
+
+
+def test_detect_bz2_file_format_from_content():
+    with xopen("tests/file.txt.bz2.test", "rb") as fh:
+        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
+
+
 def test_readline(fname):
     first_line = CONTENT_LINES[0].encode('utf-8')
     with xopen(fname, 'rb') as f:
@@ -360,3 +370,8 @@ if sys.version_info[:2] >= (3, 4):
             f.write(b'hello')
         with xopen(path, mode='rb') as f:
             assert f.read() == b'hello'
+
+    # lzma module is not available for python 2.7
+    def test_detect_xz_file_format_from_content():
+        with xopen("tests/file.txt.xz.test", "rb") as fh:
+            assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
