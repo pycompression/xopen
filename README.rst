@@ -76,6 +76,9 @@ appending to files.
 Ruben Vorderman <https://github.com/rhpvorderman/> contributed improvements to
 make reading gzipped files faster.
 
+Benjamin Vaisvil <https://github.com/bvaisvil> contributed support for
+format detection from content.
+
 Some ideas were taken from the `canopener project <https://github.com/selassid/canopener>`_.
 If you also want to open S3 files, you may want to use that module instead.
 
@@ -85,7 +88,11 @@ Changes
 
 v0.9.x
 ~~~~~~
-* Drop Python 2.7 support. Python 3.4 or later is now required.
+
+* When the file name extension of a file to be opened for reading is not
+  available, the content is inspected (if possible) and used to determine
+  which compression format applies.
+* This release drops Python 2.7 support. Python 3.4 or later is now required.
 
 v0.8.4
 ~~~~~~
