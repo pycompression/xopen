@@ -1,8 +1,8 @@
 import sys
 from setuptools import setup, find_packages
 
-if sys.version_info < (3, 4):
-    sys.stdout.write("At least Python 3.4 is required.\n")
+if sys.version_info < (3, 5):
+    sys.stdout.write("At least Python 3.5 is required.\n")
     sys.exit(1)
 
 with open('README.rst') as f:
@@ -23,12 +23,11 @@ setup(
     extras_require={
         'dev': ['pytest'],
     },
-    python_requires='>=3.4',
+    python_requires='>=3.5',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",

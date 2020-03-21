@@ -29,12 +29,12 @@ function. ``pigz`` can use multiple threads when compressing, but is also faster
 when reading ``.gz`` files, so it is used both for reading and writing if it is
 available.
 
-This module has originally been developed as part of the `cutadapt
+This module has originally been developed as part of the `Cutadapt
 tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
 manipulate sequencing data. It has been in successful use within that software
 for a few years.
 
-``xopen`` is compatible with Python versions 3.4 to 3.8.
+``xopen`` is compatible with Python versions 3.5 to 3.8.
 
 
 Usage
@@ -92,7 +92,8 @@ v0.9.x
 * When the file name extension of a file to be opened for reading is not
   available, the content is inspected (if possible) and used to determine
   which compression format applies.
-* This release drops Python 2.7 support. Python 3.4 or later is now required.
+* This release drops Python 2.7 and 3.4 support. Python 3.5 or later is
+  now required.
 
 v0.8.4
 ~~~~~~
