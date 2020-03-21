@@ -1,10 +1,11 @@
 import io
 import os
 import random
-import sys
 import signal
 import time
 import pytest
+from pathlib import Path
+
 from xopen import xopen, PipedGzipReader, PipedGzipWriter
 
 
@@ -20,11 +21,6 @@ base = "tests/file.txt"
 files = [base + ext for ext in extensions]
 CONTENT_LINES = ['Testing, testing ...\n', 'The second line.\n']
 CONTENT = ''.join(CONTENT_LINES)
-
-# File extensions for which appending is supported
-append_extensions = extensions[:]
-if sys.version_info[0] == 2:
-    append_extensions.remove(".bz2")
 
 
 @pytest.fixture(params=extensions)
@@ -108,11 +104,10 @@ def test_pipedgzipreader_readinto():
         assert b[:length] == content
 
 
-if sys.version_info[0] != 2:
-    def test_pipedgzipreader_textiowrapper():
-        with PipedGzipReader("tests/file.txt.gz", "rb") as f:
-            wrapped = io.TextIOWrapper(f)
-            assert wrapped.read() == CONTENT
+def test_pipedgzipreader_textiowrapper():
+    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+        wrapped = io.TextIOWrapper(f)
+        assert wrapped.read() == CONTENT
 
 
 def test_detect_gzip_file_format_from_content():
@@ -180,7 +175,6 @@ def test_pipedgzipreader_close(large_gzip, mode):
     # The subprocess should be properly terminated now
 
 
-@pytest.mark.skipif(sys.version_info < (3, ), reason="Python 3 needed")
 def test_partial_gzip_iteration_closes_correctly(large_gzip):
     class LineReader:
         def __init__(self, file):
@@ -227,11 +221,11 @@ def test_invalid_compression_level(tmpdir):
     assert "between 1 and 9" in e.value.args[0]
 
 
-@pytest.mark.parametrize("aext", append_extensions)
-def test_append(aext, tmpdir):
+@pytest.mark.parametrize("ext", extensions)
+def test_append(ext, tmpdir):
     text = b"AB"
     reference = text + text
-    path = str(tmpdir.join("the-file" + aext))
+    path = str(tmpdir.join("the-file" + ext))
     with xopen(path, "ab") as f:
         f.write(text)
     with xopen(path, "ab") as f:
@@ -243,11 +237,11 @@ def test_append(aext, tmpdir):
         assert appended == reference
 
 
-@pytest.mark.parametrize("aext", append_extensions)
-def test_append_text(aext, tmpdir):
+@pytest.mark.parametrize("ext", extensions)
+def test_append_text(ext, tmpdir):
     text = "AB"
     reference = text + text
-    path = str(tmpdir.join("the-file" + aext))
+    path = str(tmpdir.join("the-file" + ext))
     with xopen(path, "at") as f:
         f.write(text)
     with xopen(path, "at") as f:
@@ -328,17 +322,17 @@ def test_write_pigz_threads(tmpdir):
         assert f.read() == 'hello'
 
 
-if sys.version_info[0] >= 3:
-    def test_read_gzip_no_threads():
-        import gzip
-        with xopen("tests/hello.gz", "rb", threads=0) as f:
-            assert isinstance(f, gzip.GzipFile), f
+def test_read_gzip_no_threads():
+    import gzip
+    with xopen("tests/hello.gz", "rb", threads=0) as f:
+        assert isinstance(f, gzip.GzipFile), f
 
-    def test_write_gzip_no_threads(tmpdir):
-        import gzip
-        path = str(tmpdir.join("out.gz"))
-        with xopen(path, "wb", threads=0) as f:
-            assert isinstance(f, gzip.GzipFile), f
+
+def test_write_gzip_no_threads(tmpdir):
+    import gzip
+    path = str(tmpdir.join("out.gz"))
+    with xopen(path, "wb", threads=0) as f:
+        assert isinstance(f, gzip.GzipFile), f
 
 
 def test_write_stdout():
@@ -357,35 +351,36 @@ def test_write_stdout_contextmanager():
     print("Still there?")
 
 
-if sys.version_info[:2] >= (3, 4):
-    # pathlib was added in Python 3.4
-    from pathlib import Path
+def test_read_pathlib(fname):
+    path = Path(fname)
+    with xopen(path, mode='rt') as f:
+        assert f.read() == CONTENT
 
-    def test_read_pathlib(fname):
-        path = Path(fname)
-        with xopen(path, mode='rt') as f:
-            assert f.read() == CONTENT
 
-    def test_read_pathlib_binary(fname):
-        path = Path(fname)
-        with xopen(path, mode='rb') as f:
-            assert f.read() == bytes(CONTENT, 'ascii')
+def test_read_pathlib_binary(fname):
+    path = Path(fname)
+    with xopen(path, mode='rb') as f:
+        assert f.read() == bytes(CONTENT, 'ascii')
 
-    def test_write_pathlib(ext, tmpdir):
-        path = Path(str(tmpdir)) / ('hello.txt' + ext)
-        with xopen(path, mode='wt') as f:
-            f.write('hello')
-        with xopen(path, mode='rt') as f:
-            assert f.read() == 'hello'
 
-    def test_write_pathlib_binary(ext, tmpdir):
-        path = Path(str(tmpdir)) / ('hello.txt' + ext)
-        with xopen(path, mode='wb') as f:
-            f.write(b'hello')
-        with xopen(path, mode='rb') as f:
-            assert f.read() == b'hello'
+def test_write_pathlib(ext, tmpdir):
+    path = Path(str(tmpdir)) / ('hello.txt' + ext)
+    with xopen(path, mode='wt') as f:
+        f.write('hello')
+    with xopen(path, mode='rt') as f:
+        assert f.read() == 'hello'
 
-    # lzma module is not available for python 2.7
+
+def test_write_pathlib_binary(ext, tmpdir):
+    path = Path(str(tmpdir)) / ('hello.txt' + ext)
+    with xopen(path, mode='wb') as f:
+        f.write(b'hello')
+    with xopen(path, mode='rb') as f:
+        assert f.read() == b'hello'
+
+
+# lzma doesn’t work on PyPy3 at the moment
+if lzma is not None:
     def test_detect_xz_file_format_from_content():
         with xopen("tests/file.txt.xz.test", "rb") as fh:
             assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
