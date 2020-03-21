@@ -256,6 +256,9 @@ class PipedGzipReader(Closing):
     def __iter__(self):
         return self._file
 
+    def __next__(self):
+        return self._file.__next__()
+
     def _raise_if_error(self, allow_sigterm=False):
         """
         Raise IOError if process is not running anymore and the exit code is

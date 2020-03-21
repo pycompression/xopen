@@ -154,6 +154,13 @@ def test_pipedgzipreader_iter(threads):
         assert lines[0] == CONTENT_LINES[0]
 
 
+def test_next(fname):
+    with xopen(fname, "rt") as f:
+        _ = next(f)
+        line2 = next(f)
+        assert line2 == 'The second line.\n', fname
+
+
 def test_xopen_has_iter_method(ext, tmpdir):
     path = str(tmpdir.join("out" + ext))
     with xopen(path, mode='w') as f:
