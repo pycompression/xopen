@@ -147,6 +147,13 @@ def test_readline_text_pipedgzipreader():
         assert f.readline() == CONTENT_LINES[0]
 
 
+@pytest.mark.parametrize("threads", [None, 1, 2])
+def test_pipedgzipreader_iter(threads):
+    with PipedGzipReader("tests/file.txt.gz", mode="r", threads=threads) as f:
+        lines = list(f)
+        assert lines[0] == CONTENT_LINES[0]
+
+
 def test_xopen_has_iter_method(ext, tmpdir):
     path = str(tmpdir.join("out" + ext))
     with xopen(path, mode='w') as f:
