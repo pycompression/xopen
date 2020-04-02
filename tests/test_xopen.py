@@ -167,6 +167,16 @@ def test_pipedgzipwriter_has_iter_method(tmpdir):
         assert hasattr(f, '__iter__')
 
 
+def test_iter_without_with(fname):
+    it = iter(xopen(fname, "rt"))
+    assert CONTENT_LINES[0] == next(it)
+
+
+def test_pipedgzipreader_iter_without_with():
+    it = iter(PipedGzipReader("tests/file.txt.gz"))
+    assert CONTENT_LINES[0] == next(it)
+
+
 @pytest.mark.parametrize("mode", ["rb", "rt"])
 def test_pipedgzipreader_close(large_gzip, mode):
     with PipedGzipReader(large_gzip, mode=mode) as f:

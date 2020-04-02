@@ -254,7 +254,7 @@ class PipedGzipReader(Closing):
         self._stderr.close()
 
     def __iter__(self):
-        return self._file
+        return self
 
     def __next__(self):
         return self._file.__next__()
