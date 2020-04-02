@@ -8,35 +8,21 @@ import gzip
 import sys
 import io
 import os
+import bz2
 import time
-import signal
-from subprocess import Popen, PIPE
 import stat
+import signal
+import pathlib
+from subprocess import Popen, PIPE
 
 from ._version import version as __version__
 
-_PY3 = sys.version > '3'
-
-if not _PY3:
-    import bz2file as bz2
-else:
-    try:
-        import bz2
-    except ImportError:
-        bz2 = None
 
 try:
     import lzma
 except ImportError:
     lzma = None
 
-if _PY3:
-    basestring = str
-
-try:
-    import pathlib  # Exists in Python 3.4+
-except ImportError:
-    pathlib = None
 
 try:
     from os import fspath  # Exists in Python 3.6+
@@ -48,7 +34,7 @@ except ImportError:
         # path protocol
         if pathlib is not None and isinstance(path, pathlib.Path):
             return str(path)
-        if not isinstance(path, basestring):
+        if not isinstance(path, str):
             raise TypeError("path must be a string")
         return path
 
@@ -139,7 +125,7 @@ class PipedGzipWriter(Closing):
             self.devnull.close()
             raise
 
-        if _PY3 and 'b' not in mode:
+        if 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdin)
         else:
             self._file = self.process.stdin
@@ -223,14 +209,11 @@ class PipedGzipReader(Closing):
 
         self.process = Popen(pigz_args, stdout=PIPE, stderr=PIPE)
         self.name = path
-        if _PY3 and 'b' not in mode:
+        if 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)
         else:
             self._file = self.process.stdout
-        if _PY3:
-            self._stderr = io.TextIOWrapper(self.process.stderr)
-        else:
-            self._stderr = self.process.stderr
+        self._stderr = io.TextIOWrapper(self.process.stderr)
         self.closed = False
         # Give the subprocess a little bit of time to report any errors (such as
         # a non-existing file)
@@ -291,12 +274,7 @@ class PipedGzipReader(Closing):
         return self._file.peek(n)
 
     def readable(self):
-        if _PY3:
-            return self._file.readable()
-        else:
-            return NotImplementedError(
-                "Python 2 does not support the readable() method."
-            )
+        return self._file.readable()
 
     def writable(self):
         return self._file.writable()
@@ -309,23 +287,11 @@ def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
     # to be closable without closing sys.stdout.
     std = dict(r=sys.stdin, w=sys.stdout)[mode[0]]
-    if not _PY3:
-        # Enforce str type on Python 2
-        # Note that io.open is slower than regular open() on Python 2.7, but
-        # it appears to be the only API that has a closefd parameter.
-        mode = mode[0] + 'b'
     return open(std.fileno(), mode=mode, closefd=False)
 
 
 def _open_bz2(filename, mode):
-    if bz2 is None:
-        raise ImportError("Cannot open bz2 files: The bz2 module is not available")
-    if _PY3:
-        return bz2.open(filename, mode)
-    else:
-        if mode[0] == 'a':
-            raise ValueError("Mode '{}' not supported with BZ2 compression".format(mode))
-        return bz2.BZ2File(filename, mode)
+    return bz2.open(filename, mode)
 
 
 def _open_xz(filename, mode):
@@ -336,30 +302,19 @@ def _open_xz(filename, mode):
 
 
 def _open_gz(filename, mode, compresslevel, threads):
-    if sys.version_info[:2] == (2, 7):
-        buffered_reader = io.BufferedReader
-        buffered_writer = io.BufferedWriter
-    else:
-        buffered_reader = lambda x: x
-        buffered_writer = lambda x: x
-    if _PY3:
-        exc = FileNotFoundError  # was introduced in Python 3.3
-    else:
-        exc = OSError
-
     if threads != 0:
         try:
             if 'r' in mode:
                 return PipedGzipReader(filename, mode, threads=threads)
             else:
                 return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-        except exc:
+        except FileNotFoundError:
             pass  # We try without threads.
 
     if 'r' in mode:
-        return buffered_reader(gzip.open(filename, mode))
+        return gzip.open(filename, mode)
     else:
-        return buffered_writer(gzip.open(filename, mode, compresslevel=compresslevel))
+        return gzip.open(filename, mode, compresslevel=compresslevel)
 
 
 def _detect_format_from_content(filename):
@@ -371,16 +326,13 @@ def _detect_format_from_content(filename):
         if stat.S_ISREG(os.stat(filename).st_mode):
             with open(filename, "rb") as fh:
                 bs = fh.read(6)
-                if not _PY3:
-                    bs = bytearray(bs)
             if bs[:2] == b'\x1f\x8b':
                 # https://tools.ietf.org/html/rfc1952#page-6
                 return "gz"
             elif bs[:3] == b'\x42\x5a\x68':
                 # https://en.wikipedia.org/wiki/List_of_file_signatures
                 return "bz2"
-            elif bs[:6] == b'\xfd\x37\x7a\x58\x5a\x00' and _PY3:
-                # lzma module is not available for python 2.7
+            elif bs[:6] == b'\xfd\x37\x7a\x58\x5a\x00':
                 # https://tukaani.org/xz/xz-file-format.txt
                 return "xz"
     except OSError:
@@ -434,8 +386,6 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
         mode += 't'
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
         raise ValueError("Mode '{}' not supported".format(mode))
-    if not _PY3:
-        mode = mode[0]
     filename = fspath(filename)
     if compresslevel not in range(1, 10):
         raise ValueError("compresslevel must be between 1 and 9")
@@ -454,8 +404,4 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     elif detected_format == "bz2":
         return _open_bz2(filename, mode)
     else:
-        # Python 2.6 and 2.7 have io.open, which we could use to make the returned
-        # object consistent with the one returned in Python 3, but reading a file
-        # with io.open() is 100 times slower (!) on Python 2.6, and still about
-        # three times slower on Python 2.7 (tested with "for _ in io.open(path): pass")
         return open(filename, mode)
