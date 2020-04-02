@@ -86,7 +86,7 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
-v0.9.x
+v0.9.0
 ~~~~~~
 
 * When the file name extension of a file to be opened for reading is not
