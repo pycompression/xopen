@@ -13,8 +13,8 @@ import time
 import stat
 import signal
 import pathlib
+import shutil
 from subprocess import Popen, PIPE
-from typing import Optional, List
 
 from ._version import version as __version__
 
@@ -67,6 +67,10 @@ def _available_cpu_count():
         return 1
 
 
+def _program_in_path(program: str) -> bool:
+    return bool(shutil.which(program))
+
+
 class Closing:
     """
     Inherit from this class and implement a close() method to offer context
@@ -91,7 +95,7 @@ class PipedCompressionWriter(Closing):
     Write Compressed files by running an external process and piping into it.
     """
 
-    def __init__(self, path, mode='wt', compresslevel=6, threads=None):
+    def __init__(self, path, program_path, mode='wt', compresslevel=6, threads_flag = None, threads=None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -109,6 +113,8 @@ class PipedCompressionWriter(Closing):
         self.closed = False
         self.name = path
         self.mode = mode
+        self.program_path = program_path
+        self.threads_flag = threads_flag
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
@@ -176,16 +182,16 @@ class PipedCompressionReader(Closing):
     (ca. 2x speedup).
     """
 
-    def __init__(self, path, mode='r', threads=None):
+    def __init__(self, path, program_path, mode='r', threads_flag = None, threads=None):
         """
         Raise an OSError when pigz could not be found.
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
 
-        program_args = [self.program_path, '-cd', path]
+        program_args = [program_path, '-cd', path]
 
-        if self.threads_flag is not None:
+        if threads_flag is not None:
             if threads is None:
                 # Single threaded behaviour by default because:
                 # - Using a single thread to read a file is the least unexpected
@@ -194,7 +200,7 @@ class PipedCompressionReader(Closing):
                 #   using multiple threads while there is only a 10% gain in wall
                 #   clock time.
                 threads = 1
-            program_args += [self.threads_flag, str(threads)]
+            program_args += [threads_flag, str(threads)]
 
         self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
@@ -279,11 +285,29 @@ def _open_stdin_or_out(mode):
     return open(std.fileno(), mode=mode, closefd=False)
 
 
-def _open_bz2(filename, mode):
+def _open_bz2(filename, mode, compresslevel, threads):
+    if _program_in_path("bzip2") and threads !=0:
+        if 'r' in mode:
+            return PipedCompressionReader(filename, "bzip2", mode,
+                                          threads_flag=None, threads=threads)
+        else:
+            return PipedCompressionWriter(filename, "bzip2", mode,
+                                          compresslevel,
+                                          threads_flag=None,
+                                          threads=threads)
     return bz2.open(filename, mode)
 
 
-def _open_xz(filename, mode):
+def _open_xz(filename, mode, compresslevel, threads):
+    if _program_in_path("xz") and threads !=0:
+        if 'r' in mode:
+            return PipedCompressionReader(filename, "xz", mode,
+                                          threads_flag="-T", threads=threads)
+        else:
+            return PipedCompressionWriter(filename, "bzip2", mode,
+                                          compresslevel,
+                                          threads_flag="-T",
+                                          threads=threads)
     if lzma is None:
         raise ImportError(
             "Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
@@ -292,13 +316,23 @@ def _open_xz(filename, mode):
 
 def _open_gz(filename, mode, compresslevel, threads):
     if threads != 0:
-        try:
+        program = None
+        threads_flag = None
+        if _program_in_path("pigz"):
+            program = "pigz"
+            threads_flag = "-p"
+        elif _program_in_path("gzip"):
+            program = "gzip"
+
+        if program is not None:
             if 'r' in mode:
-                return PipedGzipReader(filename, mode, threads=threads)
+                return PipedCompressionReader(filename, program, mode,
+                                              threads_flag=threads_flag, threads=threads)
             else:
-                return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-        except FileNotFoundError:
-            pass  # We try without threads.
+                return PipedCompressionWriter(filename, program, mode, compresslevel,
+                                       threads_flag=threads_flag, threads=threads)
+        else:
+            pass # We try without threads.
 
     if 'r' in mode:
         return gzip.open(filename, mode)
@@ -389,8 +423,8 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if detected_format == "gz":
         return _open_gz(filename, mode, compresslevel, threads)
     elif detected_format == "xz":
-        return _open_xz(filename, mode)
+        return _open_xz(filename, mode, compresslevel, threads)
     elif detected_format == "bz2":
-        return _open_bz2(filename, mode)
+        return _open_bz2(filename, mode, compresslevel, threads)
     else:
         return open(filename, mode)
