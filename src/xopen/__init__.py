@@ -15,6 +15,7 @@ import signal
 import pathlib
 import shutil
 from subprocess import Popen, PIPE
+from typing import Tuple, Optional
 
 from ._version import version as __version__
 
@@ -94,7 +95,6 @@ class PipedCompressionWriter(Closing):
     """
     Write Compressed files by running an external process and piping into it.
     """
-
     def __init__(self, path, program_path, mode='wt', compresslevel=6, threads_flag = None, threads=None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
@@ -276,6 +276,31 @@ class PipedCompressionReader(Closing):
 
     def flush(self):
         return None
+
+
+def _which_gzip() -> Tuple[str, Optional[str]]:
+    """
+    Checks which gzip applications are available. Prefers pigz.
+    :return: Program name and threads flag.
+    """
+    if _program_in_path("pigz"):
+        return "pigz", "-p"
+    elif _program_in_path("gzip"):
+        return "gzip", None
+    else:
+        raise IOError("Programs 'pigz' and 'gzip' are not available")
+
+
+class PipedGzipReader(PipedCompressionReader):
+    def __init__(self, path, mode='r', threads=None):
+        program, threads_flag = _which_gzip()
+        super().__init__(path, program, mode, threads_flag, threads)
+
+
+class PipedGzipWriter(PipedCompressionWriter):
+    def __init__(self, path, mode='wt', compresslevel=6, threads=None):
+        program, threads_flag = _which_gzip()
+        super().__init__(path, program, mode, compresslevel, threads_flag, threads)
 
 
 def _open_stdin_or_out(mode):
