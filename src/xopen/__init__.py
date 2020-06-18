@@ -95,7 +95,7 @@ class PipedCompressionWriter(Closing):
     """
     Write Compressed files by running an external process and piping into it.
     """
-    def __init__(self, path, program, mode='wt', compresslevel=6, threads_flag = None, threads=None):
+    def __init__(self, path, program, mode='wt', compresslevel=6, threads_flag=None, threads=None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -182,7 +182,7 @@ class PipedCompressionReader(Closing):
     (ca. 2x speedup).
     """
 
-    def __init__(self, path, program, mode='r', threads_flag = None, threads=None):
+    def __init__(self, path, program, mode='r', threads_flag=None, threads=None):
         """
         Raise an OSError when pigz could not be found.
         """
@@ -311,7 +311,7 @@ def _open_stdin_or_out(mode):
 
 
 def _open_bz2(filename, mode, compresslevel, threads):
-    if _program_in_path("bzip2") and threads !=0:
+    if _program_in_path("bzip2") and threads != 0:
         if 'r' in mode:
             return PipedCompressionReader(filename, "bzip2", mode,
                                           threads_flag=None, threads=threads)
@@ -324,7 +324,7 @@ def _open_bz2(filename, mode, compresslevel, threads):
 
 
 def _open_xz(filename, mode, compresslevel, threads):
-    if _program_in_path("xz") and threads !=0:
+    if _program_in_path("xz") and threads != 0:
         if 'r' in mode:
             return PipedCompressionReader(filename, "xz", mode,
                                           threads_flag="-T", threads=threads)
