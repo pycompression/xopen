@@ -288,7 +288,7 @@ def _which_gzip() -> Tuple[str, Optional[str]]:
     elif _program_in_path("gzip"):
         return "gzip", None
     else:
-        raise IOError("Programs 'pigz' and 'gzip' are not available")
+        raise FileNotFoundError("Programs 'pigz' and 'gzip' are not available")
 
 
 class PipedGzipReader(PipedCompressionReader):
@@ -341,28 +341,19 @@ def _open_xz(filename, mode, compresslevel, threads):
 
 def _open_gz(filename, mode, compresslevel, threads):
     if threads != 0:
-        program = None
-        threads_flag = None
-        if _program_in_path("pigz"):
-            program = "pigz"
-            threads_flag = "-p"
-        elif _program_in_path("gzip"):
-            program = "gzip"
-
-        if program is not None:
+        try:
             if 'r' in mode:
-                return PipedCompressionReader(filename, program, mode,
-                                              threads_flag=threads_flag, threads=threads)
+                return PipedGzipReader(filename, mode, threads=threads)
             else:
-                return PipedCompressionWriter(filename, program, mode, compresslevel,
-                                       threads_flag=threads_flag, threads=threads)
-        else:
-            pass # We try without threads.
+                return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+        except FileNotFoundError:
+            pass  # We try without threads.
 
     if 'r' in mode:
         return gzip.open(filename, mode)
     else:
         return gzip.open(filename, mode, compresslevel=compresslevel)
+
 
 
 def _detect_format_from_content(filename):
