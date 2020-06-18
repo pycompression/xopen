@@ -95,7 +95,7 @@ class PipedCompressionWriter(Closing):
     """
     Write Compressed files by running an external process and piping into it.
     """
-    def __init__(self, path, program_path, mode='wt', compresslevel=6, threads_flag = None, threads=None):
+    def __init__(self, path, program, mode='wt', compresslevel=6, threads_flag = None, threads=None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -113,13 +113,13 @@ class PipedCompressionWriter(Closing):
         self.closed = False
         self.name = path
         self.mode = mode
-        self.program_path = program_path
+        self.program = program
         self.threads_flag = threads_flag
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
         try:
-            self.process, self.program = self._open_process(
+            self.process = self._open_process(
                 mode, compresslevel, threads, self.outfile, self.devnull)
         except OSError:
             self.outfile.close()
@@ -132,7 +132,7 @@ class PipedCompressionWriter(Closing):
             self._file = self.process.stdin
 
     def _open_process(self, mode, compresslevel, threads, outfile, devnull):
-        program_args = [self.program_path]
+        program_args = [self.program]
         if threads != 0 and self.threads_flag is not None:
             program_args += [self.threads_flag, str(threads)]
         extra_args = []
@@ -182,14 +182,14 @@ class PipedCompressionReader(Closing):
     (ca. 2x speedup).
     """
 
-    def __init__(self, path, program_path, mode='r', threads_flag = None, threads=None):
+    def __init__(self, path, program, mode='r', threads_flag = None, threads=None):
         """
         Raise an OSError when pigz could not be found.
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
 
-        program_args = [program_path, '-cd', path]
+        program_args = [program, '-cd', path]
 
         if threads_flag is not None:
             if threads is None:
@@ -353,7 +353,6 @@ def _open_gz(filename, mode, compresslevel, threads):
         return gzip.open(filename, mode)
     else:
         return gzip.open(filename, mode, compresslevel=compresslevel)
-
 
 
 def _detect_format_from_content(filename):
