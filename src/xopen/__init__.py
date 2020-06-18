@@ -329,7 +329,7 @@ def _open_xz(filename, mode, compresslevel, threads):
             return PipedCompressionReader(filename, "xz", mode,
                                           threads_flag="-T", threads=threads)
         else:
-            return PipedCompressionWriter(filename, "bzip2", mode,
+            return PipedCompressionWriter(filename, "xz", mode,
                                           compresslevel,
                                           threads_flag="-T",
                                           threads=threads)
