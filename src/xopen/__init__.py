@@ -13,9 +13,7 @@ import time
 import stat
 import signal
 import pathlib
-import shutil
 from subprocess import Popen, PIPE
-from typing import Tuple, Optional
 
 from ._version import version as __version__
 
@@ -66,10 +64,6 @@ def _available_cpu_count():
         return multiprocessing.cpu_count()
     except (ImportError, NotImplementedError):
         return 1
-
-
-def _program_in_path(program: str) -> bool:
-    return bool(shutil.which(program))
 
 
 class Closing:
@@ -176,10 +170,7 @@ class PipedCompressionWriter(Closing):
 
 class PipedCompressionReader(Closing):
     """
-    Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
-    used to speed up writing by using many compression threads, it is
-    also faster when reading, even when forced to use a single thread
-    (ca. 2x speedup).
+    Open a pipe to a process for reading a compressed file.
     """
 
     def __init__(self, path, program, mode='r', threads_flag=None, threads=None):
@@ -278,29 +269,20 @@ class PipedCompressionReader(Closing):
         return None
 
 
-def _which_gzip() -> Tuple[str, Optional[str]]:
-    """
-    Checks which gzip applications are available. Prefers pigz.
-    :return: Program name and threads flag.
-    """
-    if _program_in_path("pigz"):
-        return "pigz", "-p"
-    elif _program_in_path("gzip"):
-        return "gzip", None
-    else:
-        raise FileNotFoundError("Programs 'pigz' and 'gzip' are not available")
-
-
 class PipedGzipReader(PipedCompressionReader):
     def __init__(self, path, mode='r', threads=None):
-        program, threads_flag = _which_gzip()
-        super().__init__(path, program, mode, threads_flag, threads)
+        try:
+            super().__init__(path, "pigz", mode, "-p", threads)
+        except FileNotFoundError:
+            super().__init__(path, "gzip", mode, None, threads)
 
 
 class PipedGzipWriter(PipedCompressionWriter):
     def __init__(self, path, mode='wt', compresslevel=6, threads=None):
-        program, threads_flag = _which_gzip()
-        super().__init__(path, program, mode, compresslevel, threads_flag, threads)
+        try:
+            super().__init__(path, "pigz", mode, compresslevel, "-p", threads)
+        except FileNotFoundError:
+            super().__init__(path, "gzip", mode, compresslevel, None, threads)
 
 
 def _open_stdin_or_out(mode):
@@ -310,32 +292,11 @@ def _open_stdin_or_out(mode):
     return open(std.fileno(), mode=mode, closefd=False)
 
 
-def _open_bz2(filename, mode, compresslevel, threads):
-    if _program_in_path("bzip2") and threads != 0:
-        if 'r' in mode:
-            return PipedCompressionReader(filename, "bzip2", mode,
-                                          threads_flag=None, threads=threads)
-        else:
-            return PipedCompressionWriter(filename, "bzip2", mode,
-                                          compresslevel,
-                                          threads_flag=None,
-                                          threads=threads)
+def _open_bz2(filename, mode):
     return bz2.open(filename, mode)
 
 
-def _open_xz(filename, mode, compresslevel, threads):
-    if _program_in_path("xz") and threads != 0:
-        if 'r' in mode:
-            return PipedCompressionReader(filename, "xz", mode,
-                                          threads_flag="-T", threads=threads)
-        else:
-            return PipedCompressionWriter(filename, "xz", mode,
-                                          compresslevel,
-                                          threads_flag="-T",
-                                          threads=threads)
-    if lzma is None:
-        raise ImportError(
-            "Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
+def _open_xz(filename, mode):
     return lzma.open(filename, mode)
 
 
@@ -438,8 +399,8 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if detected_format == "gz":
         return _open_gz(filename, mode, compresslevel, threads)
     elif detected_format == "xz":
-        return _open_xz(filename, mode, compresslevel, threads)
+        return _open_xz(filename, mode)
     elif detected_format == "bz2":
-        return _open_bz2(filename, mode, compresslevel, threads)
+        return _open_bz2(filename, mode)
     else:
         return open(filename, mode)
