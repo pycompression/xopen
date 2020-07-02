@@ -270,6 +270,12 @@ class PipedCompressionReader(Closing):
 
 
 class PipedGzipReader(PipedCompressionReader):
+    """
+    Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
+    used to speed up writing by using many compression threads, it is
+    also faster when reading, even when forced to use a single thread
+    (ca. 2x speedup).
+    """
     def __init__(self, path, mode='r', threads=None):
         try:
             super().__init__(path, "pigz", mode, "-p", threads)
@@ -278,6 +284,14 @@ class PipedGzipReader(PipedCompressionReader):
 
 
 class PipedGzipWriter(PipedCompressionWriter):
+    """
+    Write gzip-compressed files by running an external gzip or pigz process and
+    piping into it. pigz is tried first. It is fast because it can compress using
+    multiple cores. Also it is more efficient on one core.
+    If pigz is not available, a gzip subprocess is used. On Python 3, gzip.GzipFile is on
+    par with gzip itself, but running an external gzip can still reduce wall-clock
+    time because the compression happens in a separate process.
+    """
     def __init__(self, path, mode='wt', compresslevel=6, threads=None):
         try:
             super().__init__(path, "pigz", mode, compresslevel, "-p", threads)
