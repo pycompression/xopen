@@ -400,5 +400,3 @@ def test_concatenated_gzip_function():
     assert _can_read_concatenated_gz("gzip") is True
     assert _can_read_concatenated_gz("pigz") is True
     assert _can_read_concatenated_gz("xz") is False
-    # For not installed igzip this also needs to return false.
-    assert _can_read_concatenated_gz("PROGRAM_NOT_INSTALLED") is False
