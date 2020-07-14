@@ -305,6 +305,16 @@ class PipedGzipWriter(PipedCompressionWriter):
             super().__init__(path, "gzip", mode, compresslevel, None, threads)
 
 
+class PipedIGzipReader(PipedCompressionReader):
+    def __init__(self, path, mode="r"):
+        super().__init__(path, "igzip", mode)
+
+
+class PipedIGzipWriter(PipedCompressionWriter):
+    def __init__(self, path, mode="wt", compresslevel=1):
+        super().__init__(path, "igzip", mode, compresslevel)
+
+
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
     # to be closable without closing sys.stdout.
