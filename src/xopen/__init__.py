@@ -311,7 +311,11 @@ class PipedIGzipReader(PipedCompressionReader):
 
 
 class PipedIGzipWriter(PipedCompressionWriter):
-    def __init__(self, path, mode="wt", compresslevel=1):
+    # Threads are supported but do not add any speed.
+    # See: https://gist.github.com/rhpvorderman/4f1201c3f39518ff28dde45409eb696b
+    def __init__(self, path, mode="wt", compresslevel=None):
+        if compresslevel is not None and compresslevel not in range(0, 4):
+            raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(path, "igzip", mode, compresslevel)
 
 
@@ -336,7 +340,11 @@ def _open_gz(filename, mode, compresslevel, threads):
             if 'r' in mode:
                 return PipedGzipReader(filename, mode, threads=threads)
             else:
-                return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+                try:
+                    return PipedIGzipWriter(filename, mode, compresslevel)
+                except (FileNotFoundError, ValueError):
+                    # Compression level higher than 3 or no igzip installed
+                    return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
         except FileNotFoundError:
             pass  # We try without threads.
 
