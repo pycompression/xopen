@@ -20,6 +20,9 @@ setup(
     license='MIT',
     package_dir={'': 'src'},
     packages=find_packages('src'),
+    package_data={
+        'xopen': ['resources/concatenated.gz']
+    },
     extras_require={
         'dev': ['pytest'],
     },

@@ -13,6 +13,7 @@ import time
 import stat
 import signal
 import pathlib
+import subprocess
 from subprocess import Popen, PIPE
 from typing import Optional
 
@@ -65,6 +66,29 @@ def _available_cpu_count():
         return multiprocessing.cpu_count()
     except (ImportError, NotImplementedError):
         return 1
+
+
+def _can_read_concatenated_gz(program: str) -> bool:
+    """
+    Function to test igzip's bug as reported here: https://github.com/intel/isa-l/issues/143
+    Instead of elaborate version string checking once the problem is fixed, it
+    is much easier to use this, "proof in the pudding" type of evaluation.
+    The used test gzip file was created by:
+    echo -n "AB" > concatenated.gz
+    echo -n "CD" >> concatenated.gz
+    echo -n "EF" >> concatenated.gz
+    echo -n "GH" >> concatenated.gz
+    gzip and pigz can handle this without issue. But bugged version of igzip
+    will only extract the first "AB" block.
+    """
+    test_gz = pathlib.Path(__file__).parent / "resources" / "concatenated.gz"
+    try:
+        result = subprocess.run([program, "-c", "-d", str(test_gz.absolute())],
+                                check=True, stderr=PIPE, stdout=PIPE)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Program can't read zip, or is not installed.
+        return False
+    return result.stdout == b"ABCDEFGH"
 
 
 class Closing:
@@ -338,12 +362,18 @@ def _open_gz(filename, mode, compresslevel, threads):
     if threads != 0:
         try:
             if 'r' in mode:
+                if _can_read_concatenated_gz("igzip"):
+                    # See bug: https://github.com/intel/isa-l/issues/143
+                    # This function will make sure only not bugged versions of
+                    # igzip that can read concatenated gz archives are used.
+                    return PipedIGzipReader(filename, mode)
                 return PipedGzipReader(filename, mode, threads=threads)
             else:
                 try:
+                    # igzip writing is not bugged so we can always use that safely.
                     return PipedIGzipWriter(filename, mode, compresslevel)
                 except (FileNotFoundError, ValueError):
-                    # Compression level higher than 3 or no igzip installed
+                    # No igzip installed or compression level higher than 3
                     return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
         except FileNotFoundError:
             pass  # We try without threads.

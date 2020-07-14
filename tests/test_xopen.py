@@ -6,7 +6,7 @@ import time
 import pytest
 from pathlib import Path
 
-from xopen import xopen, PipedGzipReader, PipedGzipWriter
+from xopen import xopen, PipedGzipReader, PipedGzipWriter, _can_read_concatenated_gz
 
 
 extensions = ["", ".gz", ".bz2"]
@@ -394,3 +394,11 @@ if lzma is not None:
     def test_detect_xz_file_format_from_content():
         with xopen("tests/file.txt.xz.test", "rb") as fh:
             assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
+
+
+def test_concatenated_gzip_function():
+    assert _can_read_concatenated_gz("gzip") is True
+    assert _can_read_concatenated_gz("pigz") is True
+    assert _can_read_concatenated_gz("xz") is False
+    # For not installed igzip this also needs to return false.
+    assert _can_read_concatenated_gz("PROGRAM_NOT_INSTALLED") is False
