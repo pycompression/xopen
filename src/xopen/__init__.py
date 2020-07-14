@@ -74,10 +74,10 @@ def _can_read_concatenated_gz(program: str) -> bool:
     Instead of elaborate version string checking once the problem is fixed, it
     is much easier to use this, "proof in the pudding" type of evaluation.
     The used test gzip file was created by:
-    echo -n "AB" > concatenated.gz
-    echo -n "CD" >> concatenated.gz
-    echo -n "EF" >> concatenated.gz
-    echo -n "GH" >> concatenated.gz
+    echo -n "AB" | gzip -c > concatenated.gz
+    echo -n "CD" | gzip -c >> concatenated.gz
+    echo -n "EF" | gzip -c >> concatenated.gz
+    echo -n "GH" | gzip -c >> concatenated.gz
     gzip and pigz can handle this without issue. But bugged version of igzip
     will only extract the first "AB" block.
     """
