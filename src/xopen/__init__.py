@@ -14,6 +14,7 @@ import stat
 import signal
 import pathlib
 from subprocess import Popen, PIPE
+from typing import Optional
 
 from ._version import version as __version__
 
@@ -89,7 +90,10 @@ class PipedCompressionWriter(Closing):
     """
     Write Compressed files by running an external process and piping into it.
     """
-    def __init__(self, path, program, mode='wt', compresslevel=6, threads_flag=None, threads=None):
+    def __init__(self, path, program, mode='wt',
+                 compresslevel: Optional[int] = None,
+                 threads_flag: str = None,
+                 threads: Optional[int] = None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -130,7 +134,7 @@ class PipedCompressionWriter(Closing):
         if threads != 0 and self.threads_flag is not None:
             program_args += [self.threads_flag, str(threads)]
         extra_args = []
-        if 'w' in mode and compresslevel != 6:
+        if 'w' in mode and compresslevel is not None:
             extra_args += ['-' + str(compresslevel)]
 
         kwargs = dict(stdin=PIPE, stdout=outfile, stderr=devnull)
@@ -292,7 +296,9 @@ class PipedGzipWriter(PipedCompressionWriter):
     par with gzip itself, but running an external gzip can still reduce wall-clock
     time because the compression happens in a separate process.
     """
-    def __init__(self, path, mode='wt', compresslevel=6, threads=None):
+    def __init__(self, path, mode='wt', compresslevel=None, threads=None):
+        if compresslevel is not None and compresslevel not in range(1, 10):
+            raise ValueError("compresslevel must be between 1 and 9")
         try:
             super().__init__(path, "pigz", mode, compresslevel, "-p", threads)
         except FileNotFoundError:
@@ -327,7 +333,10 @@ def _open_gz(filename, mode, compresslevel, threads):
     if 'r' in mode:
         return gzip.open(filename, mode)
     else:
-        return gzip.open(filename, mode, compresslevel=compresslevel)
+        # Override gzip.open's default of 9. That is way to slow for streaming
+        # to a large file.
+        return gzip.open(filename, mode,
+                         compresslevel=6 if compresslevel is None else compresslevel)
 
 
 def _detect_format_from_content(filename):
@@ -367,7 +376,7 @@ def _detect_format_from_extension(filename):
         return None
 
 
-def xopen(filename, mode='r', compresslevel=6, threads=None):
+def xopen(filename, mode='r', compresslevel=None, threads=None):
     """
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
@@ -386,7 +395,8 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     will raise an error.
 
     compresslevel is the compression level for writing to gzip files.
-    This parameter is ignored for the other compression formats.
+    This parameter is ignored for the other compression formats. If set to
+    None (default) will choose the default compression level for the format.
 
     threads only has a meaning when reading or writing gzip files.
 
@@ -400,8 +410,6 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
         raise ValueError("Mode '{}' not supported".format(mode))
     filename = fspath(filename)
-    if compresslevel not in range(1, 10):
-        raise ValueError("compresslevel must be between 1 and 9")
 
     if filename == '-':
         return _open_stdin_or_out(mode)
