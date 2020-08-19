@@ -24,6 +24,22 @@ try:
 except ImportError:
     lzma = None
 
+try:
+    import fcntl
+    # fcntl.F_SETPIPE_SZ will be available in python 3.10.
+    # https://github.com/python/cpython/pull/21921
+    # If not available: set it to the correct value for known platforms.
+    if not hasattr(fcntl, "F_SETPIPE_SZ") and sys.platform == "linux":
+        setattr(fcntl, "F_SETPIPE_SZ", 1031)
+except ImportError:
+    fcntl = None
+
+_MAX_PIPE_SIZE_PATH = pathlib.Path("/proc/sys/fs/pipe-max-size")
+if _MAX_PIPE_SIZE_PATH.exists():
+    _MAX_PIPE_SIZE = int(_MAX_PIPE_SIZE_PATH.read_text())
+else:
+    _MAX_PIPE_SIZE = None
+
 
 try:
     from os import fspath  # Exists in Python 3.6+
@@ -65,6 +81,16 @@ def _available_cpu_count():
         return multiprocessing.cpu_count()
     except (ImportError, NotImplementedError):
         return 1
+
+
+def _set_pipe_size_to_max(fd: int):
+    """
+    Set pipe size to maximum on platforms that support it.
+    :param fd: The file descriptor to increase the pipe size for.
+    """
+    if not hasattr(fcntl, "F_SETPIPE_SZ") or not _MAX_PIPE_SIZE:
+        return
+    fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, _MAX_PIPE_SIZE)
 
 
 class Closing:
@@ -123,6 +149,8 @@ class PipedCompressionWriter(Closing):
             self.outfile.close()
             self.devnull.close()
             raise
+
+        _set_pipe_size_to_max(self.process.stdin.fileno())
 
         if 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdin)
@@ -199,6 +227,9 @@ class PipedCompressionReader(Closing):
 
         self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
+
+        _set_pipe_size_to_max(self.process.stdout.fileno())
+
         if 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)
         else:
