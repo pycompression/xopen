@@ -326,6 +326,9 @@ def _open_bz2(filename, mode):
 
 
 def _open_xz(filename, mode):
+    if lzma is None:
+        raise ImportError(
+            "Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
     return lzma.open(filename, mode)
 
 
