@@ -86,7 +86,7 @@ class Closing:
             pass
 
 
-class _PipedCompressionWriter(Closing):
+class PipedCompressionWriter(Closing):
     """
     Write Compressed files by running an external process and piping into it.
     """
@@ -174,7 +174,7 @@ class _PipedCompressionWriter(Closing):
         raise io.UnsupportedOperation('not readable')
 
 
-class _PipedCompressionReader(Closing):
+class PipedCompressionReader(Closing):
     """
     Open a pipe to a process for reading a compressed file.
     """
@@ -275,7 +275,7 @@ class _PipedCompressionReader(Closing):
         return None
 
 
-class PipedGzipReader(_PipedCompressionReader):
+class PipedGzipReader(PipedCompressionReader):
     """
     Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
     used to speed up writing by using many compression threads, it is
@@ -289,7 +289,7 @@ class PipedGzipReader(_PipedCompressionReader):
             super().__init__(path, "gzip", mode, None, threads)
 
 
-class PipedGzipWriter(_PipedCompressionWriter):
+class PipedGzipWriter(PipedCompressionWriter):
     """
     Write gzip-compressed files by running an external gzip or pigz process and
     piping into it. pigz is tried first. It is fast because it can compress using
