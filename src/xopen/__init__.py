@@ -121,9 +121,11 @@ class PipedCompressionWriter(Closing):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
+        threads_flag -- which flag is used to denote the number of threads in the program.
+            If set to none, program will be called without threads flag.
         threads (int) -- number of threads. If this is set to None, a reasonable default is
             used. At the moment, this means that the number of available CPU cores is used, capped
-            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
+            at four to avoid creating too many threads. Use 0 to use all available cores.
         """
         if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
             raise ValueError(
@@ -134,9 +136,9 @@ class PipedCompressionWriter(Closing):
         self.devnull = open(os.devnull, mode)
         self.closed = False
         self.name = path
-        self.mode = mode
-        self.program = program
-        self.threads_flag = threads_flag
+        self._mode = mode
+        self._program = program
+        self._threads_flag = threads_flag
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
@@ -154,9 +156,9 @@ class PipedCompressionWriter(Closing):
             self._file = self.process.stdin
 
     def _open_process(self, mode, compresslevel, threads, outfile, devnull):
-        program_args = [self.program]
-        if threads != 0 and self.threads_flag is not None:
-            program_args += [self.threads_flag, str(threads)]
+        program_args = [self._program]
+        if threads != 0 and self._threads_flag is not None:
+            program_args += [self._threads_flag, str(threads)]
         extra_args = []
         if 'w' in mode and compresslevel is not None:
             extra_args += ['-' + str(compresslevel)]
@@ -187,7 +189,7 @@ class PipedCompressionWriter(Closing):
         self.devnull.close()
         if retcode != 0:
             raise OSError(
-                "Output {} process terminated with exit code {}".format(self.program, retcode))
+                "Output {} process terminated with exit code {}".format(self._program, retcode))
 
     def __iter__(self):
         return self
@@ -318,6 +320,13 @@ class PipedGzipWriter(PipedCompressionWriter):
     multiple cores. Also it is more efficient on one core.
     """
     def __init__(self, path, mode='wt', compresslevel=None, threads=None):
+        """
+        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+        compresslevel -- compression level
+        threads (int) -- number of pigz threads. If this is set to None, a reasonable default is
+            used. At the moment, this means that the number of available CPU cores is used, capped
+            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
+        """
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 9")
         try:
@@ -374,6 +383,9 @@ def _open_bz2(filename, mode):
 
 
 def _open_xz(filename, mode):
+    if lzma is None:
+        raise ImportError(
+            "Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
     return lzma.open(filename, mode)
 
 
@@ -399,8 +411,7 @@ def _open_gz(filename, mode, compresslevel, threads):
     if 'r' in mode:
         return gzip.open(filename, mode)
     else:
-        # Override gzip.open's default of 9. That is way to slow for streaming
-        # to a large file.
+        # Override gzip.open's default of 9 for consistency with command-line gzip.
         return gzip.open(filename, mode,
                          compresslevel=6 if compresslevel is None else compresslevel)
 
@@ -462,7 +473,7 @@ def xopen(filename, mode='r', compresslevel=None, threads=None):
 
     compresslevel is the compression level for writing to gzip files.
     This parameter is ignored for the other compression formats. If set to
-    None (default) will choose the default compression level for the format.
+    None (default), level 6 is used.
 
     threads only has a meaning when reading or writing gzip files.
 
