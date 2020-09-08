@@ -14,6 +14,7 @@ import stat
 import signal
 import pathlib
 from subprocess import Popen, PIPE
+from typing import Optional
 
 from ._version import version as __version__
 
@@ -85,25 +86,22 @@ class Closing:
             pass
 
 
-class PipedGzipWriter(Closing):
+class PipedCompressionWriter(Closing):
     """
-    Write gzip-compressed files by running an external gzip or pigz process and
-    piping into it. pigz is tried first. It is fast because it can compress using
-    multiple cores.
-
-    If pigz is not available, a gzip subprocess is used. On Python 2, this saves
-    CPU time because gzip.GzipFile is slower. On Python 3, gzip.GzipFile is on
-    par with gzip itself, but running an external gzip can still reduce wall-clock
-    time because the compression happens in a separate process.
+    Write Compressed files by running an external process and piping into it.
     """
-
-    def __init__(self, path, mode='wt', compresslevel=6, threads=None):
+    def __init__(self, path, program, mode='wt',
+                 compresslevel: Optional[int] = None,
+                 threads_flag: str = None,
+                 threads: Optional[int] = None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
-        compresslevel -- gzip compression level
-        threads (int) -- number of pigz threads. If this is set to None, a reasonable default is
+        compresslevel -- compression level
+        threads_flag -- which flag is used to denote the number of threads in the program.
+            If set to none, program will be called without threads flag.
+        threads (int) -- number of threads. If this is set to None, a reasonable default is
             used. At the moment, this means that the number of available CPU cores is used, capped
-            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
+            at four to avoid creating too many threads. Use 0 to use all available cores.
         """
         if mode not in ('w', 'wt', 'wb', 'a', 'at', 'ab'):
             raise ValueError(
@@ -114,11 +112,14 @@ class PipedGzipWriter(Closing):
         self.devnull = open(os.devnull, mode)
         self.closed = False
         self.name = path
+        self._mode = mode
+        self._program = program
+        self._threads_flag = threads_flag
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
         try:
-            self.process, self.program = self._open_process(
+            self.process = self._open_process(
                 mode, compresslevel, threads, self.outfile, self.devnull)
         except OSError:
             self.outfile.close()
@@ -130,13 +131,12 @@ class PipedGzipWriter(Closing):
         else:
             self._file = self.process.stdin
 
-    @staticmethod
-    def _open_process(mode, compresslevel, threads, outfile, devnull):
-        pigz_args = ['pigz']
-        if threads != 0:
-            pigz_args += ['-p', str(threads)]
+    def _open_process(self, mode, compresslevel, threads, outfile, devnull):
+        program_args = [self._program]
+        if threads != 0 and self._threads_flag is not None:
+            program_args += [self._threads_flag, str(threads)]
         extra_args = []
-        if 'w' in mode and compresslevel != 6:
+        if 'w' in mode and compresslevel is not None:
             extra_args += ['-' + str(compresslevel)]
 
         kwargs = dict(stdin=PIPE, stdout=outfile, stderr=devnull)
@@ -148,14 +148,9 @@ class PipedGzipWriter(Closing):
         if sys.platform != 'win32':
             kwargs['close_fds'] = True
 
-        try:
-            process = Popen(pigz_args + extra_args, **kwargs)
-            program = 'pigz'
-        except OSError:  # TODO Use FileNotFound instead (Python 3)
-            # pigz not found, try regular gzip
-            process = Popen(['gzip'] + extra_args, **kwargs)
-            program = 'gzip'
-        return process, program
+        process = Popen(program_args + extra_args, **kwargs)
+
+        return process
 
     def write(self, arg):
         self._file.write(arg)
@@ -170,7 +165,7 @@ class PipedGzipWriter(Closing):
         self.devnull.close()
         if retcode != 0:
             raise OSError(
-                "Output {} process terminated with exit code {}".format(self.program, retcode))
+                "Output {} process terminated with exit code {}".format(self._program, retcode))
 
     def __iter__(self):
         return self
@@ -179,35 +174,32 @@ class PipedGzipWriter(Closing):
         raise io.UnsupportedOperation('not readable')
 
 
-class PipedGzipReader(Closing):
+class PipedCompressionReader(Closing):
     """
-    Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
-    used to speed up writing by using many compression threads, it is
-    also faster when reading, even when forced to use a single thread
-    (ca. 2x speedup).
+    Open a pipe to a process for reading a compressed file.
     """
 
-    def __init__(self, path, mode='r', threads=None):
+    def __init__(self, path, program, mode='r', threads_flag=None, threads=None):
         """
         Raise an OSError when pigz could not be found.
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
 
-        pigz_args = ['pigz', '-cd', path]
+        program_args = [program, '-cd', path]
 
-        if threads is None:
-            # Single threaded behaviour by default because:
-            # - Using a single thread to read a file is the least unexpected
-            #   behaviour. (For users of xopen, who do not know which backend is used.)
-            # - There is quite a substantial overhead (+25% CPU time) when
-            #   using multiple threads while there is only a 10% gain in wall
-            #   clock time.
-            threads = 1
+        if threads_flag is not None:
+            if threads is None:
+                # Single threaded behaviour by default because:
+                # - Using a single thread to read a file is the least unexpected
+                #   behaviour. (For users of xopen, who do not know which backend is used.)
+                # - There is quite a substantial overhead (+25% CPU time) when
+                #   using multiple threads while there is only a 10% gain in wall
+                #   clock time.
+                threads = 1
+            program_args += [threads_flag, str(threads)]
 
-        pigz_args += ['-p', str(threads)]
-
-        self.process = Popen(pigz_args, stdout=PIPE, stderr=PIPE)
+        self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
         if 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)
@@ -283,6 +275,45 @@ class PipedGzipReader(Closing):
         return None
 
 
+class PipedGzipReader(PipedCompressionReader):
+    """
+    Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
+    used to speed up writing by using many compression threads, it is
+    also faster when reading, even when forced to use a single thread
+    (ca. 2x speedup).
+    """
+    def __init__(self, path, mode='r', threads=None):
+        try:
+            super().__init__(path, "pigz", mode, "-p", threads)
+        except FileNotFoundError:
+            super().__init__(path, "gzip", mode, None, threads)
+
+
+class PipedGzipWriter(PipedCompressionWriter):
+    """
+    Write gzip-compressed files by running an external gzip or pigz process and
+    piping into it. pigz is tried first. It is fast because it can compress using
+    multiple cores. Also it is more efficient on one core.
+    If pigz is not available, a gzip subprocess is used. On Python 3, gzip.GzipFile is on
+    par with gzip itself, but running an external gzip can still reduce wall-clock
+    time because the compression happens in a separate process.
+    """
+    def __init__(self, path, mode='wt', compresslevel=None, threads=None):
+        """
+        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+        compresslevel -- compression level
+        threads (int) -- number of pigz threads. If this is set to None, a reasonable default is
+            used. At the moment, this means that the number of available CPU cores is used, capped
+            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
+        """
+        if compresslevel is not None and compresslevel not in range(1, 10):
+            raise ValueError("compresslevel must be between 1 and 9")
+        try:
+            super().__init__(path, "pigz", mode, compresslevel, "-p", threads)
+        except FileNotFoundError:
+            super().__init__(path, "gzip", mode, compresslevel, None, threads)
+
+
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
     # to be closable without closing sys.stdout.
@@ -314,7 +345,9 @@ def _open_gz(filename, mode, compresslevel, threads):
     if 'r' in mode:
         return gzip.open(filename, mode)
     else:
-        return gzip.open(filename, mode, compresslevel=compresslevel)
+        # Override gzip.open's default of 9 for consistency with command-line gzip.
+        return gzip.open(filename, mode,
+                         compresslevel=6 if compresslevel is None else compresslevel)
 
 
 def _detect_format_from_content(filename):
@@ -354,7 +387,7 @@ def _detect_format_from_extension(filename):
         return None
 
 
-def xopen(filename, mode='r', compresslevel=6, threads=None):
+def xopen(filename, mode='r', compresslevel=None, threads=None):
     """
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
@@ -373,7 +406,8 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     will raise an error.
 
     compresslevel is the compression level for writing to gzip files.
-    This parameter is ignored for the other compression formats.
+    This parameter is ignored for the other compression formats. If set to
+    None (default), level 6 is used.
 
     threads only has a meaning when reading or writing gzip files.
 
@@ -387,8 +421,6 @@ def xopen(filename, mode='r', compresslevel=6, threads=None):
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
         raise ValueError("Mode '{}' not supported".format(mode))
     filename = fspath(filename)
-    if compresslevel not in range(1, 10):
-        raise ValueError("compresslevel must be between 1 and 9")
 
     if filename == '-':
         return _open_stdin_or_out(mode)
