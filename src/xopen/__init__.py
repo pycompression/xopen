@@ -14,6 +14,7 @@ import stat
 import signal
 import pathlib
 import subprocess
+import tempfile
 from subprocess import Popen, PIPE
 from typing import Optional
 
@@ -96,25 +97,25 @@ def _set_pipe_size_to_max(fd: int):
 
 def _can_read_concatenated_gz(program: str) -> bool:
     """
-    Function to test igzip's bug as reported here: https://github.com/intel/isa-l/issues/143
-    Instead of elaborate version string checking once the problem is fixed, it
-    is much easier to use this, "proof in the pudding" type of evaluation.
-    The used test gzip file was created by:
-    echo -n "AB" | gzip -c > concatenated.gz
-    echo -n "CD" | gzip -c >> concatenated.gz
-    echo -n "EF" | gzip -c >> concatenated.gz
-    echo -n "GH" | gzip -c >> concatenated.gz
-    gzip and pigz can handle this without issue. But bugged version of igzip
-    will only extract the first "AB" block.
+    Check if a concatenated gzip file can be read properly. Not all deflate
+    programs handle this properly.
     """
-    test_gz = pathlib.Path(__file__).parent / "resources" / "concatenated.gz"
+    fd, temp_path = tempfile.mkstemp(suffix=".gz", prefix="xopen.")
     try:
-        result = subprocess.run([program, "-c", "-d", str(test_gz.absolute())],
-                                check=True, stderr=PIPE, stdout=PIPE)
-    except (subprocess.CalledProcessError):
-        # Program can't read zip
-        return False
-    return result.stdout == b"ABCDEFGH"
+        # Create a concatenated gzip file. gzip.compress recreates the contents
+        # of a gzip file including header and trailer.
+        with open(temp_path, "wb") as temp_file:
+            temp_file.write(gzip.compress(b"AB") + gzip.compress(b"CD"))
+        try:
+            result = subprocess.run([program, "-c", "-d", temp_path],
+                                    check = True, stderr = PIPE, stdout = PIPE)
+            return result.stdout == b"ABCD"
+        except subprocess.CalledProcessError:
+            # Program can't read zip
+            return False
+    finally:
+        os.close(fd)
+        os.remove(temp_path)
 
 
 class Closing:
