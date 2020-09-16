@@ -379,6 +379,9 @@ class PipedIGzipReader(PipedCompressionReader):
     """
     def __init__(self, path, mode="r"):
         if not _can_read_concatenated_gz("igzip"):
+            # Instead of elaborate version string checking once the problem is
+            # fixed, it is much easier to use this, "proof in the pudding" type
+            # of evaluation.
             raise ValueError(
                 "This version of igzip does not support reading "
                 "concatenated gzip files and is therefore not "
