@@ -2,12 +2,13 @@ import io
 import os
 import random
 import signal
+import sys
 import time
 import pytest
 from pathlib import Path
 
-from xopen import xopen, PipedGzipReader, PipedGzipWriter, _MAX_PIPE_SIZE, \
-    _can_read_concatenated_gz
+from xopen import xopen, PipedCompressionWriter, PipedGzipReader, \
+    PipedGzipWriter, _MAX_PIPE_SIZE, _can_read_concatenated_gz
 
 extensions = ["", ".gz", ".bz2"]
 
@@ -415,6 +416,6 @@ def test_concatenated_gzip_function():
 def test_pipesize_changed(tmpdir):
     path = Path(str(tmpdir), "hello.gz")
     with xopen(path, "wb") as f:
-        assert isinstance(f, PipedGzipWriter)
+        assert isinstance(f, PipedCompressionWriter)
         assert fcntl.fcntl(f._file.fileno(),
                            fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
