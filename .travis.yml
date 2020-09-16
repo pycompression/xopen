@@ -1,6 +1,6 @@
 language: python
 
-dist: xenial
+dist: focal
 
 cache:
   directories:
@@ -49,3 +49,11 @@ jobs:
       python: "3.6"
       install: python3 -m pip install flake8
       script: flake8 src/ tests/
+
+    - stage: test
+      name: igzip
+      python: "3.6"
+      install:
+        - sudo apt-get update && sudo apt-get install -y pigz isal
+        - pip install --upgrade coverage codecov
+        - pip install .

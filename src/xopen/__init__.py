@@ -13,6 +13,8 @@ import time
 import stat
 import signal
 import pathlib
+import subprocess
+import tempfile
 from subprocess import Popen, PIPE
 from typing import Optional
 
@@ -91,6 +93,29 @@ def _set_pipe_size_to_max(fd: int):
     if not hasattr(fcntl, "F_SETPIPE_SZ") or not _MAX_PIPE_SIZE:
         return
     fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, _MAX_PIPE_SIZE)
+
+
+def _can_read_concatenated_gz(program: str) -> bool:
+    """
+    Check if a concatenated gzip file can be read properly. Not all deflate
+    programs handle this properly.
+    """
+    fd, temp_path = tempfile.mkstemp(suffix=".gz", prefix="xopen.")
+    try:
+        # Create a concatenated gzip file. gzip.compress recreates the contents
+        # of a gzip file including header and trailer.
+        with open(temp_path, "wb") as temp_file:
+            temp_file.write(gzip.compress(b"AB") + gzip.compress(b"CD"))
+        try:
+            result = subprocess.run([program, "-c", "-d", temp_path],
+                                    check=True, stderr=PIPE, stdout=PIPE)
+            return result.stdout == b"ABCD"
+        except subprocess.CalledProcessError:
+            # Program can't read zip
+            return False
+    finally:
+        os.close(fd)
+        os.remove(temp_path)
 
 
 class Closing:
@@ -345,6 +370,45 @@ class PipedGzipWriter(PipedCompressionWriter):
             super().__init__(path, "gzip", mode, compresslevel, None, threads)
 
 
+class PipedIGzipReader(PipedCompressionReader):
+    """
+    Uses igzip for reading of a gzipped file. This is much faster than either
+    gzip or pigz which were written to run on a wide array of systems. igzip
+    can only run on x86 and ARM architectures, but is able to use more
+    architecture-specific optimizations as a result.
+    """
+    def __init__(self, path, mode="r"):
+        if not _can_read_concatenated_gz("igzip"):
+            # Instead of elaborate version string checking once the problem is
+            # fixed, it is much easier to use this, "proof in the pudding" type
+            # of evaluation.
+            raise ValueError(
+                "This version of igzip does not support reading "
+                "concatenated gzip files and is therefore not "
+                "safe to use. See: https://github.com/intel/isa-l/issues/143")
+        super().__init__(path, "igzip", mode)
+
+
+class PipedIGzipWriter(PipedCompressionWriter):
+    """
+    Uses igzip for writing a gzipped file. This is much faster than either
+    gzip or pigz which were written to run on a wide array of systems. igzip
+    can only run on x86 and ARM architectures, but is able to use more
+    architecture-specific optimizations as a result.
+
+    Threads are supported by a flag, but do not add any speed. Also on some
+    distro version (isal package in debian buster) the thread flag is not
+    present. For these reason threads are omitted from the interface.
+    Only compresslevel 0-3 are supported and these output slightly different
+    filesizes from their pigz/gzip counterparts.
+    See: https://gist.github.com/rhpvorderman/4f1201c3f39518ff28dde45409eb696b
+    """
+    def __init__(self, path, mode="wt", compresslevel=None):
+        if compresslevel is not None and compresslevel not in range(0, 4):
+            raise ValueError("compresslevel must be between 0 and 3")
+        super().__init__(path, "igzip", mode, compresslevel)
+
+
 def _open_stdin_or_out(mode):
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
     # to be closable without closing sys.stdout.
@@ -367,9 +431,18 @@ def _open_gz(filename, mode, compresslevel, threads):
     if threads != 0:
         try:
             if 'r' in mode:
-                return PipedGzipReader(filename, mode, threads=threads)
+                try:
+                    return PipedIGzipReader(filename, mode)
+                except (FileNotFoundError, ValueError):
+                    # No igzip installed or version does not support reading
+                    # concatenated files.
+                    return PipedGzipReader(filename, mode, threads=threads)
             else:
-                return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+                try:
+                    return PipedIGzipWriter(filename, mode, compresslevel)
+                except (FileNotFoundError, ValueError):
+                    # No igzip installed or compression level higher than 3
+                    return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
         except FileNotFoundError:
             pass  # We try without threads.
 
