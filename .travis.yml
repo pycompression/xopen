@@ -50,7 +50,8 @@ jobs:
       install: python3 -m pip install flake8
       script: flake8 src/ tests/
 
-    - name: igzip
+    - stage: test
+      name: igzip
       python: "3.6"
       install:
         - sudo apt-get update && sudo apt-get install -y pigz isal
