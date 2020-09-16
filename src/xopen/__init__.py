@@ -108,7 +108,7 @@ def _can_read_concatenated_gz(program: str) -> bool:
             temp_file.write(gzip.compress(b"AB") + gzip.compress(b"CD"))
         try:
             result = subprocess.run([program, "-c", "-d", temp_path],
-                                    check = True, stderr = PIPE, stdout = PIPE)
+                                    check=True, stderr=PIPE, stdout=PIPE)
             return result.stdout == b"ABCD"
         except subprocess.CalledProcessError:
             # Program can't read zip
