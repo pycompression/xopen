@@ -1,6 +1,7 @@
 import io
 import os
 import random
+import shutil
 import signal
 import sys
 import time
@@ -39,6 +40,23 @@ def ext(request):
 @pytest.fixture(params=files)
 def fname(request):
     return request.param
+
+
+@pytest.fixture
+def lacking_pigz_permissions(tmp_path):
+    """
+    Set PATH to a directory that contains a pigz binary with permissions set to 000.
+    If no suitable pigz binary could be found, PATH is set to an empty directory
+    """
+    pigz_path = shutil.which("pigz")
+    if pigz_path:
+        shutil.copy(pigz_path, tmp_path)
+        os.chmod(tmp_path / "pigz", 0)
+
+    path = os.environ["PATH"]
+    os.environ["PATH"] = str(tmp_path)
+    yield
+    os.environ["PATH"] = path
 
 
 @pytest.fixture
@@ -419,3 +437,8 @@ def test_pipesize_changed(tmpdir):
         assert isinstance(f, PipedCompressionWriter)
         assert fcntl.fcntl(f._file.fileno(),
                            fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
+
+
+def test_xopen_falls_back_to_gzip_open(lacking_pigz_permissions):
+    with xopen("tests/file.txt.gz", "rb") as f:
+        assert f.readline() == CONTENT_LINES[0].encode("utf-8")

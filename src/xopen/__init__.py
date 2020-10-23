@@ -341,7 +341,7 @@ class PipedGzipReader(PipedCompressionReader):
     def __init__(self, path, mode='r', threads=None):
         try:
             super().__init__(path, "pigz", mode, "-p", threads)
-        except FileNotFoundError:
+        except OSError:
             super().__init__(path, "gzip", mode, None, threads)
 
 
@@ -366,7 +366,7 @@ class PipedGzipWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 1 and 9")
         try:
             super().__init__(path, "pigz", mode, compresslevel, "-p", threads)
-        except FileNotFoundError:
+        except OSError:
             super().__init__(path, "gzip", mode, compresslevel, None, threads)
 
 
@@ -433,17 +433,17 @@ def _open_gz(filename, mode, compresslevel, threads):
             if 'r' in mode:
                 try:
                     return PipedIGzipReader(filename, mode)
-                except (FileNotFoundError, ValueError):
+                except (OSError, ValueError):
                     # No igzip installed or version does not support reading
                     # concatenated files.
                     return PipedGzipReader(filename, mode, threads=threads)
             else:
                 try:
                     return PipedIGzipWriter(filename, mode, compresslevel)
-                except (FileNotFoundError, ValueError):
+                except (OSError, ValueError):
                     # No igzip installed or compression level higher than 3
                     return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
-        except FileNotFoundError:
+        except OSError:
             pass  # We try without threads.
 
     if 'r' in mode:
