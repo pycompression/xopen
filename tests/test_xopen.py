@@ -50,8 +50,8 @@ def lacking_pigz_permissions(tmp_path):
     """
     pigz_path = shutil.which("pigz")
     if pigz_path:
-        shutil.copy(pigz_path, tmp_path)
-        os.chmod(tmp_path / "pigz", 0)
+        shutil.copy(pigz_path, str(tmp_path))
+        os.chmod(str(tmp_path / "pigz"), 0)
 
     path = os.environ["PATH"]
     os.environ["PATH"] = str(tmp_path)
