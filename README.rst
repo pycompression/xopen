@@ -34,7 +34,7 @@ tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
 manipulate sequencing data. It has been in successful use within that software
 for a few years.
 
-``xopen`` is compatible with Python versions 3.5 to 3.8.
+``xopen`` is compatible with Python versions 3.5 and later.
 
 
 Usage
