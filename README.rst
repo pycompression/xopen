@@ -27,7 +27,8 @@ For example, ``xopen`` uses ``pigz``, which is a parallel version of ``gzip``,
 to open ``.gz`` files, which is faster than using the built-in ``gzip.open``
 function. ``pigz`` can use multiple threads when compressing, but is also faster
 when reading ``.gz`` files, so it is used both for reading and writing if it is
-available.
+available. For gzip compression levels 1 to 3,
+`igzip <https://github.com/intel/isa-l/>`_ is used for an even greater speedup.
 
 This module has originally been developed as part of the `Cutadapt
 tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
@@ -74,7 +75,7 @@ Kyle Beauchamp <https://github.com/kyleabeauchamp/> has contributed support for
 appending to files.
 
 Ruben Vorderman <https://github.com/rhpvorderman/> contributed improvements to
-make reading gzipped files faster.
+make reading and writing gzipped files faster.
 
 Benjamin Vaisvil <https://github.com/bvaisvil> contributed support for
 format detection from content.
@@ -86,9 +87,15 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
+v1.0.0
+~~~~~~
+* If installed, the ``igzip`` program (part of
+  `Intel ISA-L <https://github.com/intel/isa-l/>`_) is now used for reading
+  and writing gzip-compressed files at compression levels 1-3, which results
+  in a significant speedup.
+
 v0.9.0
 ~~~~~~
-
 * When the file name extension of a file to be opened for reading is not
   available, the content is inspected (if possible) and used to determine
   which compression format applies.
@@ -128,10 +135,13 @@ v0.5.0
 * xopen now accepts pathlib.Path objects.
 
 
-Author
-------
+Contributors
+------------
 
-Marcel Martin <mail@marcelm.net> (`@marcelm_ on Twitter <https://twitter.com/marcelm_>`_)
+* Marcel Martin
+* Ruben Vorderman
+* For more contributors, see <https://github.com/marcelm/xopen/graphs/contributors>
+
 
 Links
 -----
