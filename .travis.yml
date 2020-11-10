@@ -53,6 +53,12 @@ jobs:
       script: flake8 src/ tests/
 
     - stage: test
+      name: mypy
+      python: "3.6"
+      install: python3 -m pip install mypy
+      script: mypy src/
+
+    - stage: test
       name: igzip
       python: "3.6"
       install:

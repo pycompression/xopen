@@ -16,6 +16,7 @@ setup(
     license='MIT',
     package_dir={'': 'src'},
     packages=find_packages('src'),
+    package_data={"xopen": ["py.typed"]},
     extras_require={
         'dev': ['pytest'],
     },
