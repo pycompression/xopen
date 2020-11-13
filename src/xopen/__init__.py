@@ -174,6 +174,7 @@ class PipedCompressionWriter(Closing):
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
+        self._threads = threads
         try:
             self.process = self._open_process(
                 mode, compresslevel, threads, self.outfile, self.devnull)
@@ -188,6 +189,15 @@ class PipedCompressionWriter(Closing):
             self._file = io.TextIOWrapper(self.process.stdin)  # type: IO
         else:
             self._file = self.process.stdin
+
+    def __repr__(self):
+        return "{}('{}', mode='{}', program='{}', threads={})".format(
+            self.__class__.__name__,
+            self.name,
+            self._mode,
+            self._program,
+            self._threads,
+        )
 
     def _open_process(
         self, mode: str, compresslevel: Optional[int], threads: int, outfile: TextIO,
@@ -254,7 +264,7 @@ class PipedCompressionReader(Closing):
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
-
+        self._program = program
         program_args = [program, '-cd', path]
 
         if threads_flag is not None:
@@ -267,13 +277,14 @@ class PipedCompressionReader(Closing):
                 #   clock time.
                 threads = 1
             program_args += [threads_flag, str(threads)]
-
+        self._threads = threads
         self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
 
         assert self.process.stdout is not None
         _set_pipe_size_to_max(self.process.stdout.fileno())
 
+        self._mode = mode
         if 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)  # type: IO
         else:
@@ -285,6 +296,15 @@ class PipedCompressionReader(Closing):
         # a non-existing file)
         time.sleep(0.01)
         self._raise_if_error()
+
+    def __repr__(self):
+        return "{}('{}', mode='{}', program='{}', threads={})".format(
+            self.__class__.__name__,
+            self.name,
+            self._mode,
+            self._program,
+            self._threads,
+        )
 
     def close(self) -> None:
         if self.closed:
