@@ -16,7 +16,7 @@ import pathlib
 import subprocess
 import tempfile
 from abc import ABC, abstractmethod
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, TextIO, AnyStr, IO
 
 from ._version import version as __version__
@@ -93,7 +93,10 @@ def _set_pipe_size_to_max(fd: int) -> None:
     """
     if not hasattr(fcntl, "F_SETPIPE_SZ") or not _MAX_PIPE_SIZE:
         return
-    fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, _MAX_PIPE_SIZE)  # type: ignore
+    try:
+        fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, _MAX_PIPE_SIZE)  # type: ignore
+    except OSError:
+        pass
 
 
 def _can_read_concatenated_gz(program: str) -> bool:
@@ -165,7 +168,6 @@ class PipedCompressionWriter(Closing):
 
         # TODO use a context manager
         self.outfile = open(path, mode)
-        self.devnull = open(os.devnull, mode)
         self.closed = False
         self.name = path
         self._mode = mode
@@ -174,12 +176,12 @@ class PipedCompressionWriter(Closing):
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
+        self._threads = threads
         try:
             self.process = self._open_process(
-                mode, compresslevel, threads, self.outfile, self.devnull)
+                mode, compresslevel, threads, self.outfile)
         except OSError:
             self.outfile.close()
-            self.devnull.close()
             raise
         assert self.process.stdin is not None
         _set_pipe_size_to_max(self.process.stdin.fileno())
@@ -189,9 +191,17 @@ class PipedCompressionWriter(Closing):
         else:
             self._file = self.process.stdin
 
+    def __repr__(self):
+        return "{}('{}', mode='{}', program='{}', threads={})".format(
+            self.__class__.__name__,
+            self.name,
+            self._mode,
+            self._program,
+            self._threads,
+        )
+
     def _open_process(
         self, mode: str, compresslevel: Optional[int], threads: int, outfile: TextIO,
-        devnull: TextIO
     ) -> Popen:
         program_args = [self._program]
         if threads != 0 and self._threads_flag is not None:
@@ -200,7 +210,7 @@ class PipedCompressionWriter(Closing):
         if 'w' in mode and compresslevel is not None:
             extra_args += ['-' + str(compresslevel)]
 
-        kwargs = dict(stdin=PIPE, stdout=outfile, stderr=devnull)
+        kwargs = dict(stdin=PIPE, stdout=outfile, stderr=DEVNULL)
 
         # Setting close_fds to True in the Popen arguments is necessary due to
         # <http://bugs.python.org/issue12786>.
@@ -222,7 +232,6 @@ class PipedCompressionWriter(Closing):
         self._file.close()
         retcode = self.process.wait()
         self.outfile.close()
-        self.devnull.close()
         if retcode != 0:
             raise OSError(
                 "Output {} process terminated with exit code {}".format(self._program, retcode))
@@ -254,7 +263,7 @@ class PipedCompressionReader(Closing):
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
-
+        self._program = program
         program_args = [program, '-cd', path]
 
         if threads_flag is not None:
@@ -267,13 +276,14 @@ class PipedCompressionReader(Closing):
                 #   clock time.
                 threads = 1
             program_args += [threads_flag, str(threads)]
-
+        self._threads = threads
         self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
 
         assert self.process.stdout is not None
         _set_pipe_size_to_max(self.process.stdout.fileno())
 
+        self._mode = mode
         if 'b' not in mode:
             self._file = io.TextIOWrapper(self.process.stdout)  # type: IO
         else:
@@ -285,6 +295,15 @@ class PipedCompressionReader(Closing):
         # a non-existing file)
         time.sleep(0.01)
         self._raise_if_error()
+
+    def __repr__(self):
+        return "{}('{}', mode='{}', program='{}', threads={})".format(
+            self.__class__.__name__,
+            self.name,
+            self._mode,
+            self._program,
+            self._threads,
+        )
 
     def close(self) -> None:
         if self.closed:

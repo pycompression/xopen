@@ -194,8 +194,10 @@ def test_pipedgzipwriter_has_iter_method(tmpdir):
 
 
 def test_iter_without_with(fname):
-    it = iter(xopen(fname, "rt"))
+    f = xopen(fname, "rt")
+    it = iter(f)
     assert CONTENT_LINES[0] == next(it)
+    f.close()
 
 
 def test_pipedgzipreader_iter_without_with():
@@ -442,3 +444,14 @@ def test_pipesize_changed(tmpdir):
 def test_xopen_falls_back_to_gzip_open(lacking_pigz_permissions):
     with xopen("tests/file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
+
+
+def test_open_many_gzip_writers(tmp_path):
+    files = []
+    for i in range(1, 61):
+        path = tmp_path / "{:03d}.txt.gz".format(i)
+        f = xopen(path, "wb", threads=2)
+        f.write(b"hello")
+        files.append(f)
+    for f in files:
+        f.close()
