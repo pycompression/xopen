@@ -93,7 +93,10 @@ def _set_pipe_size_to_max(fd: int) -> None:
     """
     if not hasattr(fcntl, "F_SETPIPE_SZ") or not _MAX_PIPE_SIZE:
         return
-    fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, _MAX_PIPE_SIZE)  # type: ignore
+    try:
+        fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, _MAX_PIPE_SIZE)  # type: ignore
+    except OSError:
+        pass
 
 
 def _can_read_concatenated_gz(program: str) -> bool:
