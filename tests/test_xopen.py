@@ -194,8 +194,10 @@ def test_pipedgzipwriter_has_iter_method(tmpdir):
 
 
 def test_iter_without_with(fname):
-    it = iter(xopen(fname, "rt"))
+    f = xopen(fname, "rt")
+    it = iter(f)
     assert CONTENT_LINES[0] == next(it)
+    f.close()
 
 
 def test_pipedgzipreader_iter_without_with():
