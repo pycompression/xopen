@@ -431,7 +431,7 @@ def test_concatenated_gzip_function():
 
 
 @pytest.mark.skipif(
-    not hasattr(fcntl, "F_GETPIPE_SZ") and _MAX_PIPE_SIZE is not None,
+    not hasattr(fcntl, "F_GETPIPE_SZ") or _MAX_PIPE_SIZE is None,
     reason="Pipe size modifications not available on this platform.")
 def test_pipesize_changed(tmpdir):
     path = Path(str(tmpdir), "hello.gz")
