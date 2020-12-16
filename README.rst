@@ -30,6 +30,12 @@ when reading ``.gz`` files, so it is used both for reading and writing if it is
 available. For gzip compression levels 1 to 3,
 `igzip <https://github.com/intel/isa-l/>`_ is used for an even greater speedup.
 
+For use cases where using only the main thread is desired xopen can be used
+with ``threads=0`` and uses `python-isal
+<https://github.com/pycompression/python-isal>`_ (which binds isa-l) for
+fast decompression and fast compression for levels 1 to 3. For compression
+levels of 4 and higher ``gzip.open`` is used.
+
 This module has originally been developed as part of the `Cutadapt
 tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
 manipulate sequencing data. It has been in successful use within that software
