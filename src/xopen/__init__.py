@@ -497,7 +497,7 @@ def _open_gz_external(filename, mode, compresslevel, threads):
 def _open_gz(filename, mode: str, compresslevel, threads):
     if threads != 0:
         try:
-            _open_gz_external(filename, mode, compresslevel, threads)
+            return _open_gz_external(filename, mode, compresslevel, threads)
         except OSError:
             pass  # We try without threads.
 
