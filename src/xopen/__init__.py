@@ -477,7 +477,7 @@ def _open_xz(filename, mode: str) -> IO:
     return lzma.open(filename, mode)
 
 
-def _open_gz_external(filename, mode, threads, compresslevel):
+def _open_gz_external(filename, mode, compresslevel, threads):
     if 'r' in mode:
         try:
             return PipedIGzipReader(filename, mode)
