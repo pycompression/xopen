@@ -477,22 +477,27 @@ def _open_xz(filename, mode: str) -> IO:
     return lzma.open(filename, mode)
 
 
+def _open_gz_external(filename, mode, threads, compresslevel):
+    if 'r' in mode:
+        try:
+            return PipedIGzipReader(filename, mode)
+        except (OSError, ValueError):
+            # No igzip installed or version does not support reading
+            # concatenated files.
+            return PipedGzipReader(filename, mode, threads=threads)
+    else:
+        try:
+            return PipedIGzipWriter(filename, mode, compresslevel)
+        except (OSError, ValueError):
+            # No igzip installed or compression level higher than 3
+            return PipedGzipWriter(filename, mode, compresslevel,
+                                   threads=threads)
+
+
 def _open_gz(filename, mode: str, compresslevel, threads):
     if threads != 0:
         try:
-            if 'r' in mode:
-                try:
-                    return PipedIGzipReader(filename, mode)
-                except (OSError, ValueError):
-                    # No igzip installed or version does not support reading
-                    # concatenated files.
-                    return PipedGzipReader(filename, mode, threads=threads)
-            else:
-                try:
-                    return PipedIGzipWriter(filename, mode, compresslevel)
-                except (OSError, ValueError):
-                    # No igzip installed or compression level higher than 3
-                    return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+            _open_gz_external(filename, mode, compresslevel, threads)
         except OSError:
             pass  # We try without threads.
 
