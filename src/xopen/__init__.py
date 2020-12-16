@@ -28,6 +28,13 @@ except ImportError:
     lzma = None  # type: ignore
 
 try:
+    from isal import igzip
+    from isal import isal_zlib
+except ImportError:
+    igzip = None
+    isal_zlib = None
+
+try:
     import fcntl
     # fcntl.F_SETPIPE_SZ will be available in python 3.10.
     # https://github.com/python/cpython/pull/21921
@@ -490,11 +497,22 @@ def _open_gz(filename, mode: str, compresslevel, threads):
             pass  # We try without threads.
 
     if 'r' in mode:
+        if igzip is not None:
+            return igzip.open(filename, mode)
         return gzip.open(filename, mode)
-    else:
-        # Override gzip.open's default of 9 for consistency with command-line gzip.
-        return gzip.open(filename, mode,
-                         compresslevel=6 if compresslevel is None else compresslevel)
+
+    if igzip is not None:
+        try:
+            return igzip.open(filename, mode,
+                              compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION
+                              if compresslevel is None else compresslevel)
+        except ValueError:
+            # Compression level not supported, move to built-in gzip.
+            pass
+
+    # Override gzip.open's default of 9 for consistency with command-line gzip.
+    return gzip.open(filename, mode,
+                     compresslevel=6 if compresslevel is None else compresslevel)
 
 
 def _detect_format_from_content(filename: str) -> Optional[str]:
