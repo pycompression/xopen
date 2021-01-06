@@ -28,8 +28,7 @@ except ImportError:
     lzma = None  # type: ignore
 
 try:
-    from isal import igzip
-    from isal import isal_zlib
+    from isal import igzip, isal_zlib  # type: ignore
 except ImportError:
     igzip = None
     isal_zlib = None
