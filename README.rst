@@ -33,8 +33,10 @@ available. For gzip compression levels 1 to 3,
 For use cases where using only the main thread is desired xopen can be used
 with ``threads=0``. This will use `python-isal
 <https://github.com/pycompression/python-isal>`_ (which binds isa-l) if
-python-isal is installed int virtual environment (``pip install isal``). If
-python-isal is not available ``gzip.open`` is used.
+python-isal is installed. For installation instructions for python-isal please
+checkout the `python-isal homepage
+<https://github.com/pycompression/python-isal>`_. If python-isal is not
+available ``gzip.open`` is used.
 
 This module has originally been developed as part of the `Cutadapt
 tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
