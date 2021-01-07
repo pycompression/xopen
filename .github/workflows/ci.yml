@@ -44,7 +44,7 @@ jobs:
           fi
     - name: Install isal
       if: matrix.with-isal && !startsWith(matrix.os, 'macos')
-      run: sudo apt-get install isal
+      run: sudo apt-get install isal libisal-dev
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
@@ -54,6 +54,10 @@ jobs:
       run: python -m pip install tox
     - name: Test
       run: tox -e py
+      if: matrix.with-isal == null
+    - name: Test with isal
+      run: tox -e isal
+      if: matrix.with-isal
     - name: Upload coverage report
       uses: codecov/codecov-action@v1
 

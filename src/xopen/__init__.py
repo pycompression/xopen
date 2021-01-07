@@ -28,6 +28,12 @@ except ImportError:
     lzma = None  # type: ignore
 
 try:
+    from isal import igzip, isal_zlib  # type: ignore
+except ImportError:
+    igzip = None
+    isal_zlib = None
+
+try:
     import fcntl
     # fcntl.F_SETPIPE_SZ will be available in python 3.10.
     # https://github.com/python/cpython/pull/21921
@@ -470,31 +476,47 @@ def _open_xz(filename, mode: str) -> IO:
     return lzma.open(filename, mode)
 
 
+def _open_gz_external(filename, mode, compresslevel, threads):
+    if 'r' in mode:
+        try:
+            return PipedIGzipReader(filename, mode)
+        except (OSError, ValueError):
+            # No igzip installed or version does not support reading
+            # concatenated files.
+            return PipedGzipReader(filename, mode, threads=threads)
+    else:
+        try:
+            return PipedIGzipWriter(filename, mode, compresslevel)
+        except (OSError, ValueError):
+            # No igzip installed or compression level higher than 3
+            return PipedGzipWriter(filename, mode, compresslevel,
+                                   threads=threads)
+
+
 def _open_gz(filename, mode: str, compresslevel, threads):
     if threads != 0:
         try:
-            if 'r' in mode:
-                try:
-                    return PipedIGzipReader(filename, mode)
-                except (OSError, ValueError):
-                    # No igzip installed or version does not support reading
-                    # concatenated files.
-                    return PipedGzipReader(filename, mode, threads=threads)
-            else:
-                try:
-                    return PipedIGzipWriter(filename, mode, compresslevel)
-                except (OSError, ValueError):
-                    # No igzip installed or compression level higher than 3
-                    return PipedGzipWriter(filename, mode, compresslevel, threads=threads)
+            return _open_gz_external(filename, mode, compresslevel, threads)
         except OSError:
             pass  # We try without threads.
 
     if 'r' in mode:
+        if igzip is not None:
+            return igzip.open(filename, mode)
         return gzip.open(filename, mode)
-    else:
-        # Override gzip.open's default of 9 for consistency with command-line gzip.
-        return gzip.open(filename, mode,
-                         compresslevel=6 if compresslevel is None else compresslevel)
+
+    if igzip is not None:
+        try:
+            return igzip.open(filename, mode,
+                              compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION
+                              if compresslevel is None else compresslevel)
+        except ValueError:
+            # Compression level not supported, move to built-in gzip.
+            pass
+
+    # Override gzip.open's default of 9 for consistency with command-line gzip.
+    return gzip.open(filename, mode,
+                     compresslevel=6 if compresslevel is None else compresslevel)
 
 
 def _detect_format_from_content(filename: str) -> Optional[str]:
