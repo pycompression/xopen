@@ -43,7 +43,7 @@ tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
 manipulate sequencing data. It has been in successful use within that software
 for a few years.
 
-``xopen`` is compatible with Python versions 3.5 and later.
+``xopen`` is compatible with Python versions 3.6 and later.
 
 
 Usage
@@ -94,6 +94,12 @@ If you also want to open S3 files, you may want to use that module instead.
 
 Changes
 -------
+v1.1.0
+~~~~~~
+* Python 3.5 support is dropped.
+* On Linux systems, `python-isal <https://github.com/pycompression/python-isal`_
+  is now added as a requirement. This will speed up the reading of gzip files
+  significantly when no external processes are used.
 
 v1.0.0
 ~~~~~~

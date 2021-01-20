@@ -21,7 +21,7 @@ setup(
         'dev': ['pytest'],
         ':sys_platform=="linux"': ['isal>=0.3.0']
     },
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: MIT License",
