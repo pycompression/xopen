@@ -33,7 +33,8 @@ available. For gzip compression levels 1 to 3,
 For use cases where using only the main thread is desired xopen can be used
 with ``threads=0``. This will use `python-isal
 <https://github.com/pycompression/python-isal>`_ (which binds isa-l) if
-python-isal is installed. For installation instructions for python-isal please
+python-isal is installed (automatic on Linux systems, as it is a requirement).
+For installation instructions for python-isal please
 checkout the `python-isal homepage
 <https://github.com/pycompression/python-isal>`_. If python-isal is not
 available ``gzip.open`` is used.
@@ -43,7 +44,7 @@ tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
 manipulate sequencing data. It has been in successful use within that software
 for a few years.
 
-``xopen`` is compatible with Python versions 3.5 and later.
+``xopen`` is compatible with Python versions 3.6 and later.
 
 
 Usage
@@ -94,6 +95,12 @@ If you also want to open S3 files, you may want to use that module instead.
 
 Changes
 -------
+v1.1.0
+~~~~~~
+* Python 3.5 support is dropped.
+* On Linux systems, `python-isal <https://github.com/pycompression/python-isal`_
+  is now added as a requirement. This will speed up the reading of gzip files
+  significantly when no external processes are used.
 
 v1.0.0
 ~~~~~~

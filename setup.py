@@ -19,9 +19,9 @@ setup(
     package_data={"xopen": ["py.typed"]},
     extras_require={
         'dev': ['pytest'],
-        'isal': ['isal>=0.2.0']
+        ':sys_platform=="linux" and python_implementation != "PyPy"': ['isal>=0.3.0']
     },
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: MIT License",
