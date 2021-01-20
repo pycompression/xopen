@@ -98,7 +98,7 @@ Changes
 v1.1.0
 ~~~~~~
 * Python 3.5 support is dropped.
-* On Linux systems, `python-isal <https://github.com/pycompression/python-isal`_
+* On Linux systems, `python-isal <https://github.com/pycompression/python-isal>`_
   is now added as a requirement. This will speed up the reading of gzip files
   significantly when no external processes are used.
 
