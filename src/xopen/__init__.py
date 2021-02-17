@@ -459,6 +459,18 @@ class PipedIGzipWriter(PipedCompressionWriter):
         super().__init__(path, ["igzip"], mode, compresslevel)
 
 
+class PipedPythonIsalReader(PipedCompressionReader):
+    def __init__(self, path, mode: str = "r"):
+        super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode)
+
+
+class PipedPythonIsalWriter(PipedCompressionWriter):
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
+        if compresslevel is not None and compresslevel not in range(0, 4):
+            raise ValueError("compresslevel must be between 0 and 3")
+        super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode, compresslevel)
+
+
 def _open_stdin_or_out(mode: str) -> IO:
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
     # to be closable without closing sys.stdout.
@@ -484,14 +496,22 @@ def _open_gz_external(filename, mode, compresslevel, threads):
         except (OSError, ValueError):
             # No igzip installed or version does not support reading
             # concatenated files.
+            if igzip:
+                return PipedPythonIsalReader(filename, mode)
             return PipedGzipReader(filename, mode, threads=threads)
     else:
         try:
             return PipedIGzipWriter(filename, mode, compresslevel)
         except (OSError, ValueError):
             # No igzip installed or compression level higher than 3
-            return PipedGzipWriter(filename, mode, compresslevel,
-                                   threads=threads)
+            pass
+        if igzip:  # We can use the CLI from isal.igzip
+            try:
+                return PipedPythonIsalWriter(filename, mode, compresslevel)
+            except ValueError:  # Wrong compression level
+                pass
+        return PipedGzipWriter(filename, mode, compresslevel,
+                               threads=threads)
 
 
 def _open_gz(filename, mode: str, compresslevel, threads):
