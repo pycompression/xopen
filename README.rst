@@ -1,5 +1,5 @@
-.. image:: https://travis-ci.org/marcelm/xopen.svg?branch=master
-  :target: https://travis-ci.org/marcelm/xopen
+.. image:: https://github.com/pycompression/xopen/workflows/CI/badge.svg
+  :target: https://github.com/pycompression/xopen
   :alt: 
   
 .. image:: https://img.shields.io/pypi/v/xopen.svg?branch=master
@@ -9,8 +9,8 @@
   :target: https://anaconda.org/conda-forge/xopen
   :alt:
 
-.. image:: https://codecov.io/gh/marcelm/xopen/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/marcelm/xopen
+.. image:: https://codecov.io/gh/pycompression/xopen/branch/main/graph/badge.svg
+  :target: https://codecov.io/gh/pycompression/xopen
   :alt:
 
 =====
@@ -155,12 +155,12 @@ Contributors
 
 * Marcel Martin
 * Ruben Vorderman
-* For more contributors, see <https://github.com/marcelm/xopen/graphs/contributors>
+* For more contributors, see <https://github.com/pycompression/xopen/graphs/contributors>
 
 
 Links
 -----
 
-* `Source code <https://github.com/marcelm/xopen/>`_
-* `Report an issue <https://github.com/marcelm/xopen/issues>`_
+* `Source code <https://github.com/pycompression/xopen/>`_
+* `Report an issue <https://github.com/pycompression/xopen/issues>`_
 * `Project page on PyPI (Python package index) <https://pypi.python.org/pypi/xopen/>`_
