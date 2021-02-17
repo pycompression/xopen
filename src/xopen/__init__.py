@@ -300,7 +300,7 @@ class PipedCompressionReader(Closing):
         self.closed = False
         # Give the subprocess a little bit of time to report any errors (such as
         # a non-existing file)
-        time.sleep(0.01)
+        time.sleep(0.05)
         self._raise_if_error()
 
     def __repr__(self):
