@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, TextIO, AnyStr, IO
+from typing import Optional, TextIO, AnyStr, IO, List
 
 from ._version import version as __version__
 
@@ -155,9 +155,9 @@ class PipedCompressionWriter(Closing):
     """
     Write Compressed files by running an external process and piping into it.
     """
-    def __init__(self, path, program: str, mode='wt',
+    def __init__(self, path, program_args: List[str], mode='wt',
                  compresslevel: Optional[int] = None,
-                 threads_flag: str = None,
+                 threads_flag: Optional[str] = None,
                  threads: Optional[int] = None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
@@ -174,11 +174,11 @@ class PipedCompressionWriter(Closing):
 
         # TODO use a context manager
         self.outfile = open(path, mode)
-        self.closed = False
-        self.name = path
-        self._mode = mode
-        self._program = program
-        self._threads_flag = threads_flag
+        self.closed: bool = False
+        self.name: str = path
+        self._mode: str = mode
+        self._program_args: List[str] = program_args
+        self._threads_flag: Optional[str] = threads_flag
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
@@ -202,14 +202,14 @@ class PipedCompressionWriter(Closing):
             self.__class__.__name__,
             self.name,
             self._mode,
-            self._program,
+            " ".join(self._program_args),
             self._threads,
         )
 
     def _open_process(
         self, mode: str, compresslevel: Optional[int], threads: int, outfile: TextIO,
     ) -> Popen:
-        program_args = [self._program]
+        program_args: List[str] = self._program_args[:]  # prevent list aliasing
         if threads != 0 and self._threads_flag is not None:
             program_args += [self._threads_flag, str(threads)]
         extra_args = []
@@ -240,7 +240,8 @@ class PipedCompressionWriter(Closing):
         self.outfile.close()
         if retcode != 0:
             raise OSError(
-                "Output {} process terminated with exit code {}".format(self._program, retcode))
+                "Output {} process terminated with exit code {}".format(
+                    " ".join(self._program_args), retcode))
 
     def __iter__(self):  # type: ignore
         # For compatibility with Pandas, which checks for an __iter__ method
@@ -259,7 +260,7 @@ class PipedCompressionReader(Closing):
     def __init__(
         self,
         path,
-        program: str,
+        program_args: List[str],
         mode: str = "r",
         threads_flag: Optional[str] = None,
         threads: Optional[int] = None,
@@ -269,8 +270,8 @@ class PipedCompressionReader(Closing):
         """
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
-        self._program = program
-        program_args = [program, '-cd', path]
+        self._program_args = program_args
+        program_args = program_args + ['-cd', path]
 
         if threads_flag is not None:
             if threads is None:
@@ -307,7 +308,7 @@ class PipedCompressionReader(Closing):
             self.__class__.__name__,
             self.name,
             self._mode,
-            self._program,
+            " ".join(self._program_args),
             self._threads,
         )
 
@@ -383,9 +384,9 @@ class PipedGzipReader(PipedCompressionReader):
     """
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
         try:
-            super().__init__(path, "pigz", mode, "-p", threads)
+            super().__init__(path, ["pigz"], mode, "-p", threads)
         except OSError:
-            super().__init__(path, "gzip", mode, None, threads)
+            super().__init__(path, ["gzip"], mode, None, threads)
 
 
 class PipedGzipWriter(PipedCompressionWriter):
@@ -414,9 +415,9 @@ class PipedGzipWriter(PipedCompressionWriter):
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 9")
         try:
-            super().__init__(path, "pigz", mode, compresslevel, "-p", threads)
+            super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
         except OSError:
-            super().__init__(path, "gzip", mode, compresslevel, None, threads)
+            super().__init__(path, ["gzip"], mode, compresslevel, None, threads)
 
 
 class PipedIGzipReader(PipedCompressionReader):
@@ -435,7 +436,7 @@ class PipedIGzipReader(PipedCompressionReader):
                 "This version of igzip does not support reading "
                 "concatenated gzip files and is therefore not "
                 "safe to use. See: https://github.com/intel/isa-l/issues/143")
-        super().__init__(path, "igzip", mode)
+        super().__init__(path, ["igzip"], mode)
 
 
 class PipedIGzipWriter(PipedCompressionWriter):
@@ -455,7 +456,7 @@ class PipedIGzipWriter(PipedCompressionWriter):
     def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
         if compresslevel is not None and compresslevel not in range(0, 4):
             raise ValueError("compresslevel must be between 0 and 3")
-        super().__init__(path, "igzip", mode, compresslevel)
+        super().__init__(path, ["igzip"], mode, compresslevel)
 
 
 def _open_stdin_or_out(mode: str) -> IO:
