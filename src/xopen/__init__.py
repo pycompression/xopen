@@ -519,41 +519,47 @@ def _open_xz(filename, mode: str) -> IO:
     return lzma.open(filename, mode)
 
 
-def _open_gz_external(filename, mode, compresslevel, threads):
-    if 'r' in mode:
+def _open_external_gzip_reader(filename, mode, compresslevel, threads):
+    assert "r" in mode
+    try:
+        return PipedIGzipReader(filename, mode)
+    except (OSError, ValueError):
+        # No igzip installed or version does not support reading
+        # concatenated files.
+        pass
+    if igzip:
+        return PipedPythonIsalReader(filename, mode)
+    try:
+        return PipedPigzReader(filename, mode, threads=threads)
+    except OSError:
+        return PipedGzipReader(filename, mode)
+
+
+def _open_external_gzip_writer(filename, mode, compresslevel, threads):
+    assert "r" not in mode
+    try:
+        return PipedIGzipWriter(filename, mode, compresslevel)
+    except (OSError, ValueError):
+        # No igzip installed or compression level higher than 3
+        pass
+    if igzip:  # We can use the CLI from isal.igzip
         try:
-            return PipedIGzipReader(filename, mode)
-        except (OSError, ValueError):
-            # No igzip installed or version does not support reading
-            # concatenated files.
+            return PipedPythonIsalWriter(filename, mode, compresslevel)
+        except ValueError:  # Wrong compression level
             pass
-        if igzip:
-            return PipedPythonIsalReader(filename, mode)
-        try:
-            return PipedPigzReader(filename, mode, threads=threads)
-        except OSError:
-            return PipedGzipReader(filename, mode)
-    else:
-        try:
-            return PipedIGzipWriter(filename, mode, compresslevel)
-        except (OSError, ValueError):
-            # No igzip installed or compression level higher than 3
-            pass
-        if igzip:  # We can use the CLI from isal.igzip
-            try:
-                return PipedPythonIsalWriter(filename, mode, compresslevel)
-            except ValueError:  # Wrong compression level
-                pass
-        try:
-            return PipedPigzWriter(filename, mode, compresslevel, threads=threads)
-        except OSError:
-            return PipedGzipWriter(filename, mode, compresslevel)
+    try:
+        return PipedPigzWriter(filename, mode, compresslevel, threads=threads)
+    except OSError:
+        return PipedGzipWriter(filename, mode, compresslevel)
 
 
 def _open_gz(filename, mode: str, compresslevel, threads):
     if threads != 0:
         try:
-            return _open_gz_external(filename, mode, compresslevel, threads)
+            if "r" in mode:
+                return _open_external_gzip_reader(filename, mode, compresslevel, threads)
+            else:
+                return _open_external_gzip_writer(filename, mode, compresslevel, threads)
         except OSError:
             pass  # We try without threads.
 
