@@ -9,7 +9,7 @@ import pytest
 from pathlib import Path
 
 from xopen import xopen, PipedCompressionWriter, PipedGzipReader, \
-    PipedGzipWriter, _MAX_PIPE_SIZE, _can_read_concatenated_gz
+    PipedGzipWriter, PipedPigzReader, _MAX_PIPE_SIZE, _can_read_concatenated_gz
 
 extensions = ["", ".gz", ".bz2"]
 
@@ -170,7 +170,7 @@ def test_readline_text_pipedgzipreader():
 
 @pytest.mark.parametrize("threads", [None, 1, 2])
 def test_pipedgzipreader_iter(threads):
-    with PipedGzipReader("tests/file.txt.gz", mode="r", threads=threads) as f:
+    with PipedPigzReader("tests/file.txt.gz", mode="r", threads=threads) as f:
         lines = list(f)
         assert lines[0] == CONTENT_LINES[0]
 

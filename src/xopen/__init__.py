@@ -378,8 +378,7 @@ class PipedGzipReader(PipedCompressionReader):
     builtin gzip module due to overhead, it can still have a wall-clock time
     advantage as the gzip process is offloaded to another core.
     """
-
-    def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
+    def __init__(self, path, mode: str = "r"):
         super().__init__(path, ["gzip"], mode)
 
 
@@ -391,7 +390,7 @@ class PipedPigzReader(PipedCompressionReader):
     (ca. 2x speedup).
     """
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
-        super().__init__(path, ["gzip"], mode, "-p", threads)
+        super().__init__(path, ["pigz"], mode, "-p", threads)
 
 
 class PipedIGzipReader(PipedCompressionReader):
@@ -401,8 +400,7 @@ class PipedIGzipReader(PipedCompressionReader):
     can only run on x86 and ARM architectures, but is able to use more
     architecture-specific optimizations as a result.
     """
-
-    def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
+    def __init__(self, path, mode: str = "r"):
         if not _can_read_concatenated_gz("igzip"):
             # Instead of elaborate version string checking once the problem is
             # fixed, it is much easier to use this, "proof in the pudding" type
@@ -415,7 +413,12 @@ class PipedIGzipReader(PipedCompressionReader):
 
 
 class PipedPythonIsalReader(PipedCompressionReader):
-    def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
+    """
+    Use the CLI of python-isal to read a compressed stream. This is slower
+    than igzip, but faster than pigz and gzip and therefore a good second
+    choice when igzip is not available.
+    """
+    def __init__(self, path, mode: str = "r"):
         super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode)
 
 
@@ -427,8 +430,7 @@ class PipedGzipWriter(PipedCompressionWriter):
     time because the compression happens in a separate process.
     """
 
-    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None,
-                 threads: Optional[int] = None):
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 9")
         super().__init__(path, ["gzip"], mode, compresslevel)
@@ -473,16 +475,19 @@ class PipedIGzipWriter(PipedCompressionWriter):
     See: https://gist.github.com/rhpvorderman/4f1201c3f39518ff28dde45409eb696b
     """
 
-    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None,
-                 threads: Optional[int] = None):
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
         if compresslevel is not None and compresslevel not in range(0, 4):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(path, ["igzip"], mode, compresslevel)
 
 
 class PipedPythonIsalWriter(PipedCompressionWriter):
-    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None,
-                 threads: Optional[int] = None):
+    """
+    Use the CLI of python-isal to write a compressed stream. This is slower
+    than igzip, but faster than pigz and gzip and therefore a good second
+    choice when igzip is not available.
+    """
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
         if compresslevel is not None and compresslevel not in range(0, 4):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode,
@@ -518,14 +523,20 @@ def _open_gz_external(filename, mode, compresslevel, threads):
     if 'r' in mode:
         for reader in PREFERRED_GZIP_READERS:
             try:
-                return reader(filename, mode, threads)
+                if "threads" in reader.__init__.__code__.co_varnames:
+                    return reader(filename, mode, threads)
+                else:
+                    return reader(filename, mode)
             except (OSError, ValueError) as e:
                 # Tool not installed or wrong compression level
                 error = e
     else:
         for writer in PREFERRED_GZIP_WRITERS:
             try:
-                return writer(filename, mode, compresslevel, threads)
+                if "threads" in writer.__init__.__code__.co_varnames:
+                    return writer(filename, mode, compresslevel, threads)
+                else:
+                    return writer(filename, mode, compresslevel)
             except (OSError, ValueError) as e:
                 # Tool not installed or wrong compression level
                 error = e
