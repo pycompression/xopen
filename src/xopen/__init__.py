@@ -9,7 +9,6 @@ import sys
 import io
 import os
 import bz2
-import time
 import stat
 import signal
 import pathlib
@@ -298,9 +297,9 @@ class PipedCompressionReader(Closing):
         assert self.process.stderr is not None
         self._stderr = io.TextIOWrapper(self.process.stderr)
         self.closed = False
-        # Give the subprocess a little bit of time to report any errors (such as
-        # a non-existing file)
-        time.sleep(0.05)
+        # Peek the first character(s) of stdout. This will ensure the program
+        # has started before checking any errors.
+        self.process.stdout.peek(1)  # type: ignore  # stdout is io.BufferedReader if set to PIPE.
         self._raise_if_error()
 
     def __repr__(self):
