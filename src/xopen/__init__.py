@@ -2,7 +2,18 @@
 Open compressed files transparently.
 """
 
-__all__ = ["xopen", "PipedGzipWriter", "PipedGzipReader", "__version__"]
+__all__ = [
+    "xopen",
+    "PipedGzipReader",
+    "PipedGzipWriter",
+    "PipedIGzipReader",
+    "PipedIGzipWriter",
+    "PipedPigzReader",
+    "PipedPigzWriter",
+    "PipedPythonIsalReader",
+    "PipedPythonIsalWriter",
+    "__version__",
+]
 
 import gzip
 import sys
