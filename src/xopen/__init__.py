@@ -376,26 +376,49 @@ class PipedCompressionReader(Closing):
 
 class PipedGzipReader(PipedCompressionReader):
     """
+    Open a pipe to gzip for reading a gzipped file.
+    """
+    def __init__(self, path, mode: str = "r"):
+        super().__init__(path, ["gzip"], mode)
+
+
+class PipedGzipWriter(PipedCompressionWriter):
+    """
+    Write gzip-compressed files by running an external gzip process and
+    piping into it. On Python 3, gzip.GzipFile is on par with gzip itself,
+    but running an external gzip can still reduce wall-clock time because
+    the compression happens in a separate process.
+    """
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
+        """
+        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+        compresslevel -- compression level
+        threads (int) -- number of pigz threads. If this is set to None, a reasonable default is
+            used. At the moment, this means that the number of available CPU cores is used, capped
+            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
+        """
+        if compresslevel is not None and compresslevel not in range(1, 10):
+            raise ValueError("compresslevel must be between 1 and 9")
+        super().__init__(path, ["gzip"], mode, compresslevel, None)
+
+
+class PipedPigzReader(PipedCompressionReader):
+    """
     Open a pipe to pigz for reading a gzipped file. Even though pigz is mostly
     used to speed up writing by using many compression threads, it is
     also faster when reading, even when forced to use a single thread
     (ca. 2x speedup).
     """
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
-        try:
-            super().__init__(path, ["pigz"], mode, "-p", threads)
-        except OSError:
-            super().__init__(path, ["gzip"], mode, None, threads)
+        super().__init__(path, ["pigz"], mode, "-p", threads)
 
 
-class PipedGzipWriter(PipedCompressionWriter):
+class PipedPigzWriter(PipedCompressionWriter):
     """
-    Write gzip-compressed files by running an external gzip or pigz process and
-    piping into it. pigz is tried first. It is fast because it can compress using
-    multiple cores. Also it is more efficient on one core.
-    If pigz is not available, a gzip subprocess is used. On Python 3, gzip.GzipFile is on
-    par with gzip itself, but running an external gzip can still reduce wall-clock
-    time because the compression happens in a separate process.
+    Write gzip-compressed files by running an external pigz process and
+    piping into it. pigz can compress using multiple cores. It is also more
+    efficient than gzip on only one core. (But then igzip is even faster and
+    should be preferred if the compression level allows it.)
     """
     def __init__(
         self,
@@ -413,10 +436,7 @@ class PipedGzipWriter(PipedCompressionWriter):
         """
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 9")
-        try:
-            super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
-        except OSError:
-            super().__init__(path, ["gzip"], mode, compresslevel, None, threads)
+        super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
 
 
 class PipedIGzipReader(PipedCompressionReader):
@@ -495,9 +515,13 @@ def _open_gz_external(filename, mode, compresslevel, threads):
         except (OSError, ValueError):
             # No igzip installed or version does not support reading
             # concatenated files.
-            if igzip:
-                return PipedPythonIsalReader(filename, mode)
-            return PipedGzipReader(filename, mode, threads=threads)
+            pass
+        if igzip:
+            return PipedPythonIsalReader(filename, mode)
+        try:
+            return PipedPigzReader(filename, mode, threads=threads)
+        except OSError:
+            return PipedGzipReader(filename, mode)
     else:
         try:
             return PipedIGzipWriter(filename, mode, compresslevel)
@@ -509,8 +533,10 @@ def _open_gz_external(filename, mode, compresslevel, threads):
                 return PipedPythonIsalWriter(filename, mode, compresslevel)
             except ValueError:  # Wrong compression level
                 pass
-        return PipedGzipWriter(filename, mode, compresslevel,
-                               threads=threads)
+        try:
+            return PipedPigzWriter(filename, mode, compresslevel, threads=threads)
+        except OSError:
+            return PipedGzipWriter(filename, mode, compresslevel)
 
 
 def _open_gz(filename, mode: str, compresslevel, threads):
