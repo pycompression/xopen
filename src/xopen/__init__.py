@@ -590,16 +590,17 @@ def xopen(
     bzip2 and xz. If the filename is '-', standard output (mode 'w') or
     standard input (mode 'r') is returned.
 
-    The file type is determined based on the filename: .gz is gzip, .bz2 is bzip2, .xz is
-    xz/lzma and no compression assumed otherwise.
+    When writing, the file format is chosen based on the file name extension:
+    - .gz uses gzip compression
+    - .bz2 uses bzip2 compression
+    - .xz uses xz/lzma compression
+    - otherwise, no compression is used
+
+    When reading, if a file name extension is available, the format is detected
+    using it, but if not, the format is detected from the contents.
 
     mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'. Also, the 't' can be omitted,
     so instead of 'rt', 'wt' and 'at', the abbreviations 'r', 'w' and 'a' can be used.
-
-    In Python 2, the 't' and 'b' characters are ignored.
-
-    Append mode ('a', 'at', 'ab') is not available with BZ2 compression and
-    will raise an error.
 
     compresslevel is the compression level for writing to gzip files.
     This parameter is ignored for the other compression formats. If set to
