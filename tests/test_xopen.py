@@ -15,8 +15,13 @@ from xopen import (
     PipedGzipWriter,
     PipedPigzReader,
     PipedPigzWriter,
+    PipedIGzipReader,
+    PipedIGzipWriter,
+    PipedPythonIsalReader,
+    PipedPythonIsalWriter,
     _MAX_PIPE_SIZE,
     _can_read_concatenated_gz,
+    igzip,
 )
 extensions = ["", ".gz", ".bz2"]
 
@@ -37,6 +42,45 @@ base = "tests/file.txt"
 files = [base + ext for ext in extensions]
 CONTENT_LINES = ['Testing, testing ...\n', 'The second line.\n']
 CONTENT = ''.join(CONTENT_LINES)
+
+
+def available_gzip_readers_and_writers():
+    readers = [
+        klass for prog, klass in [
+            ("gzip", PipedGzipReader),
+            ("pigz", PipedPigzReader),
+            ("igzip", PipedIGzipReader),
+        ]
+        if shutil.which(prog)
+    ]
+    if PipedIGzipReader in readers and not _can_read_concatenated_gz("igzip"):
+        readers.remove(PipedIGzipReader)
+
+    writers = [
+        klass for prog, klass in [
+            ("gzip", PipedGzipWriter),
+            ("pigz", PipedPigzWriter),
+            ("igzip", PipedIGzipWriter),
+        ]
+        if shutil.which(prog)
+    ]
+    if igzip is not None:
+        readers.append(PipedPythonIsalReader)
+        writers.append(PipedPythonIsalWriter)
+    return readers, writers
+
+
+PIPED_GZIP_READERS, PIPED_GZIP_WRITERS = available_gzip_readers_and_writers()
+
+
+@pytest.fixture(params=PIPED_GZIP_READERS)
+def gzip_reader(request):
+    return request.param
+
+
+@pytest.fixture(params=PIPED_GZIP_WRITERS)
+def gzip_writer(request):
+    return request.param
 
 
 @pytest.fixture(params=extensions)
@@ -118,7 +162,6 @@ def test_no_context_manager_binary(fname):
 
 
 def test_readinto(fname):
-    # Test whether .readinto() works
     content = CONTENT.encode('utf-8')
     with xopen(fname, 'rb') as f:
         b = bytearray(len(content) + 100)
@@ -127,18 +170,17 @@ def test_readinto(fname):
         assert b[:length] == content
 
 
-def test_pipedgzipreader_readinto():
-    # Test whether PipedGzipReader.readinto works
+def test_gzip_reader_readinto(gzip_reader):
     content = CONTENT.encode('utf-8')
-    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+    with gzip_reader("tests/file.txt.gz", "rb") as f:
         b = bytearray(len(content) + 100)
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
 
 
-def test_pipedgzipreader_textiowrapper():
-    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+def test_gzip_reader_textiowrapper(gzip_reader):
+    with gzip_reader("tests/file.txt.gz", "rb") as f:
         wrapped = io.TextIOWrapper(f)
         assert wrapped.read() == CONTENT
 
@@ -164,14 +206,14 @@ def test_readline_text(fname):
         assert f.readline() == CONTENT_LINES[0]
 
 
-def test_readline_pipedgzipreader():
+def test_gzip_reader_readline(gzip_reader):
     first_line = CONTENT_LINES[0].encode('utf-8')
-    with PipedGzipReader("tests/file.txt.gz", "rb") as f:
+    with gzip_reader("tests/file.txt.gz", "rb") as f:
         assert f.readline() == first_line
 
 
-def test_readline_text_pipedgzipreader():
-    with PipedGzipReader("tests/file.txt.gz", "r") as f:
+def test_gzip_reader_readline_text(gzip_reader):
+    with gzip_reader("tests/file.txt.gz", "r") as f:
         assert f.readline() == CONTENT_LINES[0]
 
 
@@ -195,8 +237,8 @@ def test_xopen_has_iter_method(ext, tmpdir):
         assert hasattr(f, '__iter__')
 
 
-def test_pipedgzipwriter_has_iter_method(tmpdir):
-    with PipedGzipWriter(str(tmpdir.join("out.gz"))) as f:
+def test_gzip_writer_has_iter_method(tmpdir, gzip_writer):
+    with gzip_writer(str(tmpdir.join("out.gz"))) as f:
         assert hasattr(f, '__iter__')
 
 
@@ -207,14 +249,14 @@ def test_iter_without_with(fname):
     f.close()
 
 
-def test_pipedgzipreader_iter_without_with():
-    it = iter(PipedGzipReader("tests/file.txt.gz"))
+def test_gzip_reader_iter_without_with(gzip_reader):
+    it = iter(gzip_reader("tests/file.txt.gz"))
     assert CONTENT_LINES[0] == next(it)
 
 
 @pytest.mark.parametrize("mode", ["rb", "rt"])
-def test_pipedgzipreader_close(large_gzip, mode):
-    with PipedGzipReader(large_gzip, mode=mode) as f:
+def test_gzipreader_close(large_gzip, mode, gzip_reader):
+    with gzip_reader(large_gzip, mode=mode) as f:
         f.readline()
         time.sleep(0.2)
     # The subprocess should be properly terminated now
@@ -354,8 +396,8 @@ def test_bare_read_from_gz():
         assert f.read() == 'hello'
 
 
-def test_read_piped_gzip():
-    with PipedGzipReader('tests/hello.gz', 'rt') as f:
+def test_gzip_readers_read(gzip_reader):
+    with gzip_reader('tests/hello.gz', 'rt') as f:
         assert f.read() == 'hello'
 
 
