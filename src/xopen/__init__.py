@@ -60,21 +60,6 @@ else:
     _MAX_PIPE_SIZE = None
 
 
-try:
-    from os import fspath  # Exists in Python 3.6+
-except ImportError:
-    def fspath(path):  # type: ignore
-        if hasattr(path, "__fspath__"):
-            return path.__fspath__()
-        # Python 3.4 and 3.5 have pathlib, but do not support the file system
-        # path protocol
-        if pathlib is not None and isinstance(path, pathlib.Path):
-            return str(path)
-        if not isinstance(path, str):
-            raise TypeError("path must be a string")
-        return path
-
-
 def _available_cpu_count() -> int:
     """
     Number of available virtual or physical CPUs on this system
@@ -660,7 +645,7 @@ def xopen(
         mode += 't'
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
         raise ValueError("Mode '{}' not supported".format(mode))
-    filename = fspath(filename)
+    filename = os.fspath(filename)
 
     if filename == '-':
         return _open_stdin_or_out(mode)
