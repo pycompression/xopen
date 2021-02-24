@@ -310,6 +310,14 @@ def test_invalid_compression_level(tmpdir):
     assert "compresslevel must be" in e.value.args[0]
 
 
+def test_invalid_compression_level_writers(gzip_writer, tmpdir):
+    path = str(tmpdir.join("out.gz"))
+    with pytest.raises(ValueError) as e:
+        with gzip_writer(path, mode="w", compresslevel=17) as f:
+            f.write("hello")  # pragma: no cover
+    assert "compresslevel must be" in e.value.args[0]
+
+
 @pytest.mark.parametrize("ext", extensions)
 def test_append(ext, tmpdir):
     text = b"AB"
