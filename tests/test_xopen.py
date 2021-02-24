@@ -307,7 +307,7 @@ def test_invalid_compression_level(tmpdir):
     with pytest.raises(ValueError) as e:
         with xopen(path, mode="w", compresslevel=17) as f:
             f.write("hello")  # pragma: no cover
-    assert "between 1 and 9" in e.value.args[0]
+    assert "compresslevel must be" in e.value.args[0]
 
 
 @pytest.mark.parametrize("ext", extensions)

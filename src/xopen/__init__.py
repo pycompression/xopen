@@ -441,7 +441,7 @@ class PipedPigzWriter(PipedCompressionWriter):
             at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
         """
         if compresslevel is not None and compresslevel not in self._accepted_compression_levels:
-            raise ValueError("compresslevel must be between 1 and 9")
+            raise ValueError("compresslevel must be between 0 and 9 or 11")
         super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
 
 
