@@ -287,7 +287,7 @@ class PipedCompressionReader(Closing):
 
         self._mode = mode
         if 'b' not in mode:
-            self._file = io.TextIOWrapper(self.process.stdout)  # type: IO
+            self._file: IO = io.TextIOWrapper(self.process.stdout)
         else:
             self._file = self.process.stdout
         assert self.process.stderr is not None
@@ -358,7 +358,10 @@ class PipedCompressionReader(Closing):
         return self._file.seekable()
 
     def peek(self, n: int = None):
-        return self._file.peek(n)  # type: ignore
+        if hasattr(self._file, "peek"):
+            return self._file.peek(n)  # type: ignore
+        else:
+            raise AttributeError("Peek is not available when 'b' not in mode")
 
     def readable(self) -> bool:
         return self._file.readable()

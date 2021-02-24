@@ -545,10 +545,17 @@ def test_pipedcompressionreader_wrong_mode():
     error.match("Mode is 'xb', but it must be")
 
 
-@pytest.mark.parametrize("mode", ["r", "rt", "rb"])
-def test_piped_compression_reader_peek(gzip_reader, mode):
+def test_piped_compression_reader_peek_binary(gzip_reader):
     filegz = Path(__file__).parent / "file.txt.gz"
-    with gzip_reader(filegz, mode) as read_h:
+    with gzip_reader(filegz, "rb") as read_h:
         # Peek returns at least the amount of characters but maybe more
         # depending on underlying stream. Hence startswith not ==.
         assert read_h.peek(1).startswith(b"T")
+
+
+@pytest.mark.parametrize("mode", ["r", "rt"])
+def test_piped_compression_reader_peek_text(gzip_reader, mode):
+    filegz = Path(__file__).parent / "file.txt.gz"
+    with gzip_reader(filegz, mode) as read_h:
+        with pytest.raises(AttributeError):
+            read_h.peek(1)
