@@ -27,7 +27,7 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, TextIO, AnyStr, IO, List
+from typing import Optional, TextIO, AnyStr, IO, List, Set
 
 from ._version import version as __version__
 
@@ -419,6 +419,8 @@ class PipedPigzWriter(PipedCompressionWriter):
     efficient than gzip on only one core. (But then igzip is even faster and
     should be preferred if the compression level allows it.)
     """
+    _accepted_compression_levels: Set[int] = set(list(range(10)) + [11])
+
     def __init__(
         self,
         path,
@@ -433,7 +435,7 @@ class PipedPigzWriter(PipedCompressionWriter):
             used. At the moment, this means that the number of available CPU cores is used, capped
             at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
         """
-        if compresslevel is not None and compresslevel not in range(1, 10):
+        if compresslevel is not None and compresslevel not in self._accepted_compression_levels:
             raise ValueError("compresslevel must be between 1 and 9")
         super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
 
