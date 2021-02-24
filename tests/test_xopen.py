@@ -565,7 +565,7 @@ def writers_and_levels():
     for writer in PIPED_GZIP_WRITERS:
         if writer == PipedGzipWriter:
             # Levels 1-9 are supported
-            yield from ((writer, i) for i in range(1,10))
+            yield from ((writer, i) for i in range(1, 10))
         elif writer == PipedPigzWriter:
             # Levels 0-9 + 11 are supported
             yield from ((writer, i) for i in list(range(10)) + [11])
@@ -577,11 +577,9 @@ def writers_and_levels():
                                       f"{writer}")
 
 
-
 @pytest.mark.parametrize(["writer", "level"], writers_and_levels())
 def test_valid_compression_levels(writer, level, tmpdir):
     test_file = tmpdir.join("test.gz")
     with writer(test_file, "wb", level) as handle:
         handle.write(b"test")
     assert gzip.decompress(Path(test_file).read_bytes()) == b"test"
-
