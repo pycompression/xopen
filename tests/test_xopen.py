@@ -1,3 +1,4 @@
+import gzip
 import io
 import os
 import random
@@ -10,6 +11,7 @@ from pathlib import Path
 
 from xopen import (
     xopen,
+    PipedCompressionReader,
     PipedCompressionWriter,
     PipedGzipReader,
     PipedGzipWriter,
@@ -21,7 +23,7 @@ from xopen import (
     PipedPythonIsalWriter,
     _MAX_PIPE_SIZE,
     _can_read_concatenated_gz,
-    igzip,
+    igzip
 )
 extensions = ["", ".gz", ".bz2"]
 
@@ -504,3 +506,49 @@ def test_open_many_gzip_writers(tmp_path):
         files.append(f)
     for f in files:
         f.close()
+
+
+def test_pipedcompressionwriter_wrong_mode():
+    with pytest.raises(ValueError) as error:
+        PipedCompressionWriter("test", ["gzip"], "xb")
+    error.match("Mode is 'xb', but it must be")
+
+
+def test_pipedcompressionwriter_wrong_program():
+    with pytest.raises(OSError):
+        PipedCompressionWriter("test", ["XVXCLSKDLA"], "wb")
+
+
+def test_compression_level(tmpdir, gzip_writer):
+    with gzip_writer(tmpdir.join("test.gz"), "wt", 2) as test_h:
+        test_h.write("test")
+    assert gzip.decompress(Path(tmpdir.join("test.gz")).read_bytes()) == b"test"
+
+
+def test_iter_method_writers(gzip_writer, tmpdir):
+    test_path = tmpdir.join("test.gz")
+    writer = gzip_writer(test_path, "wb")
+    assert iter(writer) == writer
+
+
+def test_next_method_writers(gzip_writer, tmpdir):
+    test_path = tmpdir.join("test.gz")
+    writer = gzip_writer(test_path, "wb")
+    with pytest.raises(io.UnsupportedOperation) as error:
+        next(writer)
+    error.match('not readable')
+
+
+def test_pipedcompressionreader_wrong_mode():
+    with pytest.raises(ValueError) as error:
+        PipedCompressionReader("test", ["gzip"], "xb")
+    error.match("Mode is 'xb', but it must be")
+
+
+@pytest.mark.parametrize("mode", ["r", "rt", "rb"])
+def test_piped_compression_reader_peek(gzip_reader, mode):
+    filegz = Path(__file__).parent / "file.txt.gz"
+    with gzip_reader(filegz, mode) as read_h:
+        # Peek returns at least the amount of characters but maybe more
+        # depending on underlying stream. Hence startswith not ==.
+        assert read_h.peek(1).startswith(b"T")
