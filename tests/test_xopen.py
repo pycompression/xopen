@@ -559,3 +559,29 @@ def test_piped_compression_reader_peek_text(gzip_reader, mode):
     with gzip_reader(filegz, mode) as read_h:
         with pytest.raises(AttributeError):
             read_h.peek(1)
+
+
+def writers_and_levels():
+    for writer in PIPED_GZIP_WRITERS:
+        if writer == PipedGzipWriter:
+            # Levels 1-9 are supported
+            yield from ((writer, i) for i in range(1,10))
+        elif writer == PipedPigzWriter:
+            # Levels 0-9 + 11 are supported
+            yield from ((writer, i) for i in list(range(10)) + [11])
+        elif writer == PipedIGzipWriter or writer == PipedPythonIsalWriter:
+            # Levels 0-3 are supported
+            yield from ((writer, i) for i in range(4))
+        else:
+            raise NotImplementedError(f"Test should be implemented for "
+                                      f"{writer}")
+
+
+
+@pytest.mark.parametrize(["writer", "level"], writers_and_levels())
+def test_valid_compression_levels(writer, level, tmpdir):
+    test_file = tmpdir.join("test.gz")
+    with writer(test_file, "wb", level) as handle:
+        handle.write(b"test")
+    assert gzip.decompress(Path(test_file).read_bytes()) == b"test"
+
