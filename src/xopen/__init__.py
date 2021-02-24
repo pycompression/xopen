@@ -293,8 +293,13 @@ class PipedCompressionReader(Closing):
         assert self.process.stderr is not None
         self._stderr = io.TextIOWrapper(self.process.stderr)
         self.closed = False
-        # Peek the first character(s) of stdout. This will ensure the program
-        # has started before checking any errors.
+        # The program may crash due to a non-existing file, internal error etc.
+        # In that case we need to check. However the 'time-to-crash' differs
+        # between programs. Some crash faster than others.
+        # Therefore we peek the first character(s) of stdout. Peek will block
+        # until it gets at least the amount of characters specified or EOF.
+        # This way we ensure the program has at least decompressed some output,
+        # or stopped before we continue.
         self.process.stdout.peek(1)  # type: ignore  # stdout is io.BufferedReader if set to PIPE.
         self._raise_if_error()
 
