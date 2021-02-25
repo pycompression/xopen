@@ -23,7 +23,7 @@ from xopen import (
     PipedPythonIsalWriter,
     _MAX_PIPE_SIZE,
     _can_read_concatenated_gz,
-    igzip
+    igzip,
 )
 extensions = ["", ".gz", ".bz2"]
 
