@@ -1,3 +1,4 @@
+import gzip
 import io
 import os
 import random
@@ -10,6 +11,7 @@ from pathlib import Path
 
 from xopen import (
     xopen,
+    PipedCompressionReader,
     PipedCompressionWriter,
     PipedGzipReader,
     PipedGzipWriter,
@@ -305,7 +307,15 @@ def test_invalid_compression_level(tmpdir):
     with pytest.raises(ValueError) as e:
         with xopen(path, mode="w", compresslevel=17) as f:
             f.write("hello")  # pragma: no cover
-    assert "between 1 and 9" in e.value.args[0]
+    assert "compresslevel must be" in e.value.args[0]
+
+
+def test_invalid_compression_level_writers(gzip_writer, tmpdir):
+    path = str(tmpdir.join("out.gz"))
+    with pytest.raises(ValueError) as e:
+        with gzip_writer(path, mode="w", compresslevel=17) as f:
+            f.write("hello")  # pragma: no cover
+    assert "compresslevel must be" in e.value.args[0]
 
 
 @pytest.mark.parametrize("ext", extensions)
@@ -504,3 +514,80 @@ def test_open_many_gzip_writers(tmp_path):
         files.append(f)
     for f in files:
         f.close()
+
+
+def test_pipedcompressionwriter_wrong_mode():
+    with pytest.raises(ValueError) as error:
+        PipedCompressionWriter("test", ["gzip"], "xb")
+    error.match("Mode is 'xb', but it must be")
+
+
+def test_pipedcompressionwriter_wrong_program():
+    with pytest.raises(OSError):
+        PipedCompressionWriter("test", ["XVXCLSKDLA"], "wb")
+
+
+def test_compression_level(tmpdir, gzip_writer):
+    with gzip_writer(tmpdir.join("test.gz"), "wt", 2) as test_h:
+        test_h.write("test")
+    assert gzip.decompress(Path(tmpdir.join("test.gz")).read_bytes()) == b"test"
+
+
+def test_iter_method_writers(gzip_writer, tmpdir):
+    test_path = tmpdir.join("test.gz")
+    writer = gzip_writer(test_path, "wb")
+    assert iter(writer) == writer
+
+
+def test_next_method_writers(gzip_writer, tmpdir):
+    test_path = tmpdir.join("test.gz")
+    writer = gzip_writer(test_path, "wb")
+    with pytest.raises(io.UnsupportedOperation) as error:
+        next(writer)
+    error.match('not readable')
+
+
+def test_pipedcompressionreader_wrong_mode():
+    with pytest.raises(ValueError) as error:
+        PipedCompressionReader("test", ["gzip"], "xb")
+    error.match("Mode is 'xb', but it must be")
+
+
+def test_piped_compression_reader_peek_binary(gzip_reader):
+    filegz = Path(__file__).parent / "file.txt.gz"
+    with gzip_reader(filegz, "rb") as read_h:
+        # Peek returns at least the amount of characters but maybe more
+        # depending on underlying stream. Hence startswith not ==.
+        assert read_h.peek(1).startswith(b"T")
+
+
+@pytest.mark.parametrize("mode", ["r", "rt"])
+def test_piped_compression_reader_peek_text(gzip_reader, mode):
+    filegz = Path(__file__).parent / "file.txt.gz"
+    with gzip_reader(filegz, mode) as read_h:
+        with pytest.raises(AttributeError):
+            read_h.peek(1)
+
+
+def writers_and_levels():
+    for writer in PIPED_GZIP_WRITERS:
+        if writer == PipedGzipWriter:
+            # Levels 1-9 are supported
+            yield from ((writer, i) for i in range(1, 10))
+        elif writer == PipedPigzWriter:
+            # Levels 0-9 + 11 are supported
+            yield from ((writer, i) for i in list(range(10)) + [11])
+        elif writer == PipedIGzipWriter or writer == PipedPythonIsalWriter:
+            # Levels 0-3 are supported
+            yield from ((writer, i) for i in range(4))
+        else:
+            raise NotImplementedError(f"Test should be implemented for "
+                                      f"{writer}")
+
+
+@pytest.mark.parametrize(["writer", "level"], writers_and_levels())
+def test_valid_compression_levels(writer, level, tmpdir):
+    test_file = tmpdir.join("test.gz")
+    with writer(test_file, "wb", level) as handle:
+        handle.write(b"test")
+    assert gzip.decompress(Path(test_file).read_bytes()) == b"test"

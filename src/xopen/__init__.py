@@ -27,7 +27,7 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, TextIO, AnyStr, IO, List
+from typing import Optional, TextIO, AnyStr, IO, List, Set
 
 from ._version import version as __version__
 
@@ -58,21 +58,6 @@ if _MAX_PIPE_SIZE_PATH.exists():
     _MAX_PIPE_SIZE = int(_MAX_PIPE_SIZE_PATH.read_text())  # type: Optional[int]
 else:
     _MAX_PIPE_SIZE = None
-
-
-try:
-    from os import fspath  # Exists in Python 3.6+
-except ImportError:
-    def fspath(path):  # type: ignore
-        if hasattr(path, "__fspath__"):
-            return path.__fspath__()
-        # Python 3.4 and 3.5 have pathlib, but do not support the file system
-        # path protocol
-        if pathlib is not None and isinstance(path, pathlib.Path):
-            return str(path)
-        if not isinstance(path, str):
-            raise TypeError("path must be a string")
-        return path
 
 
 def _available_cpu_count() -> int:
@@ -302,14 +287,19 @@ class PipedCompressionReader(Closing):
 
         self._mode = mode
         if 'b' not in mode:
-            self._file = io.TextIOWrapper(self.process.stdout)  # type: IO
+            self._file: IO = io.TextIOWrapper(self.process.stdout)
         else:
             self._file = self.process.stdout
         assert self.process.stderr is not None
         self._stderr = io.TextIOWrapper(self.process.stderr)
         self.closed = False
-        # Peek the first character(s) of stdout. This will ensure the program
-        # has started before checking any errors.
+        # The program may crash due to a non-existing file, internal error etc.
+        # In that case we need to check. However the 'time-to-crash' differs
+        # between programs. Some crash faster than others.
+        # Therefore we peek the first character(s) of stdout. Peek will block
+        # until it gets at least the amount of characters specified or EOF.
+        # This way we ensure the program has at least decompressed some output,
+        # or stopped before we continue.
         self.process.stdout.peek(1)  # type: ignore  # stdout is io.BufferedReader if set to PIPE.
         self._raise_if_error()
 
@@ -373,7 +363,10 @@ class PipedCompressionReader(Closing):
         return self._file.seekable()
 
     def peek(self, n: int = None):
-        return self._file.peek(n)  # type: ignore
+        if hasattr(self._file, "peek"):
+            return self._file.peek(n)  # type: ignore
+        else:
+            raise AttributeError("Peek is not available when 'b' not in mode")
 
     def readable(self) -> bool:
         return self._file.readable()
@@ -431,6 +424,8 @@ class PipedPigzWriter(PipedCompressionWriter):
     efficient than gzip on only one core. (But then igzip is even faster and
     should be preferred if the compression level allows it.)
     """
+    _accepted_compression_levels: Set[int] = set(list(range(10)) + [11])
+
     def __init__(
         self,
         path,
@@ -445,8 +440,8 @@ class PipedPigzWriter(PipedCompressionWriter):
             used. At the moment, this means that the number of available CPU cores is used, capped
             at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
         """
-        if compresslevel is not None and compresslevel not in range(1, 10):
-            raise ValueError("compresslevel must be between 1 and 9")
+        if compresslevel is not None and compresslevel not in self._accepted_compression_levels:
+            raise ValueError("compresslevel must be between 0 and 9 or 11")
         super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
 
 
@@ -660,7 +655,7 @@ def xopen(
         mode += 't'
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
         raise ValueError("Mode '{}' not supported".format(mode))
-    filename = fspath(filename)
+    filename = os.fspath(filename)
 
     if filename == '-':
         return _open_stdin_or_out(mode)
