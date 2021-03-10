@@ -18,7 +18,7 @@ setup(
     package_data={"xopen": ["py.typed"]},
     extras_require={
         'dev': ['pytest'],
-        ':python_implementation != "PyPy"': ['isal>=0.6.0']
+        ':python_implementation != "PyPy"': ['isal>=0.6.1']
     },
     python_requires='>=3.6',
     classifiers=[
