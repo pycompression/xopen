@@ -18,7 +18,14 @@ setup(
     package_data={"xopen": ["py.typed"]},
     extras_require={
         'dev': ['pytest'],
-        ':python_implementation != "PyPy"': ['isal>=0.6.1']
+        # Install isa-l on 64 bit platforms. Python-isal wheels are provided for:
+        # x86_64: Linux and MacOS x86_64 platforms
+        # AMD64: Windows x86_64 platforms.
+        # aarch64: Linux ARM 64-bit platforms.
+        # Wheels are not provided for 'arm64'. The MacOS 64 bit platforms. 
+        ':platform.machine == "x86_64"': ['isal>=0.9.0'],
+        ':platform.machine == "AMD64"': ['isal>=0.9.0'],
+        ':platform.machine == "aarch64"': ['isal>=0.9.0'],
     },
     python_requires='>=3.6',
     classifiers=[
