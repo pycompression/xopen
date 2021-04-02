@@ -550,6 +550,16 @@ def test_xopen_falls_back_to_gzip_open_no_isal(lacking_pigz_permissions,
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
+def test_xopen_fals_back_to_gzip_open_write_no_isal(lacking_pigz_permissions,
+                                                    monkeypatch, tmp_path):
+    import xopen  # xopen local overrides xopen global variable
+    monkeypatch.setattr(xopen, "igzip", None)
+    tmp = tmp_path / "test.gz"
+    with xopen.xopen(tmp, "wb") as f:
+        f.write(b"hello")
+    assert gzip.decompress(tmp.read_bytes())== b"hello"
+
+
 def test_open_many_gzip_writers(tmp_path):
     files = []
     for i in range(1, 61):
