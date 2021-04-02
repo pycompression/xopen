@@ -145,6 +145,24 @@ def test_xopen_binary(fname):
         assert lines[1] == b'The second line.\n', fname
 
 
+def test_xopen_binary_no_isal_no_threads(fname, monkeypatch):
+    import xopen  # xopen local overrides xopen global variable
+    monkeypatch.setattr(xopen, "igzip", None)
+    with xopen.xopen(fname, 'rb', threads=0) as f:
+        lines = list(f)
+        assert len(lines) == 2
+        assert lines[1] == b'The second line.\n', fname
+
+
+def test_xopen_binary_no_isal(fname, monkeypatch):
+    import xopen  # xopen local overrides xopen global variable
+    monkeypatch.setattr(xopen, "igzip", None)
+    with xopen.xopen(fname, 'rb', threads=1) as f:
+        lines = list(f)
+        assert len(lines) == 2
+        assert lines[1] == b'The second line.\n', fname
+
+
 def test_no_context_manager_text(fname):
     f = xopen(fname, 'rt')
     lines = list(f)
@@ -419,6 +437,16 @@ def test_write_pigz_threads(tmpdir):
         assert f.read() == 'hello'
 
 
+def test_write_pigz_threads_no_isal(tmpdir, monkeypatch):
+    import xopen  # xopen local overrides xopen global variable
+    monkeypatch.setattr(xopen, "igzip", None)
+    path = str(tmpdir.join('out.gz'))
+    with xopen.xopen(path, mode='w', threads=3) as f:
+        f.write('hello')
+    with xopen.xopen(path) as f:
+        assert f.read() == 'hello'
+
+
 def test_read_gzip_no_threads():
     import gzip
     with xopen("tests/hello.gz", "rb", threads=0) as f:
@@ -429,6 +457,15 @@ def test_write_gzip_no_threads(tmpdir):
     import gzip
     path = str(tmpdir.join("out.gz"))
     with xopen(path, "wb", threads=0) as f:
+        assert isinstance(f, gzip.GzipFile), f
+
+
+def test_write_gzip_no_threads_no_isal(tmpdir, monkeypatch):
+    import xopen  # xopen local overrides xopen global variable
+    monkeypatch.setattr(xopen, "igzip", None)
+    import gzip
+    path = str(tmpdir.join("out.gz"))
+    with xopen.xopen(path, "wb", threads=0) as f:
         assert isinstance(f, gzip.GzipFile), f
 
 
