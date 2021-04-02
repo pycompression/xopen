@@ -557,7 +557,7 @@ def test_xopen_fals_back_to_gzip_open_write_no_isal(lacking_pigz_permissions,
     tmp = tmp_path / "test.gz"
     with xopen.xopen(tmp, "wb") as f:
         f.write(b"hello")
-    assert gzip.decompress(tmp.read_bytes())== b"hello"
+    assert gzip.decompress(tmp.read_bytes()) == b"hello"
 
 
 def test_open_many_gzip_writers(tmp_path):
