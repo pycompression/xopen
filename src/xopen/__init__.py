@@ -143,7 +143,7 @@ class Closing(ABC):
 
     @abstractmethod
     def close(self):
-        pass
+        """Called when exiting the context manager"""
 
 
 class PipedCompressionWriter(Closing):
