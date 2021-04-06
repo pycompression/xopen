@@ -25,13 +25,7 @@ from xopen import (
     _can_read_concatenated_gz,
     igzip,
 )
-extensions = ["", ".gz", ".bz2"]
-
-try:
-    import lzma
-    extensions.append(".xz")
-except ImportError:
-    lzma = None
+extensions = ["", ".gz", ".bz2", ".xz"]
 
 try:
     import fcntl
@@ -512,11 +506,9 @@ def test_write_pathlib_binary(ext, tmpdir):
         assert f.read() == b'hello'
 
 
-# lzma doesn’t work on PyPy3 at the moment
-if lzma is not None:
-    def test_detect_xz_file_format_from_content():
-        with xopen("tests/file.txt.xz.test", "rb") as fh:
-            assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
+def test_detect_xz_file_format_from_content():
+    with xopen("tests/file.txt.xz.test", "rb") as fh:
+        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
 def test_concatenated_gzip_function():

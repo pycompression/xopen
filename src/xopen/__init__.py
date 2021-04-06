@@ -20,6 +20,7 @@ import sys
 import io
 import os
 import bz2
+import lzma
 import stat
 import signal
 import pathlib
@@ -31,11 +32,6 @@ from typing import Optional, TextIO, AnyStr, IO, List, Set
 
 from ._version import version as __version__
 
-
-try:
-    import lzma
-except ImportError:
-    lzma = None  # type: ignore
 
 try:
     from isal import igzip, isal_zlib  # type: ignore
@@ -508,9 +504,6 @@ def _open_bz2(filename, mode: str) -> IO:
 
 
 def _open_xz(filename, mode: str) -> IO:
-    if lzma is None:
-        raise ImportError(
-            "Cannot open xz files: The lzma module is not available (use Python 3.3 or newer)")
     return lzma.open(filename, mode)
 
 
