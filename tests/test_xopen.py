@@ -633,7 +633,7 @@ def writers_and_levels():
             yield from ((writer, i) for i in range(4))
         else:
             raise NotImplementedError(f"Test should be implemented for "
-                                      f"{writer}")
+                                      f"{writer}")  # pragma: no cover
 
 
 @pytest.mark.parametrize(["writer", "level"], writers_and_levels())
