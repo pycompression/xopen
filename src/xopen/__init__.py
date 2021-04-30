@@ -151,8 +151,7 @@ class PipedCompressionWriter(Closing):
     def __init__(self, path, program_args: List[str], mode='wt',
                  compresslevel: Optional[int] = None,
                  threads_flag: Optional[str] = None,
-                 threads: Optional[int] = None,
-                 space: Optional[bool] = True):
+                 threads: Optional[int] = None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -173,7 +172,6 @@ class PipedCompressionWriter(Closing):
         self._mode: str = mode
         self._program_args: List[str] = program_args
         self._threads_flag: Optional[str] = threads_flag
-        self._space: Optional[bool] = space
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
@@ -206,10 +204,7 @@ class PipedCompressionWriter(Closing):
     ) -> Popen:
         program_args: List[str] = self._program_args[:]  # prevent list aliasing
         if threads != 0 and self._threads_flag is not None:
-            if self._space:
-                program_args += [self._threads_flag, str(threads)]
-            else:
-                program_args += [f"{self._threads_flag}{threads}"]
+            program_args += [f"{self._threads_flag}{threads}"]
         extra_args = []
         if 'w' in mode and compresslevel is not None:
             extra_args += ['-' + str(compresslevel)]
@@ -261,8 +256,7 @@ class PipedCompressionReader(Closing):
         program_args: List[str],
         mode: str = "r",
         threads_flag: Optional[str] = None,
-        threads: Optional[int] = None,
-        space: Optional[bool] =True,
+        threads: Optional[int] = None
     ):
         """
         Raise an OSError when pigz could not be found.
@@ -281,10 +275,7 @@ class PipedCompressionReader(Closing):
                 #   using multiple threads while there is only a 10% gain in wall
                 #   clock time.
                 threads = 1
-            if space:
-                program_args += [threads_flag, str(threads)]
-            else:
-                program_args += [f"{threads_flag}{threads}"]
+            program_args += [f"{threads_flag}{threads}"]
         self._threads = threads
         self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
@@ -457,14 +448,13 @@ class PipedPBzip2Reader(PipedCompressionReader):
     Open a pipe to pbzip2 for reading a bzipped file.
     """
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
-        super().__init__(path, ["pbzip2"], mode, "-p", threads, space=False)
+        super().__init__(path, ["pbzip2"], mode, "-p", threads)
 
 class PipedPBzip2Writer(PipedCompressionWriter):
     """
     Write bzip2-compressed files by running an external pbzip2 process and
     piping into it. pbzip2 can compress using multiple cores.
     """
-    _accepted_compression_levels: Set[int] = set(list(range(10)))
 
     def __init__(
         self,
@@ -475,9 +465,9 @@ class PipedPBzip2Writer(PipedCompressionWriter):
     ):
         """
         """
-        if compresslevel is not None and compresslevel not in self._accepted_compression_levels:
+        if compresslevel is not None and compresslevel not in range(10):
             raise ValueError("compresslevel must be between 0 and 9")
-        super().__init__(path, ["pbzip2"], mode, compresslevel, "-p", threads, space=False)
+        super().__init__(path, ["pbzip2"], mode, compresslevel, "-p", threads)
 
 class PipedIGzipReader(PipedCompressionReader):
     """
