@@ -10,6 +10,8 @@ __all__ = [
     "PipedIGzipWriter",
     "PipedPigzReader",
     "PipedPigzWriter",
+    "PipedPBzip2Reader",
+    "PipedPBzip2Writer",
     "PipedPythonIsalReader",
     "PipedPythonIsalWriter",
     "__version__",
@@ -149,7 +151,8 @@ class PipedCompressionWriter(Closing):
     def __init__(self, path, program_args: List[str], mode='wt',
                  compresslevel: Optional[int] = None,
                  threads_flag: Optional[str] = None,
-                 threads: Optional[int] = None):
+                 threads: Optional[int] = None,
+                 space: Optional[bool] = True):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -170,6 +173,7 @@ class PipedCompressionWriter(Closing):
         self._mode: str = mode
         self._program_args: List[str] = program_args
         self._threads_flag: Optional[str] = threads_flag
+        self._space: Optional[bool] = space
 
         if threads is None:
             threads = min(_available_cpu_count(), 4)
@@ -202,7 +206,10 @@ class PipedCompressionWriter(Closing):
     ) -> Popen:
         program_args: List[str] = self._program_args[:]  # prevent list aliasing
         if threads != 0 and self._threads_flag is not None:
-            program_args += [self._threads_flag, str(threads)]
+            if self._space:
+                program_args += [self._threads_flag, str(threads)]
+            else:
+                program_args += [f"{self._threads_flag}{threads}"]
         extra_args = []
         if 'w' in mode and compresslevel is not None:
             extra_args += ['-' + str(compresslevel)]
@@ -255,6 +262,7 @@ class PipedCompressionReader(Closing):
         mode: str = "r",
         threads_flag: Optional[str] = None,
         threads: Optional[int] = None,
+        space: Optional[bool] =True,
     ):
         """
         Raise an OSError when pigz could not be found.
@@ -273,7 +281,10 @@ class PipedCompressionReader(Closing):
                 #   using multiple threads while there is only a 10% gain in wall
                 #   clock time.
                 threads = 1
-            program_args += [threads_flag, str(threads)]
+            if space:
+                program_args += [threads_flag, str(threads)]
+            else:
+                program_args += [f"{threads_flag}{threads}"]
         self._threads = threads
         self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
@@ -441,6 +452,33 @@ class PipedPigzWriter(PipedCompressionWriter):
         super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
 
 
+class PipedPBzip2Reader(PipedCompressionReader):
+    """
+    Open a pipe to pbzip2 for reading a bzipped file.
+    """
+    def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
+        super().__init__(path, ["pbzip2"], mode, "-p", threads, space=False)
+
+class PipedPBzip2Writer(PipedCompressionWriter):
+    """
+    Write bzip2-compressed files by running an external pbzip2 process and
+    piping into it. pbzip2 can compress using multiple cores.
+    """
+    _accepted_compression_levels: Set[int] = set(list(range(10)))
+
+    def __init__(
+        self,
+        path,
+        mode: str = "wt",
+        compresslevel: Optional[int] = None,
+        threads: Optional[int] = None,
+    ):
+        """
+        """
+        if compresslevel is not None and compresslevel not in self._accepted_compression_levels:
+            raise ValueError("compresslevel must be between 0 and 9")
+        super().__init__(path, ["pbzip2"], mode, compresslevel, "-p", threads, space=False)
+
 class PipedIGzipReader(PipedCompressionReader):
     """
     Uses igzip for reading of a gzipped file. This is much faster than either
@@ -499,7 +537,16 @@ def _open_stdin_or_out(mode: str) -> IO:
     return open(std.fileno(), mode=mode, closefd=False)
 
 
-def _open_bz2(filename, mode: str) -> IO:
+def _open_bz2(filename, mode: str, compresslevel, threads):
+    if threads != 0:
+        try:
+            if "r" in mode:
+                return PipedPBzip2Reader(filename, mode, threads)
+            else:
+                return PipedPBzip2Writer(filename, mode, compresslevel, threads)
+        except OSError:
+            pass  # We try without threads.
+
     return bz2.open(filename, mode)
 
 
@@ -662,6 +709,6 @@ def xopen(
     elif detected_format == "xz":
         return _open_xz(filename, mode)
     elif detected_format == "bz2":
-        return _open_bz2(filename, mode)
+        return _open_bz2(filename, mode, compresslevel, threads)
     else:
         return open(filename, mode)
