@@ -450,6 +450,7 @@ class PipedPBzip2Reader(PipedCompressionReader):
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
         super().__init__(path, ["pbzip2"], mode, "-p", threads)
 
+
 class PipedPBzip2Writer(PipedCompressionWriter):
     """
     Write bzip2-compressed files by running an external pbzip2 process and
@@ -464,6 +465,7 @@ class PipedPBzip2Writer(PipedCompressionWriter):
     ):
         # Use default compression level for pbzip2: 9
         super().__init__(path, ["pbzip2"], mode, 9, "-p", threads)
+
 
 class PipedIGzipReader(PipedCompressionReader):
     """
