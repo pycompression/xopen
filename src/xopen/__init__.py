@@ -256,7 +256,7 @@ class PipedCompressionReader(Closing):
         program_args: List[str],
         mode: str = "r",
         threads_flag: Optional[str] = None,
-        threads: Optional[int] = None
+        threads: Optional[int] = None,
     ):
         """
         Raise an OSError when pigz could not be found.
@@ -460,14 +460,10 @@ class PipedPBzip2Writer(PipedCompressionWriter):
         self,
         path,
         mode: str = "wt",
-        compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
     ):
-        """
-        """
-        if compresslevel is not None and compresslevel not in range(10):
-            raise ValueError("compresslevel must be between 0 and 9")
-        super().__init__(path, ["pbzip2"], mode, compresslevel, "-p", threads)
+        # Use default compression level for pbzip2: 9
+        super().__init__(path, ["pbzip2"], mode, 9, "-p", threads)
 
 class PipedIGzipReader(PipedCompressionReader):
     """
@@ -527,13 +523,13 @@ def _open_stdin_or_out(mode: str) -> IO:
     return open(std.fileno(), mode=mode, closefd=False)
 
 
-def _open_bz2(filename, mode: str, compresslevel, threads):
+def _open_bz2(filename, mode: str, threads):
     if threads != 0:
         try:
             if "r" in mode:
                 return PipedPBzip2Reader(filename, mode, threads)
             else:
-                return PipedPBzip2Writer(filename, mode, compresslevel, threads)
+                return PipedPBzip2Writer(filename, mode, threads)
         except OSError:
             pass  # We try without threads.
 
