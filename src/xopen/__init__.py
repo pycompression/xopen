@@ -523,7 +523,7 @@ def _open_stdin_or_out(mode: str) -> IO:
     return open(std.fileno(), mode=mode, closefd=False)
 
 
-def _open_bz2(filename, mode: str, threads):
+def _open_bz2(filename, mode: str, threads: Optional[int]):
     if threads != 0:
         try:
             if "r" in mode:
