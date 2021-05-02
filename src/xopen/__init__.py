@@ -697,6 +697,6 @@ def xopen(
     elif detected_format == "xz":
         return _open_xz(filename, mode)
     elif detected_format == "bz2":
-        return _open_bz2(filename, mode, compresslevel, threads)
+        return _open_bz2(filename, mode, threads)
     else:
         return open(filename, mode)
