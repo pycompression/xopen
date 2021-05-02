@@ -38,8 +38,8 @@ from ._version import version as __version__
 try:
     from isal import igzip, isal_zlib  # type: ignore
 except ImportError:
-    igzip = None
-    isal_zlib = None
+    igzip = None # type: ignore
+    isal_zlib = None # type: ignore
 
 try:
     import fcntl
