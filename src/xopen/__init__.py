@@ -39,8 +39,8 @@ from ._version import version as __version__
 try:
     from isal import igzip, isal_zlib  # type: ignore
 except ImportError:
-    igzip = None  # type: ignore
-    isal_zlib = None  # type: ignore
+    igzip = None
+    isal_zlib = None
 
 try:
     import fcntl
@@ -314,7 +314,7 @@ class PipedCompressionReader(Closing):
     def _terminate(self):
         """
         Check if the process is running and terminate if necessairy.
-        Return the expected error code and the expected error message 
+        Return the expected error code and the expected error message
         in stderr when applicable.
         """
         retcode = self.process.poll()
