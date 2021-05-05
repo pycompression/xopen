@@ -254,7 +254,7 @@ class PipedCompressionReader(Closing):
     _allowed_exit_code: Optional[int] = -signal.SIGTERM
     # If this message is printed on stderr on terminating the process,
     # it is not interpreted as an error
-    _allowed_exit_message: Optional[str] = None
+    _allowed_exit_message: Optional[str] = "Control-C or similar caught [sig=15], quitting..."
 
     def __init__(
         self,
@@ -346,7 +346,6 @@ class PipedCompressionReader(Closing):
         the output from stderr.
         """
         retcode = self.process.poll()
-        message = self._stderr.read().strip()
 
         if retcode is None:
             # process still running
@@ -354,6 +353,8 @@ class PipedCompressionReader(Closing):
         if retcode == 0:
             # process terminated successfully
             return
+
+        message = self._stderr.read().strip()
         if check_allowed_code_and_message:
             if retcode == self._allowed_exit_code:
                 # terminated with allowed exit code
