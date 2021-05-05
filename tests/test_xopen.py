@@ -89,23 +89,12 @@ ALL_WRITERS_WITH_EXTENSION = list(zip(PIPED_GZIP_WRITERS, cycle([".gz"]))) + \
                              list(zip(PIPED_BZIP2_WRITERS, cycle([".bz2"])))
 
 
-@pytest.fixture(params=PIPED_GZIP_READERS)
-def gzip_reader(request):
-    return request.param
+THREADED_READERS = set([(PipedPigzReader, ".gz"), (PipedPBzip2Reader, ".bz2")]) & \
+                   set(ALL_READERS_WITH_EXTENSION)
 
 
 @pytest.fixture(params=PIPED_GZIP_WRITERS)
 def gzip_writer(request):
-    return request.param
-
-
-@pytest.fixture(params=PIPED_BZIP2_READERS)
-def bz2_reader(request):
-    return request.param
-
-
-@pytest.fixture(params=PIPED_BZIP2_WRITERS)
-def bz2_writer(request):
     return request.param
 
 
@@ -124,6 +113,11 @@ def reader(request):
     return request.param
 
 
+@pytest.fixture(params=THREADED_READERS)
+def threaded_reader(request):
+    return request.param
+
+
 @pytest.fixture(params=ALL_WRITERS_WITH_EXTENSION)
 def writer(request):
     return request.param
@@ -131,6 +125,11 @@ def writer(request):
 
 @contextmanager
 def disable_binary(tmp_path, binary_name):
+    """
+    Find the location of the binary by its name, then set PATH to a directory that contains
+    the binary with permissions set to 000. If no suitable binary could be found,
+    PATH is set to an empty directory
+    """
     try:
         binary_path = shutil.which(binary_name)
         if binary_path:
@@ -145,20 +144,12 @@ def disable_binary(tmp_path, binary_name):
 
 @pytest.fixture
 def lacking_pigz_permissions(tmp_path):
-    """
-    Set PATH to a directory that contains a pigz binary with permissions set to 000.
-    If no suitable pigz binary could be found, PATH is set to an empty directory
-    """
     with disable_binary(tmp_path, "pigz"):
         yield
 
 
 @pytest.fixture
 def lacking_pbzip2_permissions(tmp_path):
-    """
-    Set PATH to a directory that contains a pbzip2 binary with permissions set to 000.
-    If no suitable pbzip2 binary could be found, PATH is set to an empty directory
-    """
     with disable_binary(tmp_path, "pbzip2"):
         yield
 
@@ -249,28 +240,25 @@ def test_readinto(fname):
         assert b[:length] == content
 
 
-def test_gzip_reader_readinto(gzip_reader):
+def test_reader_readinto(reader):
+    opener, extension = reader
     content = CONTENT.encode('utf-8')
-    with gzip_reader("tests/file.txt.gz", "rb") as f:
+    with opener(f"tests/file.txt{extension}", "rb") as f:
         b = bytearray(len(content) + 100)
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
 
 
-def test_gzip_reader_textiowrapper(gzip_reader):
-    with gzip_reader("tests/file.txt.gz", "rb") as f:
+def test_reader_textiowrapper(reader):
+    opener, extension = reader
+    with opener(f"tests/file.txt{extension}", "rb") as f:
         wrapped = io.TextIOWrapper(f)
         assert wrapped.read() == CONTENT
 
 
-def test_detect_gzip_file_format_from_content():
+def test_detect_file_format_from_content(ext):
     with xopen("tests/file.txt.gz.test", "rb") as fh:
-        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
-
-
-def test_detect_bz2_file_format_from_content():
-    with xopen("tests/file.txt.bz2.test", "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
@@ -299,11 +287,9 @@ def test_reader_readline_text(reader):
 
 
 @pytest.mark.parametrize("threads", [None, 1, 2])
-@pytest.mark.parametrize("piped_reader", [(PipedPigzReader, ".gz"),
-                                          (PipedPBzip2Reader, ".bz2")])
-def test_piped_reader_iter(threads, piped_reader):
-    reader, extension = piped_reader
-    with reader(f"tests/file.txt{extension}", mode="r", threads=threads) as f:
+def test_piped_reader_iter(threads, threaded_reader):
+    opener, extension = threaded_reader
+    with opener(f"tests/file.txt{extension}", mode="r", threads=threads) as f:
         lines = list(f)
         assert lines[0] == CONTENT_LINES[0]
 
@@ -502,9 +488,10 @@ def test_bare_read_from_gz():
         assert f.read() == 'hello'
 
 
-def test_gzip_readers_read(gzip_reader):
-    with gzip_reader('tests/hello.gz', 'rt') as f:
-        assert f.read() == 'hello'
+def test_readers_read(reader):
+    opener, extension = reader
+    with opener(f'tests/file.txt{extension}', 'rt') as f:
+        assert f.read() == CONTENT
 
 
 def test_write_threads(tmpdir, ext):
@@ -521,6 +508,18 @@ def test_write_pigz_threads_no_isal(tmpdir, xopen_without_igzip):
         f.write('hello')
     with xopen_without_igzip(path) as f:
         assert f.read() == 'hello'
+
+
+def test_read_no_threads(ext):
+    klasses = {
+        ".bz2": bz2.BZ2File,
+        ".gz": gzip.GzipFile,
+        ".xz": lzma.LZMAFile,
+        "": io.BufferedReader,
+    }
+    klass = klasses[ext]
+    with xopen(f"tests/file.txt{ext}", "rb", threads=0) as f:
+        assert isinstance(f, klass), f
 
 
 def test_write_no_threads(tmpdir, ext):
@@ -585,11 +584,6 @@ def test_write_pathlib_binary(ext, tmpdir):
         f.write(b'hello')
     with xopen(path, mode='rb') as f:
         assert f.read() == b'hello'
-
-
-def test_detect_xz_file_format_from_content():
-    with xopen("tests/file.txt.xz.test", "rb") as fh:
-        assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
 def test_concatenated_gzip_function():
@@ -657,7 +651,7 @@ def test_pipedcompressionwriter_wrong_program():
 
 
 def test_compression_level(tmpdir, gzip_writer):
-    # Currenlty only the gzip writers handle compression levels.
+    # Currently only the gzip writers handle compression levels.
     with gzip_writer(tmpdir.join("test.gz"), "wt", 2) as test_h:
         test_h.write("test")
     assert gzip.decompress(Path(tmpdir.join("test.gz")).read_bytes()) == b"test"

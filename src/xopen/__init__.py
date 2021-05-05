@@ -23,7 +23,6 @@ import io
 import os
 import bz2
 import lzma
-import re
 import stat
 import signal
 import pathlib
@@ -31,7 +30,7 @@ import subprocess
 import tempfile
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, TextIO, AnyStr, IO, List, Set, Pattern
+from typing import Optional, TextIO, AnyStr, IO, List, Set
 
 from ._version import version as __version__
 
@@ -251,6 +250,12 @@ class PipedCompressionReader(Closing):
     Open a pipe to a process for reading a compressed file.
     """
 
+    # This exit code is not interpreted as an error when terminating the process
+    _allowed_exit_code: Optional[int] = -signal.SIGTERM
+    # If this message is printed on stderr on terminating the process,
+    # it is not interpreted as an error
+    _allowed_exit_message: Optional[str] = None
+
     def __init__(
         self,
         path,
@@ -311,30 +316,19 @@ class PipedCompressionReader(Closing):
             self._threads,
         )
 
-    def _terminate(self):
-        """
-        Check if the process is running and terminate if necessairy.
-        Return the expected error code and the expected error message
-        in stderr when applicable.
-        """
-        retcode = self.process.poll()
-        if retcode is None:
-            # still running
-            self.process.terminate()
-            allowed_error_code = -signal.SIGTERM
-        else:
-            allowed_error_code = None
-        return allowed_error_code, None
-
     def close(self) -> None:
         if self.closed:
             return
         self.closed = True
-        allowed_error_code, allowed_message = self._terminate()
+        retcode = self.process.poll()
+        check_allowed_code_and_message = False
+        if retcode is None:
+            # still running
+            self.process.terminate()
+            check_allowed_code_and_message = True
         self.process.wait()
         self._file.close()
-        self._raise_if_error(allowed_error_code=allowed_error_code,
-                             allowed_message=allowed_message)
+        self._raise_if_error(check_allowed_code_and_message)
         self._stderr.close()
 
     def __iter__(self):
@@ -343,26 +337,34 @@ class PipedCompressionReader(Closing):
     def __next__(self) -> AnyStr:
         return self._file.__next__()
 
-    def _raise_if_error(self,
-                        allowed_error_code: Optional[int] = None,
-                        allowed_message: Optional[Pattern] = None) -> None:
+    def _raise_if_error(self, check_allowed_code_and_message: bool = False) -> None:
         """
         Raise OSError if process is not running anymore and the exit code is
-        nonzero. If allowed_error_code is set and the exit value of the process is
-        equal to the value of allowed_error_code do not raise an error. If allowed_message
-        is set and does not match the output from stderr, OSError is raised even if the
-        exit code matches allowed_error_code.
+        nonzero. If check_allowed_code_and_message is set, OSError is not raised when
+        (1) the exit value of the process is equal to the value of the allowed_exit_code
+        attribute or (2) the allowed_exit_message attribute is set and it matches with
+        the output from stderr.
         """
         retcode = self.process.poll()
         message = self._stderr.read().strip()
-        if (
-            retcode is not None and retcode != 0
-            and not (allowed_error_code is not None and retcode == allowed_error_code)
-            and not (allowed_message is not None and re.search(allowed_message, message))
-        ):
-            self._file.close()
-            self._stderr.close()
-            raise OSError("{} (exit code {})".format(message, retcode))
+
+        if retcode is None:
+            # process still running
+            return
+        if retcode == 0:
+            # process terminated successfully
+            return
+        if check_allowed_code_and_message:
+            if retcode == self._allowed_exit_code:
+                # terminated with allowed exit code
+                return
+            if self._allowed_exit_message and self._allowed_exit_message in message:
+                # terminated with another exit code, but message is allowed
+                return
+
+        self._file.close()
+        self._stderr.close()
+        raise OSError("{} (exit code {})".format(message, retcode))
 
     def read(self, *args) -> AnyStr:
         return self._file.read(*args)
@@ -463,23 +465,12 @@ class PipedPBzip2Reader(PipedCompressionReader):
     """
     Open a pipe to pbzip2 for reading a bzipped file.
     """
+
+    _allowed_exit_code = None
+    _allowed_error_message = "Control-C or similar caught [sig=15], quitting..."
+
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
         super().__init__(path, ["pbzip2"], mode, "-p", threads)
-
-    def _terminate(self):
-        """
-        Check if the process is running and terminate if necessairy.
-        """
-        retcode = self.process.poll()
-        if retcode is None:
-            # still running
-            self.process.terminate()
-            allowed_error_code = 1
-            allowed_error_message = "Control-C or similar caught [sig=15], quitting..."
-        else:
-            allowed_error_code = None
-            allowed_error_message = None
-        return allowed_error_code, allowed_error_message
 
 
 class PipedPBzip2Writer(PipedCompressionWriter):
