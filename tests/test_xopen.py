@@ -258,7 +258,7 @@ def test_reader_textiowrapper(reader):
 
 
 def test_detect_file_format_from_content(ext):
-    with xopen("tests/file.txt.gz.test", "rb") as fh:
+    with xopen(f"tests/file.txt{ext}.test", "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
