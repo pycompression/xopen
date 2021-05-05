@@ -254,7 +254,7 @@ class PipedCompressionReader(Closing):
     _allowed_exit_code: Optional[int] = -signal.SIGTERM
     # If this message is printed on stderr on terminating the process,
     # it is not interpreted as an error
-    _allowed_exit_message: Optional[str] = "Control-C or similar caught [sig=15], quitting..."
+    _allowed_exit_message: Optional[str] = None
 
     def __init__(
         self,
