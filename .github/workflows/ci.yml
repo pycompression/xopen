@@ -45,6 +45,13 @@ jobs:
     - name: Install isal
       if: matrix.with-isal && !startsWith(matrix.os, 'macos')
       run: sudo apt-get install isal libisal-dev
+    - name: Install pbzip2
+      run: >
+          if [[ ${{ startsWith(matrix.os, 'macos') }} = true ]]; then
+            brew install pbzip2;
+          else
+            sudo apt-get install pbzip2;
+          fi
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
