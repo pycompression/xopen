@@ -468,7 +468,7 @@ class PipedPBzip2Reader(PipedCompressionReader):
     """
 
     _allowed_exit_code = None
-    _allowed_error_message = "Control-C or similar caught [sig=15], quitting..."
+    _allowed_exit_message = "Control-C or similar caught [sig=15], quitting..."
 
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
         super().__init__(path, ["pbzip2"], mode, "-p", threads)
