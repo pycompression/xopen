@@ -332,6 +332,7 @@ class PipedCompressionReader(Closing):
             # The process did not react to SIGTERM
             # send non-interuptable SIGKILL
             self.process.kill()
+            self.process.wait()
         self._file.close()
         self._raise_if_error(check_allowed_code_and_message)
         self._stderr.close()
