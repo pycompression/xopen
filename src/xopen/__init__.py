@@ -31,6 +31,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, TextIO, AnyStr, IO, List, Set
+from threading import Thread, Event
 
 from ._version import version as __version__
 
@@ -245,6 +246,34 @@ class PipedCompressionWriter(Closing):
         raise io.UnsupportedOperation('not readable')
 
 
+class DummyReader(Thread):
+    """
+    Communication with a process may deadlock when using stdout=PIPE or
+    stderr=PIPE and the child process generates enough output to a pipe
+    such that it blocks waiting for the OS pipe buffer to accept more data.
+    A seperate thread can be used to read from the pipe and flush it.
+    https://docs.python.org/3/library/subprocess.html#subprocess.Popen.wait
+    """
+    def __init__(self, pipe):
+        self._pipe = pipe
+        self._stop = Event()
+        super().__init__()
+
+    def run(self):
+        while not self._stop.is_set():
+            self._pipe.read()
+
+    def stop(self):
+        self._stop.set()
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.stop()
+
+
 class PipedCompressionReader(Closing):
     """
     Open a pipe to a process for reading a compressed file.
@@ -324,14 +353,13 @@ class PipedCompressionReader(Closing):
         check_allowed_code_and_message = False
         if retcode is None:
             # still running
-            self.process.terminate()
+            with DummyReader(self._file):
+                # Avoid deadlock if the process outputs
+                # enough data to a pipe such that it blocks waiting
+                # for the OS pipe buffer to accept more data. Use
+                # StdoutFlusher and read from the pipe to flush it.
+                self.process.terminate()
             check_allowed_code_and_message = True
-        try:
-            self.process.wait(0.2)
-        except subprocess.TimeoutExpired:
-            # The process did not react to SIGTERM
-            # send non-interuptable SIGKILL
-            self.process.kill()
         self.process.wait()
         self._file.close()
         self._raise_if_error(check_allowed_code_and_message)
