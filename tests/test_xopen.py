@@ -639,15 +639,15 @@ def test_open_many_writers(tmp_path, ext):
         f.close()
 
 
-def test_pipedcompressionwriter_wrong_mode():
+def test_pipedcompressionwriter_wrong_mode(tmpdir):
     with pytest.raises(ValueError) as error:
-        PipedCompressionWriter("test", ["gzip"], "xb")
+        PipedCompressionWriter(tmpdir.join("test"), ["gzip"], "xb")
     error.match("Mode is 'xb', but it must be")
 
 
-def test_pipedcompressionwriter_wrong_program():
+def test_pipedcompressionwriter_wrong_program(tmpdir):
     with pytest.raises(OSError):
-        PipedCompressionWriter("test", ["XVXCLSKDLA"], "wb")
+        PipedCompressionWriter(tmpdir.join("test"), ["XVXCLSKDLA"], "wb")
 
 
 def test_compression_level(tmpdir, gzip_writer):
