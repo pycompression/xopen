@@ -31,7 +31,6 @@ import tempfile
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, TextIO, AnyStr, IO, List, Set
-from threading import Thread, Event
 
 from ._version import version as __version__
 
@@ -246,34 +245,6 @@ class PipedCompressionWriter(Closing):
         raise io.UnsupportedOperation('not readable')
 
 
-class DummyReader(Thread):
-    """
-    Communication with a process may deadlock when using stdout=PIPE or
-    stderr=PIPE and the child process generates enough output to a pipe
-    such that it blocks waiting for the OS pipe buffer to accept more data.
-    A seperate thread can be used to read from the pipe and flush it.
-    https://docs.python.org/3/library/subprocess.html#subprocess.Popen.wait
-    """
-    def __init__(self, pipe):
-        self._pipe = pipe
-        self._stop = Event()
-        super().__init__()
-
-    def run(self):
-        while not self._stop.is_set():
-            self._pipe.read()
-
-    def stop(self):
-        self._stop.set()
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        self.stop()
-
-
 class PipedCompressionReader(Closing):
     """
     Open a pipe to a process for reading a compressed file.
@@ -283,7 +254,7 @@ class PipedCompressionReader(Closing):
     _allowed_exit_code: Optional[int] = -signal.SIGTERM
     # If this message is printed on stderr on terminating the process,
     # it is not interpreted as an error
-    _allowed_exit_message: Optional[str] = None
+    _allowed_exit_message: Optional[bytes] = None
 
     def __init__(
         self,
@@ -353,17 +324,11 @@ class PipedCompressionReader(Closing):
         check_allowed_code_and_message = False
         if retcode is None:
             # still running
-            with DummyReader(self._file):
-                # Avoid deadlock if the process outputs
-                # enough data to a pipe such that it blocks waiting
-                # for the OS pipe buffer to accept more data. Use
-                # StdoutFlusher and read from the pipe to flush it.
-                self.process.terminate()
+            self.process.terminate()
             check_allowed_code_and_message = True
-        self.process.wait()
+        _, stderr_message = self.process.communicate()
         self._file.close()
-        self._raise_if_error(check_allowed_code_and_message)
-        self._stderr.close()
+        self._raise_if_error(check_allowed_code_and_message, stderr_message)
 
     def __iter__(self):
         return self
@@ -371,13 +336,14 @@ class PipedCompressionReader(Closing):
     def __next__(self) -> AnyStr:
         return self._file.__next__()
 
-    def _raise_if_error(self, check_allowed_code_and_message: bool = False) -> None:
+    def _raise_if_error(self, check_allowed_code_and_message: bool = False,
+                        stderr_message: bytes = b"") -> None:
         """
         Raise OSError if process is not running anymore and the exit code is
         nonzero. If check_allowed_code_and_message is set, OSError is not raised when
         (1) the exit value of the process is equal to the value of the allowed_exit_code
         attribute or (2) the allowed_exit_message attribute is set and it matches with
-        the output from stderr.
+        stderr_message.
         """
         retcode = self.process.poll()
 
@@ -388,18 +354,16 @@ class PipedCompressionReader(Closing):
             # process terminated successfully
             return
 
-        message = self._stderr.read().strip()
         if check_allowed_code_and_message:
             if retcode == self._allowed_exit_code:
                 # terminated with allowed exit code
                 return
-            if self._allowed_exit_message and self._allowed_exit_message in message:
+            if self._allowed_exit_message and self._allowed_exit_message in stderr_message:
                 # terminated with another exit code, but message is allowed
                 return
 
         self._file.close()
-        self._stderr.close()
-        raise OSError("{} (exit code {})".format(message, retcode))
+        raise OSError("{!r} (exit code {})".format(stderr_message, retcode))
 
     def read(self, *args) -> AnyStr:
         return self._file.read(*args)
@@ -502,7 +466,7 @@ class PipedPBzip2Reader(PipedCompressionReader):
     """
 
     _allowed_exit_code = None
-    _allowed_exit_message = "Control-C or similar caught [sig=15], quitting..."
+    _allowed_exit_message = b"Control-C or similar caught [sig=15], quitting..."
 
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
         super().__init__(path, ["pbzip2"], mode, "-p", threads)
