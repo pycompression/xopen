@@ -89,12 +89,19 @@ make reading and writing gzipped files faster.
 Benjamin Vaisvil <https://github.com/bvaisvil> contributed support for
 format detection from content.
 
+Dries Schaumont <https://github.com/DriesSchaumont> contributed support for
+faster bz2 reading and writing using pbzip2.
+
 Some ideas were taken from the `canopener project <https://github.com/selassid/canopener>`_.
 If you also want to open S3 files, you may want to use that module instead.
 
 
 Changes
 -------
+
+* `pbzip2 <http://compression.ca/pbzip2/>`_ is now used to open ``.bz2`` files if
+  ``threads`` is greater than zero.
+
 v1.1.0
 ~~~~~~
 * Python 3.5 support is dropped.
