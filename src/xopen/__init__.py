@@ -300,11 +300,15 @@ class PipedCompressionReader(Closing):
         # The program may crash due to a non-existing file, internal error etc.
         # In that case we need to check. However the 'time-to-crash' differs
         # between programs. Some crash faster than others.
-        # Therefore we peek the first character(s) of stdout. Peek will block
-        # until it gets at least the amount of characters specified or EOF.
-        # This way we ensure the program has at least decompressed some output,
-        # or stopped before we continue.
-        self.process.stdout.peek(1)  # type: ignore  # stdout is io.BufferedReader if set to PIPE.
+        # Therefore we peek the first character(s) of stdout. Peek will return at
+        # least one byte of data, unless at EOF in which case we should wait for the
+        # program to exit. This way we ensure the program has at least decompressed
+        # some output, or stopped before we continue.
+
+        # stdout is io.BufferedReader if set to PIPE
+        first_output = self.process.stdout.peek(1)  # type: ignore
+        while not first_output and self.process.poll() is None:
+            first_output = self.process.stdout.peek(1)  # type: ignore
         self._raise_if_error()
 
     def __repr__(self):
