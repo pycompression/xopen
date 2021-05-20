@@ -295,8 +295,6 @@ class PipedCompressionReader(Closing):
             self._file: IO = io.TextIOWrapper(self.process.stdout)
         else:
             self._file = self.process.stdout
-        assert self.process.stderr is not None
-        self._stderr = io.TextIOWrapper(self.process.stderr)
         self.closed = False
         self._wait_for_output_or_process_exit()
         self._raise_if_error()
@@ -374,6 +372,10 @@ class PipedCompressionReader(Closing):
             if self._allowed_exit_message and self._allowed_exit_message in stderr_message:
                 # terminated with another exit code, but message is allowed
                 return
+
+        assert self.process.stderr is not None
+        if not stderr_message:
+            stderr_message = self.process.stderr.read()
 
         self._file.close()
         raise OSError("{!r} (exit code {})".format(stderr_message, retcode))
