@@ -298,7 +298,7 @@ class PipedCompressionReader(Closing):
         assert self.process.stderr is not None
         self._stderr = io.TextIOWrapper(self.process.stderr)
         self.closed = False
-        self._wait_for_output_or_exit()
+        self._wait_for_output_or_process_exit()
         self._raise_if_error()
 
     def __repr__(self):
@@ -330,7 +330,7 @@ class PipedCompressionReader(Closing):
     def __next__(self) -> AnyStr:
         return self._file.__next__()
 
-    def _wait_for_output_or_exit(self):
+    def _wait_for_output_or_process_exit(self):
         """
         Wait for the process to procude at least some output, or has exited.
         """
