@@ -28,6 +28,7 @@ import signal
 import pathlib
 import subprocess
 import tempfile
+import time
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, TextIO, AnyStr, IO, List, Set
@@ -297,18 +298,7 @@ class PipedCompressionReader(Closing):
         assert self.process.stderr is not None
         self._stderr = io.TextIOWrapper(self.process.stderr)
         self.closed = False
-        # The program may crash due to a non-existing file, internal error etc.
-        # In that case we need to check. However the 'time-to-crash' differs
-        # between programs. Some crash faster than others.
-        # Therefore we peek the first character(s) of stdout. Peek will return at
-        # least one byte of data, unless at EOF in which case we should wait for the
-        # program to exit. This way we ensure the program has at least decompressed
-        # some output, or stopped before we continue.
-
-        # stdout is io.BufferedReader if set to PIPE
-        first_output = self.process.stdout.peek(1)  # type: ignore
-        while not first_output and self.process.poll() is None:
-            first_output = self.process.stdout.peek(1)  # type: ignore
+        self._wait_for_output_or_exit()
         self._raise_if_error()
 
     def __repr__(self):
@@ -339,6 +329,25 @@ class PipedCompressionReader(Closing):
 
     def __next__(self) -> AnyStr:
         return self._file.__next__()
+
+    def _wait_for_output_or_exit(self):
+        """
+        Wait for the process to procude at least some output, or has exited.
+        """
+        # The program may crash due to a non-existing file, internal error etc.
+        # In that case we need to check. However the 'time-to-crash' differs
+        # between programs. Some crash faster than others.
+        # Therefore we peek the first character(s) of stdout. Peek will return at
+        # least one byte of data, unless the buffer is empty or at EOF. If at EOF,
+        # we should wait for the program to exit. This way we ensure the program
+        # has at least decompressed some output, or stopped before we continue.
+
+        # stdout is io.BufferedReader if set to PIPE
+        while True:
+            first_output = self.process.stdout.peek(1)  # type: ignore
+            if first_output or self.process.poll() is not None:
+                break
+            time.sleep(0.1)
 
     def _raise_if_error(self, check_allowed_code_and_message: bool = False,
                         stderr_message: bytes = b"") -> None:
