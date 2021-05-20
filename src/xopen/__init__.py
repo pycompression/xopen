@@ -330,7 +330,7 @@ class PipedCompressionReader(Closing):
 
     def _wait_for_output_or_process_exit(self):
         """
-        Wait for the process to procude at least some output, or has exited.
+        Wait for the process to produce at least some output, or has exited.
         """
         # The program may crash due to a non-existing file, internal error etc.
         # In that case we need to check. However the 'time-to-crash' differs
