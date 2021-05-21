@@ -345,7 +345,7 @@ class PipedCompressionReader(Closing):
             first_output = self.process.stdout.peek(1)  # type: ignore
             if first_output or self.process.poll() is not None:
                 break
-            time.sleep(0.1)
+            time.sleep(0.01)
 
     def _raise_if_error(self, check_allowed_code_and_message: bool = False,
                         stderr_message: bytes = b"") -> None:
