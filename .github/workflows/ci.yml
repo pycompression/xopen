@@ -75,8 +75,8 @@ jobs:
         python-version: 3.7
     - name: Make distributions
       run: |
-        python setup.py sdist
-        python -m pip wheel --no-deps -w dist/ .
+        python -m pip install build
+        python -m build
         ls -l dist/
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@v1.4.1
