@@ -99,6 +99,9 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
+v1.2.0
+~~~~~~
+
 * `pbzip2 <http://compression.ca/pbzip2/>`_ is now used to open ``.bz2`` files if
   ``threads`` is greater than zero.
 
