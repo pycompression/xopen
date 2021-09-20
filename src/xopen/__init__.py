@@ -486,6 +486,18 @@ class PipedPBzip2Reader(PipedCompressionReader):
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
         super().__init__(path, ["pbzip2"], mode, "-p", threads)
 
+    def _raise_if_error(self, check_allowed_code_and_message: bool = False,
+                        stderr_message: bytes = b"") -> None:
+        # pbzip2 writes multiple messages. If a process is terminated after a
+        # reported error it will also display the terminate messages in stderr.
+        # This way we only check the original message.
+        if stderr_message:
+            # pbzip2 prints a newline first, so check second line.
+            messages = stderr_message.split(b"\n")
+            if len(messages) > 1:
+                stderr_message = messages[1]
+        super()._raise_if_error(check_allowed_code_and_message, stderr_message)
+
 
 class PipedPBzip2Writer(PipedCompressionWriter):
     """
