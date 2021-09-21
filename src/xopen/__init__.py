@@ -369,7 +369,10 @@ class PipedCompressionReader(Closing):
             if retcode == self._allowed_exit_code:
                 # terminated with allowed exit code
                 return
-            if self._allowed_exit_message and self._allowed_exit_message in stderr_message:
+            if (
+                self._allowed_exit_message
+                and stderr_message.startswith(self._allowed_exit_message)
+            ):
                 # terminated with another exit code, but message is allowed
                 return
 
@@ -481,7 +484,7 @@ class PipedPBzip2Reader(PipedCompressionReader):
     """
 
     _allowed_exit_code = None
-    _allowed_exit_message = b"Control-C or similar caught [sig=15], quitting..."
+    _allowed_exit_message = b"\n *Control-C or similar caught [sig=15], quitting..."
 
     def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
         super().__init__(path, ["pbzip2"], mode, "-p", threads)
