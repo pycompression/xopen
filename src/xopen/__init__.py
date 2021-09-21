@@ -53,9 +53,9 @@ except ImportError:
     fcntl = None  # type: ignore
 
 _MAX_PIPE_SIZE_PATH = pathlib.Path("/proc/sys/fs/pipe-max-size")
-if _MAX_PIPE_SIZE_PATH.exists():
+try:
     _MAX_PIPE_SIZE = int(_MAX_PIPE_SIZE_PATH.read_text())  # type: Optional[int]
-else:
+except OSError:  # Catches file not found and permission errors. Possible other errors too.
     _MAX_PIPE_SIZE = None
 
 
