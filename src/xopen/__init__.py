@@ -369,8 +369,10 @@ class PipedCompressionReader(Closing):
             if retcode == self._allowed_exit_code:
                 # terminated with allowed exit code
                 return
-            if self._allowed_exit_message and stderr_message.startswith(
-                self._allowed_exit_message):
+            if (
+                self._allowed_exit_message
+                and stderr_message.startswith(self._allowed_exit_message)
+            ):
                 # terminated with another exit code, but message is allowed
                 return
 
