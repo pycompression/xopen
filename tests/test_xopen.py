@@ -630,8 +630,11 @@ def test_xopen_falls_back_to_bzip2_open(lacking_pbzip2_permissions):
 
 def test_open_many_writers(tmp_path, ext):
     files = []
-    for i in range(1, 61):
-        path = tmp_path / f"{i:03d}.txt.{ext}"
+    # Because lzma.open allocates a lot of memory,
+    # open fewer files to avoid MemoryError on 32-bit architectures
+    n = 21 if ext == ".xz" else 61
+    for i in range(1, n):
+        path = tmp_path / f"{i:03d}.txt{ext}"
         f = xopen(path, "wb", threads=2)
         f.write(b"hello")
         files.append(f)
