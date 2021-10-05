@@ -747,5 +747,5 @@ def xopen(
     # less. The effect is very noticable when writing small units such as lines
     # or FASTQ records.
     if isinstance(opened_file, _compression.BaseStream) and "w" in mode:
-        opened_file = io.BufferedWriter(opened_file)
+        opened_file = io.BufferedWriter(opened_file)  # type: ignore
     return opened_file
