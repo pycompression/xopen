@@ -29,7 +29,6 @@ import pathlib
 import subprocess
 import tempfile
 import time
-import _compression
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, TextIO, AnyStr, IO, List, Set
@@ -744,8 +743,10 @@ def xopen(
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
     # putting a buffer in between, the expensive write method is called much
-    # less. The effect is very noticable when writing small units such as lines
-    # or FASTQ records.
-    if isinstance(opened_file, _compression.BaseStream) and "w" in mode:
+    # less. The effect is very noticeable when writing small units such as
+    # lines or FASTQ records.
+    if (isinstance(opened_file, gzip.GzipFile) or
+            isinstance(opened_file, bz2.BZ2File) or
+            isinstance(opened_file, lzma.LZMAFile)) and "w" in mode:
         opened_file = io.BufferedWriter(opened_file)  # type: ignore
     return opened_file
