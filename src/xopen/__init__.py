@@ -745,8 +745,7 @@ def xopen(
     # putting a buffer in between, the expensive write method is called much
     # less. The effect is very noticeable when writing small units such as
     # lines or FASTQ records.
-    if (isinstance(opened_file, gzip.GzipFile) or
-            isinstance(opened_file, bz2.BZ2File) or
-            isinstance(opened_file, lzma.LZMAFile)) and "w" in mode:
+    if (isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))
+            and "w" in mode):
         opened_file = io.BufferedWriter(opened_file)  # type: ignore
     return opened_file
