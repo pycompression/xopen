@@ -732,10 +732,20 @@ def xopen(
         detected_format = _detect_format_from_content(filename)
 
     if detected_format == "gz":
-        return _open_gz(filename, mode, compresslevel, threads)
+        opened_file = _open_gz(filename, mode, compresslevel, threads)
     elif detected_format == "xz":
-        return _open_xz(filename, mode)
+        opened_file = _open_xz(filename, mode)
     elif detected_format == "bz2":
-        return _open_bz2(filename, mode, threads)
+        opened_file = _open_bz2(filename, mode, threads)
     else:
-        return open(filename, mode)
+        opened_file = open(filename, mode)
+
+    # The "write" method for GzipFile is very costly. Lots of python calls are
+    # made. To a lesser extent this is true for LzmaFile and BZ2File. By
+    # putting a buffer in between, the expensive write method is called much
+    # less. The effect is very noticeable when writing small units such as
+    # lines or FASTQ records.
+    if (isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))
+            and "w" in mode):
+        opened_file = io.BufferedWriter(opened_file)  # type: ignore
+    return opened_file

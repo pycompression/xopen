@@ -532,14 +532,16 @@ def test_write_no_threads(tmpdir, ext):
     klass = klasses[ext]
     path = str(tmpdir.join(f"out.{ext}"))
     with xopen(path, "wb", threads=0) as f:
-        assert isinstance(f, klass), f
+        assert isinstance(f, io.BufferedWriter)
+        if ext:
+            assert isinstance(f.raw, klass), f
 
 
 def test_write_gzip_no_threads_no_isal(tmpdir, xopen_without_igzip):
     import gzip
     path = str(tmpdir.join("out.gz"))
     with xopen_without_igzip(path, "wb", threads=0) as f:
-        assert isinstance(f, gzip.GzipFile), f
+        assert isinstance(f.raw, gzip.GzipFile), f
 
 
 def test_write_stdout():
