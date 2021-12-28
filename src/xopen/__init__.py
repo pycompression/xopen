@@ -574,7 +574,9 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
         except OSError:
             pass  # We try without threads.
 
-    return bz2.open(filename, mode)
+    # Ignore overzealous typing error from mypy.
+    # str is not an accepted mode type, it has to be Literal["rb"] etc.
+    return bz2.open(filename, mode)  # type: ignore
 
 
 def _open_xz(filename, mode: str) -> IO:
