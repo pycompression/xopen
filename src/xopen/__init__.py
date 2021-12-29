@@ -587,8 +587,9 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
         except OSError:
             pass  # We try without threads.
 
-    # Ignore overzealous typing error from mypy.
-    # str is not an accepted mode type, it has to be Literal["rb"] etc.
+    # Ignore a TypeError that has been fixed in the typeshed.
+    # https://github.com/python/typeshed/pull/6722
+    # The ignore can be removed when a version of mypy with a synced typeshed is released.
     return bz2.open(filename, mode)  # type: ignore
 
 
