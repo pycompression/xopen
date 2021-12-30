@@ -1,0 +1,2 @@
+tests/file.txt eol=lf
+tests/file.txt.test eol=lf
