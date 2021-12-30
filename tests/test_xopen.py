@@ -265,8 +265,10 @@ def test_reader_textiowrapper(reader):
         assert wrapped.read() == CONTENT
 
 
-def test_detect_file_format_from_content(ext):
-    with xopen(f"tests/file.txt{ext}.test", "rb") as fh:
+def test_detect_file_format_from_content(ext, tmp_path):
+    path = str(tmp_path / f"file.txt{ext}.test")
+    shutil.copy(f"tests/file.txt{ext}", path)
+    with xopen(path, "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
