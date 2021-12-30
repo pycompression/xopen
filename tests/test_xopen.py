@@ -231,6 +231,14 @@ def test_no_context_manager_binary(fname):
     assert f.closed
 
 
+def test_xopen_bytes_path(fname):
+    path = fname.encode('utf-8')
+    with xopen(path, 'rt') as f:
+        lines = list(f)
+        assert len(lines) == 2
+        assert lines[1] == 'The second line.\n', fname
+
+
 def test_readinto(fname):
     content = CONTENT.encode('utf-8')
     with xopen(fname, 'rb') as f:
