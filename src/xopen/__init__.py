@@ -157,7 +157,7 @@ class PipedCompressionWriter(Closing):
                  encoding=None,
                  errors=None,
                  newline=None,
-    ):
+                 ):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -658,9 +658,11 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     if threads != 0:
         try:
             if "r" in mode:
-                return _open_external_gzip_reader(filename, mode, compresslevel, threads, **text_mode_kwargs)
+                return _open_external_gzip_reader(filename, mode, compresslevel,
+                                                  threads, **text_mode_kwargs)
             else:
-                return _open_external_gzip_writer(filename, mode, compresslevel, threads, **text_mode_kwargs)
+                return _open_external_gzip_writer(filename, mode, compresslevel,
+                                                  threads, **text_mode_kwargs)
         except OSError:
             pass  # We try without threads.
 

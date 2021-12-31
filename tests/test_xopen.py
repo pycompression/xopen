@@ -729,7 +729,7 @@ def test_valid_compression_levels(writer, level, tmpdir):
 
 
 # Test for threaded and non-threaded.
-OPENERS=(xopen, functools.partial(xopen, threads=0))
+OPENERS = (xopen, functools.partial(xopen, threads=0))
 
 
 @pytest.mark.parametrize(["opener", "extension"], itertools.product(OPENERS, extensions))
