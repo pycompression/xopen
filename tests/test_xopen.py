@@ -736,5 +736,5 @@ def test_format_override_unsupported_format(tmpdir):
     test_file = tmpdir.join("test_fairy_format_compressed")
     with pytest.raises(ValueError) as error:
         xopen(test_file, mode="wb", format="fairy")
-    assert error.match("not supported")
-    assert error.match("fairy")
+    error.match("not supported")
+    error.match("fairy")
