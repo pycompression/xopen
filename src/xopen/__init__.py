@@ -152,7 +152,12 @@ class PipedCompressionWriter(Closing):
     def __init__(self, path, program_args: List[str], mode='wt',
                  compresslevel: Optional[int] = None,
                  threads_flag: Optional[str] = None,
-                 threads: Optional[int] = None):
+                 threads: Optional[int] = None,
+                 *,
+                 encoding=None,
+                 errors=None,
+                 newline=None,
+    ):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -187,7 +192,10 @@ class PipedCompressionWriter(Closing):
         _set_pipe_size_to_max(self.process.stdin.fileno())
 
         if 'b' not in mode:
-            self._file = io.TextIOWrapper(self.process.stdin)  # type: IO
+            self._file = io.TextIOWrapper(self.process.stdin,
+                                          encoding=encoding,
+                                          errors=errors,
+                                          newline=newline)  # type: IO
         else:
             self._file = self.process.stdin
 
@@ -264,6 +272,10 @@ class PipedCompressionReader(Closing):
         mode: str = "r",
         threads_flag: Optional[str] = None,
         threads: Optional[int] = None,
+        *,
+        encoding=None,
+        errors=None,
+        newline=None,
     ):
         """
         Raise an OSError when pigz could not be found.
@@ -292,7 +304,10 @@ class PipedCompressionReader(Closing):
 
         self._mode = mode
         if 'b' not in mode:
-            self._file: IO = io.TextIOWrapper(self.process.stdout)
+            self._file: IO = io.TextIOWrapper(self.process.stdout,
+                                              encoding=encoding,
+                                              errors=errors,
+                                              newline=newline)
         else:
             self._file = self.process.stdout
         self.closed = False
@@ -415,8 +430,10 @@ class PipedGzipReader(PipedCompressionReader):
     """
     Open a pipe to gzip for reading a gzipped file.
     """
-    def __init__(self, path, mode: str = "r"):
-        super().__init__(path, ["gzip"], mode)
+    def __init__(self, path, mode: str = "r",
+                 *, encoding=None, errors=None, newline=None):
+        super().__init__(path, ["gzip"], mode,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedGzipWriter(PipedCompressionWriter):
@@ -426,7 +443,8 @@ class PipedGzipWriter(PipedCompressionWriter):
     but running an external gzip can still reduce wall-clock time because
     the compression happens in a separate process.
     """
-    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None,
+                 *, encoding=None, errors=None, newline=None):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -436,7 +454,8 @@ class PipedGzipWriter(PipedCompressionWriter):
         """
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 9")
-        super().__init__(path, ["gzip"], mode, compresslevel, None)
+        super().__init__(path, ["gzip"], mode, compresslevel, None,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedPigzReader(PipedCompressionReader):
@@ -446,8 +465,10 @@ class PipedPigzReader(PipedCompressionReader):
     also faster when reading, even when forced to use a single thread
     (ca. 2x speedup).
     """
-    def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
-        super().__init__(path, ["pigz"], mode, "-p", threads)
+    def __init__(self, path, mode: str = "r", threads: Optional[int] = None,
+                 *, encoding=None, errors=None, newline=None):
+        super().__init__(path, ["pigz"], mode, "-p", threads,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedPigzWriter(PipedCompressionWriter):
@@ -465,6 +486,10 @@ class PipedPigzWriter(PipedCompressionWriter):
         mode: str = "wt",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
+        *,
+        encoding=None,
+        errors=None,
+        newline=None,
     ):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
@@ -475,7 +500,8 @@ class PipedPigzWriter(PipedCompressionWriter):
         """
         if compresslevel is not None and compresslevel not in self._accepted_compression_levels:
             raise ValueError("compresslevel must be between 0 and 9 or 11")
-        super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads)
+        super().__init__(path, ["pigz"], mode, compresslevel, "-p", threads,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedPBzip2Reader(PipedCompressionReader):
@@ -486,8 +512,10 @@ class PipedPBzip2Reader(PipedCompressionReader):
     _allowed_exit_code = None
     _allowed_exit_message = b"\n *Control-C or similar caught [sig=15], quitting..."
 
-    def __init__(self, path, mode: str = "r", threads: Optional[int] = None):
-        super().__init__(path, ["pbzip2"], mode, "-p", threads)
+    def __init__(self, path, mode: str = "r", threads: Optional[int] = None,
+                 *, encoding=None, errors=None, newline=None):
+        super().__init__(path, ["pbzip2"], mode, "-p", threads,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedPBzip2Writer(PipedCompressionWriter):
@@ -501,9 +529,14 @@ class PipedPBzip2Writer(PipedCompressionWriter):
         path,
         mode: str = "wt",
         threads: Optional[int] = None,
+        *,
+        encoding=None,
+        errors=None,
+        newline=None
     ):
         # Use default compression level for pbzip2: 9
-        super().__init__(path, ["pbzip2"], mode, 9, "-p", threads)
+        super().__init__(path, ["pbzip2"], mode, 9, "-p", threads,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedIGzipReader(PipedCompressionReader):
@@ -513,7 +546,7 @@ class PipedIGzipReader(PipedCompressionReader):
     can only run on x86 and ARM architectures, but is able to use more
     architecture-specific optimizations as a result.
     """
-    def __init__(self, path, mode: str = "r"):
+    def __init__(self, path, mode: str = "r", *, encoding=None, errors=None, newline=None):
         if not _can_read_concatenated_gz("igzip"):
             # Instead of elaborate version string checking once the problem is
             # fixed, it is much easier to use this, "proof in the pudding" type
@@ -522,7 +555,8 @@ class PipedIGzipReader(PipedCompressionReader):
                 "This version of igzip does not support reading "
                 "concatenated gzip files and is therefore not "
                 "safe to use. See: https://github.com/intel/isa-l/issues/143")
-        super().__init__(path, ["igzip"], mode)
+        super().__init__(path, ["igzip"], mode,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedIGzipWriter(PipedCompressionWriter):
@@ -539,32 +573,37 @@ class PipedIGzipWriter(PipedCompressionWriter):
     filesizes from their pigz/gzip counterparts.
     See: https://gist.github.com/rhpvorderman/4f1201c3f39518ff28dde45409eb696b
     """
-    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None,
+                 *, encoding=None, errors=None, newline=None):
         if compresslevel is not None and compresslevel not in range(0, 4):
             raise ValueError("compresslevel must be between 0 and 3")
-        super().__init__(path, ["igzip"], mode, compresslevel)
+        super().__init__(path, ["igzip"], mode, compresslevel,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedPythonIsalReader(PipedCompressionReader):
-    def __init__(self, path, mode: str = "r"):
-        super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode)
+    def __init__(self, path, mode: str = "r", *, encoding=None, errors=None, newline=None):
+        super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
 class PipedPythonIsalWriter(PipedCompressionWriter):
-    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None):
+    def __init__(self, path, mode: str = "wt", compresslevel: Optional[int] = None,
+                 *, encoding=None, errors=None, newline=None):
         if compresslevel is not None and compresslevel not in range(0, 4):
             raise ValueError("compresslevel must be between 0 and 3")
-        super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode, compresslevel)
+        super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode, compresslevel,
+                         encoding=encoding, errors=errors, newline=newline)
 
 
-def _open_stdin_or_out(mode: str) -> IO:
+def _open_stdin_or_out(mode: str, **text_mode_kwargs) -> IO:
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
     # to be closable without closing sys.stdout.
     std = dict(r=sys.stdin, w=sys.stdout)[mode[0]]
-    return open(std.fileno(), mode=mode, closefd=False)
+    return open(std.fileno(), mode=mode, closefd=False, **text_mode_kwargs)
 
 
-def _open_bz2(filename, mode: str, threads: Optional[int]):
+def _open_bz2(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
     if threads != 0:
         try:
             if "r" in mode:
@@ -577,58 +616,58 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
     return bz2.open(filename, mode)
 
 
-def _open_xz(filename, mode: str) -> IO:
-    return lzma.open(filename, mode)
+def _open_xz(filename, mode: str, **text_mode_kwargs) -> IO:
+    return lzma.open(filename, mode, **text_mode_kwargs)
 
 
-def _open_external_gzip_reader(filename, mode, compresslevel, threads):
+def _open_external_gzip_reader(filename, mode, compresslevel, threads, **text_mode_kwargs):
     assert "r" in mode
     try:
-        return PipedIGzipReader(filename, mode)
+        return PipedIGzipReader(filename, mode, **text_mode_kwargs)
     except (OSError, ValueError):
         # No igzip installed or version does not support reading
         # concatenated files.
         pass
     if igzip:
-        return PipedPythonIsalReader(filename, mode)
+        return PipedPythonIsalReader(filename, mode, **text_mode_kwargs)
     try:
-        return PipedPigzReader(filename, mode, threads=threads)
+        return PipedPigzReader(filename, mode, threads=threads, **text_mode_kwargs)
     except OSError:
-        return PipedGzipReader(filename, mode)
+        return PipedGzipReader(filename, mode, **text_mode_kwargs)
 
 
-def _open_external_gzip_writer(filename, mode, compresslevel, threads):
+def _open_external_gzip_writer(filename, mode, compresslevel, threads, **text_mode_kwargs):
     assert "r" not in mode
     try:
-        return PipedIGzipWriter(filename, mode, compresslevel)
+        return PipedIGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
     except (OSError, ValueError):
         # No igzip installed or compression level higher than 3
         pass
     if igzip:  # We can use the CLI from isal.igzip
         try:
-            return PipedPythonIsalWriter(filename, mode, compresslevel)
+            return PipedPythonIsalWriter(filename, mode, compresslevel, **text_mode_kwargs)
         except ValueError:  # Wrong compression level
             pass
     try:
-        return PipedPigzWriter(filename, mode, compresslevel, threads=threads)
+        return PipedPigzWriter(filename, mode, compresslevel, threads=threads, **text_mode_kwargs)
     except OSError:
-        return PipedGzipWriter(filename, mode, compresslevel)
+        return PipedGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
 
 
-def _open_gz(filename, mode: str, compresslevel, threads):
+def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     if threads != 0:
         try:
             if "r" in mode:
-                return _open_external_gzip_reader(filename, mode, compresslevel, threads)
+                return _open_external_gzip_reader(filename, mode, compresslevel, threads, **text_mode_kwargs)
             else:
-                return _open_external_gzip_writer(filename, mode, compresslevel, threads)
+                return _open_external_gzip_writer(filename, mode, compresslevel, threads, **text_mode_kwargs)
         except OSError:
             pass  # We try without threads.
 
     if 'r' in mode:
         if igzip is not None:
-            return igzip.open(filename, mode)
-        return gzip.open(filename, mode)
+            return igzip.open(filename, mode, **text_mode_kwargs)
+        return gzip.open(filename, mode, **text_mode_kwargs)
 
     if igzip is not None:
         try:
@@ -688,6 +727,10 @@ def xopen(
     mode: str = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
+    *,
+    encoding=None,
+    errors=None,
+    newline=None
 ) -> IO:
     """
     A replacement for the "open" function that can also read and write
@@ -717,13 +760,16 @@ def xopen(
     (parallel gzip) subprocess if possible. See PipedGzipWriter and PipedGzipReader.
 
     When threads = 0, no subprocess is used.
+
+    encoding, errors and newline are used when opening in text mode. The parameters
+    have the same meaning as in the built-in open function.
     """
     if mode in ('r', 'w', 'a'):
         mode += 't'
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
         raise ValueError("Mode '{}' not supported".format(mode))
     filename = os.fspath(filename)
-
+    text_mode_kwargs = dict(encoding=encoding, errors=errors, newline=newline)
     if filename == '-':
         return _open_stdin_or_out(mode)
 
@@ -732,13 +778,13 @@ def xopen(
         detected_format = _detect_format_from_content(filename)
 
     if detected_format == "gz":
-        opened_file = _open_gz(filename, mode, compresslevel, threads)
+        opened_file = _open_gz(filename, mode, compresslevel, threads, **text_mode_kwargs)
     elif detected_format == "xz":
-        opened_file = _open_xz(filename, mode)
+        opened_file = _open_xz(filename, mode, **text_mode_kwargs)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(filename, mode, threads)
+        opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     else:
-        opened_file = open(filename, mode)
+        opened_file = open(filename, mode, **text_mode_kwargs)
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
