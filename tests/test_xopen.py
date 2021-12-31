@@ -583,6 +583,8 @@ def test_write_pathlib_binary(ext, tmpdir):
         assert f.read() == b'hello'
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"),
+                    reason="Windows does not have a gzip application by default.")
 def test_concatenated_gzip_function():
     assert _can_read_concatenated_gz("gzip") is True
     assert _can_read_concatenated_gz("pigz") is True
