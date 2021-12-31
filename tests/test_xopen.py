@@ -5,7 +5,6 @@ import io
 import os
 import random
 import shutil
-import signal
 import sys
 import time
 import pytest
@@ -437,60 +436,44 @@ class TookTooLongError(Exception):
     pass
 
 
-class timeout:
-    # copied from https://stackoverflow.com/a/22348885/715090
-    def __init__(self, seconds=1):
-        self.seconds = seconds
-
-    def handle_timeout(self, signum, frame):
-        raise TookTooLongError()  # pragma: no cover
-
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.handle_timeout)
-        signal.alarm(self.seconds)
-
-    def __exit__(self, type, value, traceback):
-        signal.alarm(0)
-
-
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_file(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            f = xopen(truncated_file, "r")
-            f.read()
-            f.close()  # pragma: no cover
+    with pytest.raises((EOFError, IOError)):
+        f = xopen(truncated_file, "r")
+        f.read()
+        f.close()  # pragma: no cover
 
 
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_iter(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            f = xopen(truncated_file, 'r')
-            for line in f:
-                pass
-            f.close()  # pragma: no cover
+    with pytest.raises((EOFError, IOError)):
+        f = xopen(truncated_file, 'r')
+        for line in f:
+            pass
+        f.close()  # pragma: no cover
 
 
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            with xopen(truncated_file, 'r') as f:
-                f.read()
+    with pytest.raises((EOFError, IOError)):
+        with xopen(truncated_file, 'r') as f:
+            f.read()
 
 
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_iter_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            with xopen(truncated_file, 'r') as f:
-                for line in f:
-                    pass
+    with pytest.raises((EOFError, IOError)):
+        with xopen(truncated_file, 'r') as f:
+            for line in f:
+                pass
 
 
 def test_bare_read_from_gz():
