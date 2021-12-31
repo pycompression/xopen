@@ -703,7 +703,8 @@ def xopen(
     mode: str = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
-    format: Optional[str] = None
+    *,  # Keyword-only arguments below
+    format: Optional[str] = None,
 ) -> IO:
     """
     A replacement for the "open" function that can also read and write
