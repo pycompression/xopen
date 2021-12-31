@@ -366,6 +366,11 @@ class PipedCompressionReader(Closing):
         """
         retcode = self.process.poll()
 
+        if sys.platform == "win32" and retcode == 1 and stderr_message == b'':
+            # Special case for Windows. Winapi terminates processes with exit code 1
+            # and an empty error message.
+            return
+
         if retcode is None:
             # process still running
             return
