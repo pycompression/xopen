@@ -783,7 +783,8 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     When threads = 0, no subprocess is used.
 
     encoding, errors and newline are used when opening in text mode. The parameters
-    have the same meaning as in the built-in open function.
+    have the same meaning as in the built-in open function, except that the
+    default encoding is always UTF-8 instead of the preferred locale encoding.
 
     format overrides the autodetection of input and output formats. This can be
     useful when compressed output needs to be written to a file without an
