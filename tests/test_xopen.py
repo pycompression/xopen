@@ -1,5 +1,7 @@
+import functools
 import gzip
 import bz2
+import itertools
 import lzma
 import io
 import os
@@ -746,3 +748,31 @@ def test_override_output_format_wrong_format(tmp_path):
     with pytest.raises(OSError):  # BadGzipFile is a subclass of OSError
         with xopen(test_file, "rt", format="gz") as opened_file:
             opened_file.read()
+
+
+# Test for threaded and non-threaded.
+OPENERS = (xopen, functools.partial(xopen, threads=0))
+
+
+@pytest.mark.parametrize(["opener", "extension"], itertools.product(OPENERS, extensions))
+def test_text_encoding_newline_passtrough(opener, extension, tmp_path):
+    # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
+    encoded_text = b"E\xe9n ree\rTwee ree\xebn\r"
+    test_file = tmp_path / f"test.txt{extension}"
+    with opener(test_file, "wb") as f:
+        f.write(encoded_text)
+    with opener(test_file, "rt", encoding="latin-1", newline="\r") as f:
+        result = f.read()
+    assert result == "Eén ree\rTwee reeën\r"
+
+
+@pytest.mark.parametrize(["opener", "extension"], itertools.product(OPENERS, extensions))
+def test_text_encoding_errors(opener, extension, tmp_path):
+    # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
+    encoded_text = b"E\xe9n ree\nTwee ree\xebn\n"
+    test_file = tmp_path / f"test.txt{extension}"
+    with opener(test_file, "wb") as f:
+        f.write(encoded_text)
+    with opener(test_file, "rt", encoding="ascii", errors="replace") as f:
+        result = f.read()
+    assert result == 'E�n ree\nTwee ree�n\n'
