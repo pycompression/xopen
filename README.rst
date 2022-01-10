@@ -1,7 +1,7 @@
 .. image:: https://github.com/pycompression/xopen/workflows/CI/badge.svg
   :target: https://github.com/pycompression/xopen
-  :alt: 
-  
+  :alt:
+
 .. image:: https://img.shields.io/pypi/v/xopen.svg?branch=master
   :target: https://pypi.python.org/pypi/xopen
 
