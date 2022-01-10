@@ -723,7 +723,7 @@ def test_valid_compression_levels(writer, level, tmpdir):
     assert gzip.decompress(Path(test_file).read_bytes()) == b"test"
 
 
-def test_format_override(tmp_path):
+def test_override_output_format(tmp_path):
     test_file = tmp_path / "test_gzip_compressed"
     with xopen(test_file, mode="wb", format="gz") as f:
         f.write(b"test")
@@ -732,7 +732,7 @@ def test_format_override(tmp_path):
     assert gzip.decompress(test_contents) == b"test"
 
 
-def test_format_override_unsupported_format(tmp_path):
+def test_override_output_format_unsupported_format(tmp_path):
     test_file = tmp_path / "test_fairy_format_compressed"
     with pytest.raises(ValueError) as error:
         xopen(test_file, mode="wb", format="fairy")
