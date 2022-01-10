@@ -738,3 +738,11 @@ def test_override_output_format_unsupported_format(tmp_path):
         xopen(test_file, mode="wb", format="fairy")
     error.match("not supported")
     error.match("fairy")
+
+
+def test_override_output_format_wrong_format(tmp_path):
+    test_file = tmp_path / "not_compressed"
+    test_file.write_text("I am not compressed.")
+    with pytest.raises(OSError):  # BadGzipFile is a subclass of OSError
+        with xopen(test_file, "rt", format="gz") as opened_file:
+            opened_file.read()
