@@ -704,7 +704,7 @@ def xopen(
     mode: str = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
-    *,  # Keyword-only arguments below
+    *,
     format: Optional[str] = None,
 ) -> IO:
     """
