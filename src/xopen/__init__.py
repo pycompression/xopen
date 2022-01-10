@@ -742,7 +742,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
     return None
 
 
-def xopen(
+def xopen(  # noqa: C901  # The function is complex, but readable.
     filename: Union[str, bytes, os.PathLike],
     mode: str = "r",
     compresslevel: Optional[int] = None,
