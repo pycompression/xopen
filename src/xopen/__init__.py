@@ -786,9 +786,14 @@ def xopen(
     if mode not in ('rt', 'rb', 'wt', 'wb', 'at', 'ab'):
         raise ValueError("Mode '{}' not supported".format(mode))
     filename = os.fspath(filename)
-    text_mode_kwargs = dict(encoding=encoding, errors=errors, newline=newline)
     if filename == '-':
         return _open_stdin_or_out(mode)
+
+    if 'b' in mode:
+        # Do not pass encoding etc. in binary mode as this raises errors.
+        text_mode_kwargs = dict()
+    else:
+        text_mode_kwargs = dict(encoding=encoding, errors=errors, newline=newline)
 
     detected_format = _detect_format_from_extension(filename)
     if detected_format is None and "w" not in mode:
