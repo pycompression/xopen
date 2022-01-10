@@ -439,7 +439,7 @@ class TookTooLongError(Exception):
     pass
 
 
-@pytest.mark.timeout(2)
+@pytest.mark.timeout(5)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_file(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
@@ -449,7 +449,7 @@ def test_truncated_file(extension, create_truncated_file):
         f.close()  # pragma: no cover
 
 
-@pytest.mark.timeout(2)
+@pytest.mark.timeout(5)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_iter(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
@@ -460,7 +460,7 @@ def test_truncated_iter(extension, create_truncated_file):
         f.close()  # pragma: no cover
 
 
-@pytest.mark.timeout(2)
+@pytest.mark.timeout(5)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
@@ -469,7 +469,7 @@ def test_truncated_with(extension, create_truncated_file):
             f.read()
 
 
-@pytest.mark.timeout(2)
+@pytest.mark.timeout(5)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_iter_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
