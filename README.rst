@@ -99,6 +99,18 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
+v1.3.0
+~~~~~~
+
+* xopen is now available on Windows (in addition to Linux and macOS).
+* For greater compatibility with `the built-in open()
+  function <https://docs.python.org/3/library/functions.html#open>`_,
+  ``xopen()`` has gained the parameters *encoding*, *errors* and *newlines*
+  with the same meaning as in ``open()``. Unlike built-in ``open()``, though,
+  encoding is UTF-8 by default.
+* A parameter *format* has been added that allows to force the compression
+  file format.
+
 v1.2.0
 ~~~~~~
 
