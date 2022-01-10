@@ -5,7 +5,6 @@ import io
 import os
 import random
 import shutil
-import signal
 import sys
 import time
 import pytest
@@ -40,8 +39,9 @@ try:
 except ImportError:
     fcntl = None
 
-base = "tests/file.txt"
+base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
+TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ['Testing, testing ...\n', 'The second line.\n']
 CONTENT = ''.join(CONTENT_LINES)
 
@@ -231,6 +231,14 @@ def test_no_context_manager_binary(fname):
     assert f.closed
 
 
+def test_xopen_bytes_path(fname):
+    path = fname.encode('utf-8')
+    with xopen(path, 'rt') as f:
+        lines = list(f)
+        assert len(lines) == 2
+        assert lines[1] == 'The second line.\n', fname
+
+
 def test_readinto(fname):
     content = CONTENT.encode('utf-8')
     with xopen(fname, 'rb') as f:
@@ -243,7 +251,7 @@ def test_readinto(fname):
 def test_reader_readinto(reader):
     opener, extension = reader
     content = CONTENT.encode('utf-8')
-    with opener(f"tests/file.txt{extension}", "rb") as f:
+    with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
         b = bytearray(len(content) + 100)
         length = f.readinto(b)
         assert length == len(content)
@@ -252,13 +260,15 @@ def test_reader_readinto(reader):
 
 def test_reader_textiowrapper(reader):
     opener, extension = reader
-    with opener(f"tests/file.txt{extension}", "rb") as f:
+    with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
         wrapped = io.TextIOWrapper(f)
         assert wrapped.read() == CONTENT
 
 
-def test_detect_file_format_from_content(ext):
-    with xopen(f"tests/file.txt{ext}.test", "rb") as fh:
+def test_detect_file_format_from_content(ext, tmp_path):
+    path = str(tmp_path / f"file.txt{ext}.test")
+    shutil.copy(TEST_DIR / f"file.txt{ext}", path)
+    with xopen(path, "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
@@ -276,20 +286,20 @@ def test_readline_text(fname):
 def test_reader_readline(reader):
     opener, extension = reader
     first_line = CONTENT_LINES[0].encode('utf-8')
-    with opener(f"tests/file.txt{extension}", "rb") as f:
+    with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
         assert f.readline() == first_line
 
 
 def test_reader_readline_text(reader):
     opener, extension = reader
-    with opener(f"tests/file.txt{extension}", "r") as f:
+    with opener(TEST_DIR / f"file.txt{extension}", "r") as f:
         assert f.readline() == CONTENT_LINES[0]
 
 
 @pytest.mark.parametrize("threads", [None, 1, 2])
 def test_piped_reader_iter(threads, threaded_reader):
     opener, extension = threaded_reader
-    with opener(f"tests/file.txt{extension}", mode="r", threads=threads) as f:
+    with opener(TEST_DIR / f"file.txt{extension}", mode="r", threads=threads) as f:
         lines = list(f)
         assert lines[0] == CONTENT_LINES[0]
 
@@ -322,7 +332,7 @@ def test_iter_without_with(fname):
 
 def test_reader_iter_without_with(reader):
     opener, extension = reader
-    it = iter(opener(f"tests/file.txt{extension}"))
+    it = iter(opener(TEST_DIR / f"file.txt{extension}"))
     assert CONTENT_LINES[0] == next(it)
 
 
@@ -365,7 +375,7 @@ def test_write_to_nonexisting_dir(ext):
 
 def test_invalid_mode(ext):
     with pytest.raises(ValueError):
-        with xopen(f"tests/file.txt.{ext}", mode="hallo"):
+        with xopen(TEST_DIR / f"file.txt.{ext}", mode="hallo"):
             pass  # pragma: no cover
 
 
@@ -427,70 +437,55 @@ class TookTooLongError(Exception):
     pass
 
 
-class timeout:
-    # copied from https://stackoverflow.com/a/22348885/715090
-    def __init__(self, seconds=1):
-        self.seconds = seconds
-
-    def handle_timeout(self, signum, frame):
-        raise TookTooLongError()  # pragma: no cover
-
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.handle_timeout)
-        signal.alarm(self.seconds)
-
-    def __exit__(self, type, value, traceback):
-        signal.alarm(0)
-
-
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_file(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            f = xopen(truncated_file, "r")
-            f.read()
-            f.close()  # pragma: no cover
+    with pytest.raises((EOFError, IOError)):
+        f = xopen(truncated_file, "r")
+        f.read()
+        f.close()  # pragma: no cover
 
 
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_iter(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            f = xopen(truncated_file, 'r')
-            for line in f:
-                pass
-            f.close()  # pragma: no cover
+    with pytest.raises((EOFError, IOError)):
+        f = xopen(truncated_file, 'r')
+        for line in f:
+            pass
+        f.close()  # pragma: no cover
 
 
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            with xopen(truncated_file, 'r') as f:
-                f.read()
+    with pytest.raises((EOFError, IOError)):
+        with xopen(truncated_file, 'r') as f:
+            f.read()
 
 
+@pytest.mark.timeout(2)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_iter_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
-    with timeout(seconds=2):
-        with pytest.raises((EOFError, IOError)):
-            with xopen(truncated_file, 'r') as f:
-                for line in f:
-                    pass
+    with pytest.raises((EOFError, IOError)):
+        with xopen(truncated_file, 'r') as f:
+            for line in f:
+                pass
 
 
 def test_bare_read_from_gz():
-    with xopen('tests/hello.gz', 'rt') as f:
+    hello_file = Path(__file__).parent / "hello.gz"
+    with xopen(hello_file, 'rt') as f:
         assert f.read() == 'hello'
 
 
 def test_readers_read(reader):
     opener, extension = reader
-    with opener(f'tests/file.txt{extension}', 'rt') as f:
+    with opener(TEST_DIR / f'file.txt{extension}', 'rt') as f:
         assert f.read() == CONTENT
 
 
@@ -518,7 +513,7 @@ def test_read_no_threads(ext):
         "": io.BufferedReader,
     }
     klass = klasses[ext]
-    with xopen(f"tests/file.txt{ext}", "rb", threads=0) as f:
+    with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
         assert isinstance(f, klass), f
 
 
@@ -588,6 +583,8 @@ def test_write_pathlib_binary(ext, tmpdir):
         assert f.read() == b'hello'
 
 
+@pytest.mark.skipif(sys.platform.startswith("win"),
+                    reason="Windows does not have a gzip application by default.")
 def test_concatenated_gzip_function():
     assert _can_read_concatenated_gz("gzip") is True
     assert _can_read_concatenated_gz("pigz") is True
@@ -606,13 +603,13 @@ def test_pipesize_changed(tmpdir):
 
 
 def test_xopen_falls_back_to_gzip_open(lacking_pigz_permissions):
-    with xopen("tests/file.txt.gz", "rb") as f:
+    with xopen(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
 def test_xopen_falls_back_to_gzip_open_no_isal(lacking_pigz_permissions,
                                                xopen_without_igzip):
-    with xopen_without_igzip("tests/file.txt.gz", "rb") as f:
+    with xopen_without_igzip(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
@@ -626,7 +623,7 @@ def test_xopen_fals_back_to_gzip_open_write_no_isal(lacking_pigz_permissions,
 
 
 def test_xopen_falls_back_to_bzip2_open(lacking_pbzip2_permissions):
-    with xopen("tests/file.txt.bz2", "rb") as f:
+    with xopen(TEST_DIR / "file.txt.bz2", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
