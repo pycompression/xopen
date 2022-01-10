@@ -620,15 +620,17 @@ def _open_bz2(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
     if threads != 0:
         try:
             if "r" in mode:
-                return PipedPBzip2Reader(filename, mode, threads)
+                return PipedPBzip2Reader(filename, mode, threads,
+                                         **text_mode_kwargs)
             else:
-                return PipedPBzip2Writer(filename, mode, threads)
+                return PipedPBzip2Writer(filename, mode, threads,
+                                         **text_mode_kwargs)
         except OSError:
             pass  # We try without threads.
 
     # Ignore overzealous typing error from mypy.
     # str is not an accepted mode type, it has to be Literal["rb"] etc.
-    return bz2.open(filename, mode)  # type: ignore
+    return bz2.open(filename, mode, **text_mode_kwargs)  # type: ignore
 
 
 def _open_xz(filename, mode: str, **text_mode_kwargs) -> IO:
