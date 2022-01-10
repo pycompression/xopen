@@ -587,8 +587,9 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
         except OSError:
             pass  # We try without threads.
 
-    # Ignore overzealous typing error from mypy.
-    # str is not an accepted mode type, it has to be Literal["rb"] etc.
+    # Ignore a TypeError that has been fixed in the typeshed.
+    # https://github.com/python/typeshed/pull/6722
+    # The ignore can be removed when a version of mypy with a synced typeshed is released.
     return bz2.open(filename, mode)  # type: ignore
 
 
@@ -703,6 +704,8 @@ def xopen(
     mode: str = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
+    *,
+    format: Optional[str] = None,
 ) -> IO:
     """
     A replacement for the "open" function that can also read and write
@@ -732,6 +735,10 @@ def xopen(
     (parallel gzip) subprocess if possible. See PipedGzipWriter and PipedGzipReader.
 
     When threads = 0, no subprocess is used.
+
+    format overrides the autodetection of input and output formats. This can be
+    useful when compressed output needs to be written to a file without an
+    extension. Possible values are "gz", "xz" and "bz2".
     """
     if mode in ('r', 'w', 'a'):
         mode += 't'
@@ -742,7 +749,10 @@ def xopen(
     if filename == '-':
         return _open_stdin_or_out(mode)
 
-    detected_format = _detect_format_from_extension(filename)
+    if format not in (None, "gz", "xz", "bz2"):
+        raise ValueError(f"Format not supported: {format}. "
+                         f"Choose one of: 'gz', 'xz', 'bz2'")
+    detected_format = format or _detect_format_from_extension(filename)
     if detected_format is None and "w" not in mode:
         detected_format = _detect_format_from_content(filename)
 
