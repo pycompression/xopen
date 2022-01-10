@@ -31,7 +31,7 @@ import tempfile
 import time
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, TextIO, AnyStr, IO, List, Set
+from typing import Optional, Union, TextIO, AnyStr, IO, List, Set
 
 from ._version import version as __version__
 
@@ -149,15 +149,20 @@ class PipedCompressionWriter(Closing):
     """
     Write Compressed files by running an external process and piping into it.
     """
-    def __init__(self, path, program_args: List[str], mode='wt',
-                 compresslevel: Optional[int] = None,
-                 threads_flag: Optional[str] = None,
-                 threads: Optional[int] = None,
-                 *,
-                 encoding=None,
-                 errors=None,
-                 newline=None,
-                 ):
+
+    def __init__(
+        self,
+        path: Union[str, bytes, os.PathLike],
+        program_args: List[str],
+        mode="wt",
+        compresslevel: Optional[int] = None,
+        threads_flag: Optional[str] = None,
+        threads: Optional[int] = None,
+        *,
+        encoding=None,
+        errors=None,
+        newline=None,
+    ):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
@@ -174,7 +179,7 @@ class PipedCompressionWriter(Closing):
         # TODO use a context manager
         self.outfile = open(path, mode)
         self.closed: bool = False
-        self.name: str = path
+        self.name: str = str(os.fspath(path))
         self._mode: str = mode
         self._program_args: List[str] = program_args
         self._threads_flag: Optional[str] = threads_flag
@@ -267,8 +272,8 @@ class PipedCompressionReader(Closing):
 
     def __init__(
         self,
-        path,
-        program_args: List[str],
+        path: Union[str, bytes, os.PathLike],
+        program_args: List[Union[str, bytes]],
         mode: str = "r",
         threads_flag: Optional[str] = None,
         threads: Optional[int] = None,
@@ -283,6 +288,9 @@ class PipedCompressionReader(Closing):
         if mode not in ('r', 'rt', 'rb'):
             raise ValueError("Mode is '{}', but it must be 'r', 'rt' or 'rb'".format(mode))
         self._program_args = program_args
+        path = os.fspath(path)
+        if isinstance(path, bytes) and sys.platform == 'win32':
+            path = path.decode()
         program_args = program_args + ['-cd', path]
 
         if threads_flag is not None:
@@ -372,6 +380,11 @@ class PipedCompressionReader(Closing):
         stderr_message.
         """
         retcode = self.process.poll()
+
+        if sys.platform == "win32" and retcode == 1 and stderr_message == b'':
+            # Special case for Windows. Winapi terminates processes with exit code 1
+            # and an empty error message.
+            return
 
         if retcode is None:
             # process still running
@@ -613,7 +626,9 @@ def _open_bz2(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
         except OSError:
             pass  # We try without threads.
 
-    return bz2.open(filename, mode)
+    # Ignore overzealous typing error from mypy.
+    # str is not an accepted mode type, it has to be Literal["rb"] etc.
+    return bz2.open(filename, mode)  # type: ignore
 
 
 def _open_xz(filename, mode: str, **text_mode_kwargs) -> IO:
@@ -685,7 +700,7 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
                      compresslevel=6 if compresslevel is None else compresslevel)
 
 
-def _detect_format_from_content(filename: str) -> Optional[str]:
+def _detect_format_from_content(filename: Union[str, bytes, os.PathLike]) -> Optional[str]:
     """
     Attempts to detect file format from the content by reading the first
     6 bytes. Returns None if no format could be detected.
@@ -709,23 +724,23 @@ def _detect_format_from_content(filename: str) -> Optional[str]:
     return None
 
 
-def _detect_format_from_extension(filename: str) -> Optional[str]:
+def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
     """
-    Attempts to detect file format from the filename extension.
-    Returns None if no format could be detected.
+    Attempt to detect file format from the filename extension.
+    Return None if no format could be detected.
     """
-    if filename.endswith('.bz2'):
-        return "bz2"
-    elif filename.endswith('.xz'):
-        return "xz"
-    elif filename.endswith('.gz'):
-        return "gz"
-    else:
-        return None
+    for ext in ("bz2", "xz", "gz"):
+        if isinstance(filename, bytes):
+            if filename.endswith(b'.' + ext.encode()):
+                return ext
+        else:
+            if filename.endswith("." + ext):
+                return ext
+    return None
 
 
 def xopen(
-    filename,
+    filename: Union[str, bytes, os.PathLike],
     mode: str = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
