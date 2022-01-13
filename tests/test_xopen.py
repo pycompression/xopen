@@ -692,6 +692,17 @@ def test_piped_compression_reader_peek_binary(reader):
         assert read_h.peek(1).startswith(b"T")
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="seeking only works on Windows for now")
+def test_piped_compression_reader_seek_and_tell(reader):
+    opener, extension = reader
+    filegz = Path(__file__).parent / f"file.txt{extension}"
+    with opener(filegz, "rb") as f:
+        original_position = f.tell()
+        assert f.read(4) == b"Test"
+        f.seek(original_position)
+        assert f.read(8) == b"Testing,"
+
+
 @pytest.mark.parametrize("mode", ["r", "rt"])
 def test_piped_compression_reader_peek_text(reader, mode):
     opener, extension = reader
