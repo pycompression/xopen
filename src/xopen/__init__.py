@@ -35,6 +35,9 @@ from typing import Optional, Union, TextIO, AnyStr, IO, List, Set
 
 from ._version import version as __version__
 
+# 128K buffer size also used by cat, pigz etc. It is faster than the 8K default.
+BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
+
 
 try:
     from isal import igzip, isal_zlib  # type: ignore
@@ -975,7 +978,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     elif detected_format == "bz2":
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     else:
-        opened_file = open(filename, mode, **text_mode_kwargs)
+        opened_file = open(filename, mode, **text_mode_kwargs, buffering=BUFFER_SIZE)
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
@@ -986,5 +989,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
         isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))
         and "w" in mode
     ):
-        opened_file = io.BufferedWriter(opened_file)  # type: ignore
+        opened_file = io.BufferedWriter(
+            opened_file, buffer_size=BUFFER_SIZE  # type: ignore
+        )
     return opened_file
