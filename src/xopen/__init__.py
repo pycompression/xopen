@@ -986,5 +986,9 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
         isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))
         and "w" in mode
     ):
-        opened_file = io.BufferedWriter(opened_file)  # type: ignore
+        # 128K buffer size also used by cat, pigz etc. It is faster than
+        # the 8K default.
+        opened_file = io.BufferedWriter(
+            opened_file, buffer_size=128 * 1024  # type: ignore
+        )
     return opened_file
