@@ -32,10 +32,12 @@ from xopen import (
     _can_read_concatenated_gz,
     igzip,
 )
+
 extensions = ["", ".gz", ".bz2", ".xz"]
 
 try:
     import fcntl
+
     if not hasattr(fcntl, "F_GETPIPE_SZ") and sys.platform == "linux":
         setattr(fcntl, "F_GETPIPE_SZ", 1032)
 except ImportError:
@@ -44,13 +46,14 @@ except ImportError:
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
 TEST_DIR = Path(__file__).parent
-CONTENT_LINES = ['Testing, testing ...\n', 'The second line.\n']
-CONTENT = ''.join(CONTENT_LINES)
+CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
+CONTENT = "".join(CONTENT_LINES)
 
 
 def available_gzip_readers_and_writers():
     readers = [
-        klass for prog, klass in [
+        klass
+        for prog, klass in [
             ("gzip", PipedGzipReader),
             ("pigz", PipedPigzReader),
             ("igzip", PipedIGzipReader),
@@ -61,7 +64,8 @@ def available_gzip_readers_and_writers():
         readers.remove(PipedIGzipReader)
 
     writers = [
-        klass for prog, klass in [
+        klass
+        for prog, klass in [
             ("gzip", PipedGzipWriter),
             ("pigz", PipedPigzWriter),
             ("igzip", PipedIGzipWriter),
@@ -85,14 +89,17 @@ def available_bzip2_readers_and_writers():
 
 PIPED_BZIP2_READERS, PIPED_BZIP2_WRITERS = available_bzip2_readers_and_writers()
 
-ALL_READERS_WITH_EXTENSION = list(zip(PIPED_GZIP_READERS, cycle([".gz"]))) + \
-                             list(zip(PIPED_BZIP2_READERS, cycle([".bz2"])))
-ALL_WRITERS_WITH_EXTENSION = list(zip(PIPED_GZIP_WRITERS, cycle([".gz"]))) + \
-                             list(zip(PIPED_BZIP2_WRITERS, cycle([".bz2"])))
+ALL_READERS_WITH_EXTENSION = list(zip(PIPED_GZIP_READERS, cycle([".gz"]))) + list(
+    zip(PIPED_BZIP2_READERS, cycle([".bz2"]))
+)
+ALL_WRITERS_WITH_EXTENSION = list(zip(PIPED_GZIP_WRITERS, cycle([".gz"]))) + list(
+    zip(PIPED_BZIP2_WRITERS, cycle([".bz2"]))
+)
 
 
-THREADED_READERS = set([(PipedPigzReader, ".gz"), (PipedPBzip2Reader, ".bz2")]) & \
-                   set(ALL_READERS_WITH_EXTENSION)
+THREADED_READERS = set([(PipedPigzReader, ".gz"), (PipedPBzip2Reader, ".bz2")]) & set(
+    ALL_READERS_WITH_EXTENSION
+)
 
 
 @pytest.fixture(params=PIPED_GZIP_WRITERS)
@@ -160,13 +167,16 @@ def lacking_pbzip2_permissions(tmp_path):
 def create_large_file(tmpdir, request):
     def _create_large_file(extension):
         path = str(tmpdir.join(f"large{extension}"))
-        random_text = ''.join(random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ\n') for _ in range(1024))
+        random_text = "".join(
+            random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ\n") for _ in range(1024)
+        )
         # Make the text a lot bigger in order to ensure that it is larger than the
         # pipe buffer size.
         random_text *= request.param
-        with xopen(path, 'w') as f:
+        with xopen(path, "w") as f:
             f.write(random_text)
         return path
+
     return _create_large_file
 
 
@@ -174,76 +184,78 @@ def create_large_file(tmpdir, request):
 def create_truncated_file(create_large_file):
     def _create_truncated_file(extension):
         large_file = create_large_file(extension)
-        with open(large_file, 'a') as f:
+        with open(large_file, "a") as f:
             f.truncate(os.stat(large_file).st_size - 10)
         return large_file
+
     return _create_truncated_file
 
 
 @pytest.fixture
 def xopen_without_igzip(monkeypatch):
     import xopen  # xopen local overrides xopen global variable
+
     monkeypatch.setattr(xopen, "igzip", None)
     return xopen.xopen
 
 
 def test_xopen_text(fname):
-    with xopen(fname, 'rt') as f:
+    with xopen(fname, "rt") as f:
         lines = list(f)
         assert len(lines) == 2
-        assert lines[1] == 'The second line.\n', fname
+        assert lines[1] == "The second line.\n", fname
 
 
 def test_xopen_binary(fname):
-    with xopen(fname, 'rb') as f:
+    with xopen(fname, "rb") as f:
         lines = list(f)
         assert len(lines) == 2
-        assert lines[1] == b'The second line.\n', fname
+        assert lines[1] == b"The second line.\n", fname
 
 
 def test_xopen_binary_no_isal_no_threads(fname, xopen_without_igzip):
-    with xopen_without_igzip(fname, 'rb', threads=0) as f:
+    with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
         assert len(lines) == 2
-        assert lines[1] == b'The second line.\n', fname
+        assert lines[1] == b"The second line.\n", fname
 
 
 def test_xopen_binary_no_isal(fname, xopen_without_igzip):
-    with xopen_without_igzip(fname, 'rb', threads=1) as f:
+    with xopen_without_igzip(fname, "rb", threads=1) as f:
         lines = list(f)
         assert len(lines) == 2
-        assert lines[1] == b'The second line.\n', fname
+        assert lines[1] == b"The second line.\n", fname
 
 
 def test_no_context_manager_text(fname):
-    f = xopen(fname, 'rt')
+    f = xopen(fname, "rt")
     lines = list(f)
     assert len(lines) == 2
-    assert lines[1] == 'The second line.\n', fname
+    assert lines[1] == "The second line.\n", fname
     f.close()
     assert f.closed
 
 
 def test_no_context_manager_binary(fname):
-    f = xopen(fname, 'rb')
+    f = xopen(fname, "rb")
     lines = list(f)
     assert len(lines) == 2
-    assert lines[1] == b'The second line.\n', fname
+    assert lines[1] == b"The second line.\n", fname
     f.close()
     assert f.closed
 
 
 def test_xopen_bytes_path(fname):
-    path = fname.encode('utf-8')
-    with xopen(path, 'rt') as f:
+    path = fname.encode("utf-8")
+    with xopen(path, "rt") as f:
         lines = list(f)
         assert len(lines) == 2
-        assert lines[1] == 'The second line.\n', fname
+        assert lines[1] == "The second line.\n", fname
 
 
 def test_readinto(fname):
-    content = CONTENT.encode('utf-8')
-    with xopen(fname, 'rb') as f:
+    content = CONTENT.encode("utf-8")
+    with xopen(fname, "rb") as f:
         b = bytearray(len(content) + 100)
         length = f.readinto(b)
         assert length == len(content)
@@ -252,7 +264,7 @@ def test_readinto(fname):
 
 def test_reader_readinto(reader):
     opener, extension = reader
-    content = CONTENT.encode('utf-8')
+    content = CONTENT.encode("utf-8")
     with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
         b = bytearray(len(content) + 100)
         length = f.readinto(b)
@@ -275,19 +287,19 @@ def test_detect_file_format_from_content(ext, tmp_path):
 
 
 def test_readline(fname):
-    first_line = CONTENT_LINES[0].encode('utf-8')
-    with xopen(fname, 'rb') as f:
+    first_line = CONTENT_LINES[0].encode("utf-8")
+    with xopen(fname, "rb") as f:
         assert f.readline() == first_line
 
 
 def test_readline_text(fname):
-    with xopen(fname, 'r') as f:
+    with xopen(fname, "r") as f:
         assert f.readline() == CONTENT_LINES[0]
 
 
 def test_reader_readline(reader):
     opener, extension = reader
-    first_line = CONTENT_LINES[0].encode('utf-8')
+    first_line = CONTENT_LINES[0].encode("utf-8")
     with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
         assert f.readline() == first_line
 
@@ -310,19 +322,19 @@ def test_next(fname):
     with xopen(fname, "rt") as f:
         _ = next(f)
         line2 = next(f)
-        assert line2 == 'The second line.\n', fname
+        assert line2 == "The second line.\n", fname
 
 
 def test_xopen_has_iter_method(ext, tmpdir):
     path = str(tmpdir.join("out" + ext))
-    with xopen(path, mode='w') as f:
-        assert hasattr(f, '__iter__')
+    with xopen(path, mode="w") as f:
+        assert hasattr(f, "__iter__")
 
 
 def test_writer_has_iter_method(tmpdir, writer):
     opener, extension = writer
     with opener(str(tmpdir.join(f"out.{extension}"))) as f:
-        assert hasattr(f, '__iter__')
+        assert hasattr(f, "__iter__")
 
 
 def test_iter_without_with(fname):
@@ -357,6 +369,7 @@ def test_partial_iteration_closes_correctly(extension, create_large_file):
         def __iter__(self):
             wrapper = io.TextIOWrapper(self.file)
             yield from wrapper
+
     large_file = create_large_file(extension)
     f = LineReader(large_file)
     next(iter(f))
@@ -365,13 +378,13 @@ def test_partial_iteration_closes_correctly(extension, create_large_file):
 
 def test_nonexisting_file(ext):
     with pytest.raises(IOError):
-        with xopen('this-file-does-not-exist' + ext):
+        with xopen("this-file-does-not-exist" + ext):
             pass  # pragma: no cover
 
 
 def test_write_to_nonexisting_dir(ext):
     with pytest.raises(IOError):
-        with xopen('this/path/does/not/exist/file.txt' + ext, 'w'):
+        with xopen("this/path/does/not/exist/file.txt" + ext, "w"):
             pass  # pragma: no cover
 
 
@@ -454,7 +467,7 @@ def test_truncated_file(extension, create_truncated_file):
 def test_truncated_iter(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
-        f = xopen(truncated_file, 'r')
+        f = xopen(truncated_file, "r")
         for line in f:
             pass
         f.close()  # pragma: no cover
@@ -465,7 +478,7 @@ def test_truncated_iter(extension, create_truncated_file):
 def test_truncated_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
-        with xopen(truncated_file, 'r') as f:
+        with xopen(truncated_file, "r") as f:
             f.read()
 
 
@@ -474,37 +487,37 @@ def test_truncated_with(extension, create_truncated_file):
 def test_truncated_iter_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
-        with xopen(truncated_file, 'r') as f:
+        with xopen(truncated_file, "r") as f:
             for line in f:
                 pass
 
 
 def test_bare_read_from_gz():
     hello_file = Path(__file__).parent / "hello.gz"
-    with xopen(hello_file, 'rt') as f:
-        assert f.read() == 'hello'
+    with xopen(hello_file, "rt") as f:
+        assert f.read() == "hello"
 
 
 def test_readers_read(reader):
     opener, extension = reader
-    with opener(TEST_DIR / f'file.txt{extension}', 'rt') as f:
+    with opener(TEST_DIR / f"file.txt{extension}", "rt") as f:
         assert f.read() == CONTENT
 
 
 def test_write_threads(tmpdir, ext):
-    path = str(tmpdir.join(f'out.{ext}'))
-    with xopen(path, mode='w', threads=3) as f:
-        f.write('hello')
+    path = str(tmpdir.join(f"out.{ext}"))
+    with xopen(path, mode="w", threads=3) as f:
+        f.write("hello")
     with xopen(path) as f:
-        assert f.read() == 'hello'
+        assert f.read() == "hello"
 
 
 def test_write_pigz_threads_no_isal(tmpdir, xopen_without_igzip):
-    path = str(tmpdir.join('out.gz'))
-    with xopen_without_igzip(path, mode='w', threads=3) as f:
-        f.write('hello')
+    path = str(tmpdir.join("out.gz"))
+    with xopen_without_igzip(path, mode="w", threads=3) as f:
+        f.write("hello")
     with xopen_without_igzip(path) as f:
-        assert f.read() == 'hello'
+        assert f.read() == "hello"
 
 
 def test_read_no_threads(ext):
@@ -536,13 +549,14 @@ def test_write_no_threads(tmpdir, ext):
 
 def test_write_gzip_no_threads_no_isal(tmpdir, xopen_without_igzip):
     import gzip
+
     path = str(tmpdir.join("out.gz"))
     with xopen_without_igzip(path, "wb", threads=0) as f:
         assert isinstance(f.raw, gzip.GzipFile), f
 
 
 def test_write_stdout():
-    f = xopen('-', mode='w')
+    f = xopen("-", mode="w")
     print("Hello", file=f)
     f.close()
     # ensure stdout is not closed
@@ -551,7 +565,7 @@ def test_write_stdout():
 
 def test_write_stdout_contextmanager():
     # Do not close stdout
-    with xopen('-', mode='w') as f:
+    with xopen("-", mode="w") as f:
         print("Hello", file=f)
     # ensure stdout is not closed
     print("Still there?")
@@ -559,34 +573,36 @@ def test_write_stdout_contextmanager():
 
 def test_read_pathlib(fname):
     path = Path(fname)
-    with xopen(path, mode='rt') as f:
+    with xopen(path, mode="rt") as f:
         assert f.read() == CONTENT
 
 
 def test_read_pathlib_binary(fname):
     path = Path(fname)
-    with xopen(path, mode='rb') as f:
-        assert f.read() == bytes(CONTENT, 'ascii')
+    with xopen(path, mode="rb") as f:
+        assert f.read() == bytes(CONTENT, "ascii")
 
 
 def test_write_pathlib(ext, tmpdir):
-    path = Path(str(tmpdir)) / ('hello.txt' + ext)
-    with xopen(path, mode='wt') as f:
-        f.write('hello')
-    with xopen(path, mode='rt') as f:
-        assert f.read() == 'hello'
+    path = Path(str(tmpdir)) / ("hello.txt" + ext)
+    with xopen(path, mode="wt") as f:
+        f.write("hello")
+    with xopen(path, mode="rt") as f:
+        assert f.read() == "hello"
 
 
 def test_write_pathlib_binary(ext, tmpdir):
-    path = Path(str(tmpdir)) / ('hello.txt' + ext)
-    with xopen(path, mode='wb') as f:
-        f.write(b'hello')
-    with xopen(path, mode='rb') as f:
-        assert f.read() == b'hello'
+    path = Path(str(tmpdir)) / ("hello.txt" + ext)
+    with xopen(path, mode="wb") as f:
+        f.write(b"hello")
+    with xopen(path, mode="rb") as f:
+        assert f.read() == b"hello"
 
 
-@pytest.mark.skipif(sys.platform.startswith("win"),
-                    reason="Windows does not have a gzip application by default.")
+@pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="Windows does not have a gzip application by default.",
+)
 def test_concatenated_gzip_function():
     assert _can_read_concatenated_gz("gzip") is True
     assert _can_read_concatenated_gz("pigz") is True
@@ -595,13 +611,13 @@ def test_concatenated_gzip_function():
 
 @pytest.mark.skipif(
     not hasattr(fcntl, "F_GETPIPE_SZ") or _MAX_PIPE_SIZE is None,
-    reason="Pipe size modifications not available on this platform.")
+    reason="Pipe size modifications not available on this platform.",
+)
 def test_pipesize_changed(tmpdir):
     path = Path(str(tmpdir), "hello.gz")
     with xopen(path, "wb") as f:
         assert isinstance(f, PipedCompressionWriter)
-        assert fcntl.fcntl(f._file.fileno(),
-                           fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
+        assert fcntl.fcntl(f._file.fileno(), fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
 
 
 def test_xopen_falls_back_to_gzip_open(lacking_pigz_permissions):
@@ -609,15 +625,16 @@ def test_xopen_falls_back_to_gzip_open(lacking_pigz_permissions):
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_xopen_falls_back_to_gzip_open_no_isal(lacking_pigz_permissions,
-                                               xopen_without_igzip):
+def test_xopen_falls_back_to_gzip_open_no_isal(
+    lacking_pigz_permissions, xopen_without_igzip
+):
     with xopen_without_igzip(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_xopen_fals_back_to_gzip_open_write_no_isal(lacking_pigz_permissions,
-                                                    xopen_without_igzip,
-                                                    tmp_path):
+def test_xopen_fals_back_to_gzip_open_write_no_isal(
+    lacking_pigz_permissions, xopen_without_igzip, tmp_path
+):
     tmp = tmp_path / "test.gz"
     with xopen_without_igzip(tmp, "wb") as f:
         f.write(b"hello")
@@ -674,7 +691,7 @@ def test_next_method_writers(writer, tmpdir):
     writer = opener(test_path, "wb")
     with pytest.raises(io.UnsupportedOperation) as error:
         next(writer)
-    error.match('not readable')
+    error.match("not readable")
 
 
 def test_pipedcompressionreader_wrong_mode():
@@ -692,7 +709,9 @@ def test_piped_compression_reader_peek_binary(reader):
         assert read_h.peek(1).startswith(b"T")
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="seeking only works on Windows for now")
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="seeking only works on Windows for now"
+)
 def test_piped_compression_reader_seek_and_tell(reader):
     opener, extension = reader
     filegz = Path(__file__).parent / f"file.txt{extension}"
@@ -724,8 +743,9 @@ def writers_and_levels():
             # Levels 0-3 are supported
             yield from ((writer, i) for i in range(4))
         else:
-            raise NotImplementedError(f"Test should be implemented for "
-                                      f"{writer}")  # pragma: no cover
+            raise NotImplementedError(
+                f"Test should be implemented for " f"{writer}"
+            )  # pragma: no cover
 
 
 @pytest.mark.parametrize(["writer", "level"], writers_and_levels())
@@ -765,7 +785,9 @@ def test_override_output_format_wrong_format(tmp_path):
 OPENERS = (xopen, functools.partial(xopen, threads=0))
 
 
-@pytest.mark.parametrize(["opener", "extension"], itertools.product(OPENERS, extensions))
+@pytest.mark.parametrize(
+    ["opener", "extension"], itertools.product(OPENERS, extensions)
+)
 def test_text_encoding_newline_passtrough(opener, extension, tmp_path):
     # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
     encoded_text = b"E\xe9n ree\rTwee ree\xebn\r"
@@ -777,7 +799,9 @@ def test_text_encoding_newline_passtrough(opener, extension, tmp_path):
     assert result == "Eén ree\rTwee reeën\r"
 
 
-@pytest.mark.parametrize(["opener", "extension"], itertools.product(OPENERS, extensions))
+@pytest.mark.parametrize(
+    ["opener", "extension"], itertools.product(OPENERS, extensions)
+)
 def test_text_encoding_errors(opener, extension, tmp_path):
     # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
     encoded_text = b"E\xe9n ree\nTwee ree\xebn\n"
@@ -786,4 +810,4 @@ def test_text_encoding_errors(opener, extension, tmp_path):
         f.write(encoded_text)
     with opener(test_file, "rt", encoding="ascii", errors="replace") as f:
         result = f.read()
-    assert result == 'E�n ree\nTwee ree�n\n'
+    assert result == "E�n ree\nTwee ree�n\n"

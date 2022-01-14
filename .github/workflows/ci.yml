@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.7]
-        toxenv: [flake8, mypy]
+        toxenv: [black, flake8, mypy]
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
