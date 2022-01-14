@@ -99,6 +99,12 @@ If you also want to open S3 files, you may want to use that module instead.
 Changes
 -------
 
+v1.4.0
+~~~~~~
+
+* Add ``seek()`` and ``tell()`` to the ``PipedCompressionReader`` classes
+  (for Windows compatibility)
+
 v1.3.0
 ~~~~~~
 
