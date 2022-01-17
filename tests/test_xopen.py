@@ -446,10 +446,6 @@ def test_append_text(ext, tmp_path):
         assert appended == reference
 
 
-class TookTooLongError(Exception):
-    pass
-
-
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
 def test_truncated_file(extension, create_truncated_file):
