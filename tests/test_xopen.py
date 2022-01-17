@@ -142,8 +142,8 @@ def disable_binary(tmp_path, binary_name):
     try:
         binary_path = shutil.which(binary_name)
         if binary_path:
-            shutil.copy(binary_path, str(tmp_path))
-            os.chmod(str(tmp_path / binary_name), 0)
+            shutil.copy(binary_path, tmp_path)
+            os.chmod(tmp_path / binary_name, 0)
         path = os.environ["PATH"]
         os.environ["PATH"] = str(tmp_path)
         yield
@@ -164,9 +164,9 @@ def lacking_pbzip2_permissions(tmp_path):
 
 
 @pytest.fixture(params=[1024, 2048, 4096])
-def create_large_file(tmpdir, request):
+def create_large_file(tmp_path, request):
     def _create_large_file(extension):
-        path = str(tmpdir.join(f"large{extension}"))
+        path = tmp_path / f"large{extension}"
         random_text = "".join(
             random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ\n") for _ in range(1024)
         )
@@ -280,7 +280,7 @@ def test_reader_textiowrapper(reader):
 
 
 def test_detect_file_format_from_content(ext, tmp_path):
-    path = str(tmp_path / f"file.txt{ext}.test")
+    path = tmp_path / f"file.txt{ext}.test"
     shutil.copy(TEST_DIR / f"file.txt{ext}", path)
     with xopen(path, "rb") as fh:
         assert fh.readline() == CONTENT_LINES[0].encode("utf-8")
@@ -325,15 +325,15 @@ def test_next(fname):
         assert line2 == "The second line.\n", fname
 
 
-def test_xopen_has_iter_method(ext, tmpdir):
-    path = str(tmpdir.join("out" + ext))
+def test_xopen_has_iter_method(ext, tmp_path):
+    path = tmp_path / f"out{ext}"
     with xopen(path, mode="w") as f:
         assert hasattr(f, "__iter__")
 
 
-def test_writer_has_iter_method(tmpdir, writer):
+def test_writer_has_iter_method(tmp_path, writer):
     opener, extension = writer
-    with opener(str(tmpdir.join(f"out.{extension}"))) as f:
+    with opener(tmp_path / f"out.{extension}") as f:
         assert hasattr(f, "__iter__")
 
 
@@ -400,28 +400,26 @@ def test_filename_not_a_string():
             pass  # pragma: no cover
 
 
-def test_invalid_compression_level(tmpdir):
-    path = str(tmpdir.join("out.gz"))
+def test_invalid_compression_level(tmp_path):
     with pytest.raises(ValueError) as e:
-        with xopen(path, mode="w", compresslevel=17) as f:
+        with xopen(tmp_path / "out.gz", mode="w", compresslevel=17) as f:
             f.write("hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
 
 
-def test_invalid_compression_level_writers(gzip_writer, tmpdir):
+def test_invalid_compression_level_writers(gzip_writer, tmp_path):
     # Currently only gzip writers handle compression levels
-    path = str(tmpdir.join("out.gz"))
     with pytest.raises(ValueError) as e:
-        with gzip_writer(path, mode="w", compresslevel=17) as f:
+        with gzip_writer(tmp_path / "out.gz", mode="w", compresslevel=17) as f:
             f.write("hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
 
 
 @pytest.mark.parametrize("ext", extensions)
-def test_append(ext, tmpdir):
+def test_append(ext, tmp_path):
     text = b"AB"
     reference = text + text
-    path = str(tmpdir.join("the-file" + ext))
+    path = tmp_path / f"the-file{ext}"
     with xopen(path, "ab") as f:
         f.write(text)
     with xopen(path, "ab") as f:
@@ -434,10 +432,10 @@ def test_append(ext, tmpdir):
 
 
 @pytest.mark.parametrize("ext", extensions)
-def test_append_text(ext, tmpdir):
+def test_append_text(ext, tmp_path):
     text = "AB"
     reference = text + text
-    path = str(tmpdir.join("the-file" + ext))
+    path = tmp_path / f"the-file{ext}"
     with xopen(path, "at") as f:
         f.write(text)
     with xopen(path, "at") as f:
@@ -504,16 +502,16 @@ def test_readers_read(reader):
         assert f.read() == CONTENT
 
 
-def test_write_threads(tmpdir, ext):
-    path = str(tmpdir.join(f"out.{ext}"))
+def test_write_threads(tmp_path, ext):
+    path = tmp_path / f"out.{ext}"
     with xopen(path, mode="w", threads=3) as f:
         f.write("hello")
     with xopen(path) as f:
         assert f.read() == "hello"
 
 
-def test_write_pigz_threads_no_isal(tmpdir, xopen_without_igzip):
-    path = str(tmpdir.join("out.gz"))
+def test_write_pigz_threads_no_isal(tmp_path, xopen_without_igzip):
+    path = tmp_path / "out.gz"
     with xopen_without_igzip(path, mode="w", threads=3) as f:
         f.write("hello")
     with xopen_without_igzip(path) as f:
@@ -532,7 +530,7 @@ def test_read_no_threads(ext):
         assert isinstance(f, klass), f
 
 
-def test_write_no_threads(tmpdir, ext):
+def test_write_no_threads(tmp_path, ext):
     klasses = {
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
@@ -540,18 +538,16 @@ def test_write_no_threads(tmpdir, ext):
         "": io.BufferedWriter,
     }
     klass = klasses[ext]
-    path = str(tmpdir.join(f"out.{ext}"))
-    with xopen(path, "wb", threads=0) as f:
+    with xopen(tmp_path / f"out.{ext}", "wb", threads=0) as f:
         assert isinstance(f, io.BufferedWriter)
         if ext:
             assert isinstance(f.raw, klass), f
 
 
-def test_write_gzip_no_threads_no_isal(tmpdir, xopen_without_igzip):
+def test_write_gzip_no_threads_no_isal(tmp_path, xopen_without_igzip):
     import gzip
 
-    path = str(tmpdir.join("out.gz"))
-    with xopen_without_igzip(path, "wb", threads=0) as f:
+    with xopen_without_igzip(tmp_path / "out.gz", "wb", threads=0) as f:
         assert isinstance(f.raw, gzip.GzipFile), f
 
 
@@ -583,16 +579,16 @@ def test_read_pathlib_binary(fname):
         assert f.read() == bytes(CONTENT, "ascii")
 
 
-def test_write_pathlib(ext, tmpdir):
-    path = Path(str(tmpdir)) / ("hello.txt" + ext)
+def test_write_pathlib(ext, tmp_path):
+    path = tmp_path / f"hello.txt{ext}"
     with xopen(path, mode="wt") as f:
         f.write("hello")
     with xopen(path, mode="rt") as f:
         assert f.read() == "hello"
 
 
-def test_write_pathlib_binary(ext, tmpdir):
-    path = Path(str(tmpdir)) / ("hello.txt" + ext)
+def test_write_pathlib_binary(ext, tmp_path):
+    path = tmp_path / f"hello.txt{ext}"
     with xopen(path, mode="wb") as f:
         f.write(b"hello")
     with xopen(path, mode="rb") as f:
@@ -613,9 +609,8 @@ def test_concatenated_gzip_function():
     not hasattr(fcntl, "F_GETPIPE_SZ") or _MAX_PIPE_SIZE is None,
     reason="Pipe size modifications not available on this platform.",
 )
-def test_pipesize_changed(tmpdir):
-    path = Path(str(tmpdir), "hello.gz")
-    with xopen(path, "wb") as f:
+def test_pipesize_changed(tmp_path):
+    with xopen(tmp_path / "hello.gz", "wb") as f:
         assert isinstance(f, PipedCompressionWriter)
         assert fcntl.fcntl(f._file.fileno(), fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
 
@@ -660,35 +655,34 @@ def test_open_many_writers(tmp_path, ext):
         f.close()
 
 
-def test_pipedcompressionwriter_wrong_mode(tmpdir):
+def test_pipedcompressionwriter_wrong_mode(tmp_path):
     with pytest.raises(ValueError) as error:
-        PipedCompressionWriter(tmpdir.join("test"), ["gzip"], "xb")
+        PipedCompressionWriter(tmp_path / "test", ["gzip"], "xb")
     error.match("Mode is 'xb', but it must be")
 
 
-def test_pipedcompressionwriter_wrong_program(tmpdir):
+def test_pipedcompressionwriter_wrong_program(tmp_path):
     with pytest.raises(OSError):
-        PipedCompressionWriter(tmpdir.join("test"), ["XVXCLSKDLA"], "wb")
+        PipedCompressionWriter(tmp_path / "test", ["XVXCLSKDLA"], "wb")
 
 
-def test_compression_level(tmpdir, gzip_writer):
+def test_compression_level(tmp_path, gzip_writer):
     # Currently only the gzip writers handle compression levels.
-    with gzip_writer(tmpdir.join("test.gz"), "wt", 2) as test_h:
+    path = tmp_path / "test.gz"
+    with gzip_writer(path, "wt", 2) as test_h:
         test_h.write("test")
-    assert gzip.decompress(Path(tmpdir.join("test.gz")).read_bytes()) == b"test"
+    assert gzip.decompress(path.read_bytes()) == b"test"
 
 
-def test_iter_method_writers(writer, tmpdir):
+def test_iter_method_writers(writer, tmp_path):
     opener, extension = writer
-    test_path = tmpdir.join(f"test{extension}")
-    writer = opener(test_path, "wb")
+    writer = opener(tmp_path / f"test{extension}", "wb")
     assert iter(writer) == writer
 
 
-def test_next_method_writers(writer, tmpdir):
+def test_next_method_writers(writer, tmp_path):
     opener, extension = writer
-    test_path = tmpdir.join(f"test.{extension}")
-    writer = opener(test_path, "wb")
+    writer = opener(tmp_path / f"test.{extension}", "wb")
     with pytest.raises(io.UnsupportedOperation) as error:
         next(writer)
     error.match("not readable")
@@ -749,35 +743,35 @@ def writers_and_levels():
 
 
 @pytest.mark.parametrize(["writer", "level"], writers_and_levels())
-def test_valid_compression_levels(writer, level, tmpdir):
-    test_file = tmpdir.join("test.gz")
-    with writer(test_file, "wb", level) as handle:
+def test_valid_compression_levels(writer, level, tmp_path):
+    path = tmp_path / "test.gz"
+    with writer(path, "wb", level) as handle:
         handle.write(b"test")
-    assert gzip.decompress(Path(test_file).read_bytes()) == b"test"
+    assert gzip.decompress(path.read_bytes()) == b"test"
 
 
 def test_override_output_format(tmp_path):
-    test_file = tmp_path / "test_gzip_compressed"
-    with xopen(test_file, mode="wb", format="gz") as f:
+    path = tmp_path / "test_gzip_compressed"
+    with xopen(path, mode="wb", format="gz") as f:
         f.write(b"test")
-    test_contents = test_file.read_bytes()
+    test_contents = path.read_bytes()
     assert test_contents.startswith(b"\x1f\x8b")  # Gzip magic
     assert gzip.decompress(test_contents) == b"test"
 
 
 def test_override_output_format_unsupported_format(tmp_path):
-    test_file = tmp_path / "test_fairy_format_compressed"
+    path = tmp_path / "test_fairy_format_compressed"
     with pytest.raises(ValueError) as error:
-        xopen(test_file, mode="wb", format="fairy")
+        xopen(path, mode="wb", format="fairy")
     error.match("not supported")
     error.match("fairy")
 
 
 def test_override_output_format_wrong_format(tmp_path):
-    test_file = tmp_path / "not_compressed"
-    test_file.write_text("I am not compressed.")
+    path = tmp_path / "not_compressed"
+    path.write_text("I am not compressed.")
     with pytest.raises(OSError):  # BadGzipFile is a subclass of OSError
-        with xopen(test_file, "rt", format="gz") as opened_file:
+        with xopen(path, "rt", format="gz") as opened_file:
             opened_file.read()
 
 
@@ -791,10 +785,10 @@ OPENERS = (xopen, functools.partial(xopen, threads=0))
 def test_text_encoding_newline_passtrough(opener, extension, tmp_path):
     # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
     encoded_text = b"E\xe9n ree\rTwee ree\xebn\r"
-    test_file = tmp_path / f"test.txt{extension}"
-    with opener(test_file, "wb") as f:
+    path = tmp_path / f"test.txt{extension}"
+    with opener(path, "wb") as f:
         f.write(encoded_text)
-    with opener(test_file, "rt", encoding="latin-1", newline="\r") as f:
+    with opener(path, "rt", encoding="latin-1", newline="\r") as f:
         result = f.read()
     assert result == "Eén ree\rTwee reeën\r"
 
@@ -805,9 +799,9 @@ def test_text_encoding_newline_passtrough(opener, extension, tmp_path):
 def test_text_encoding_errors(opener, extension, tmp_path):
     # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
     encoded_text = b"E\xe9n ree\nTwee ree\xebn\n"
-    test_file = tmp_path / f"test.txt{extension}"
-    with opener(test_file, "wb") as f:
+    path = tmp_path / f"test.txt{extension}"
+    with opener(path, "wb") as f:
         f.write(encoded_text)
-    with opener(test_file, "rt", encoding="ascii", errors="replace") as f:
+    with opener(path, "rt", encoding="ascii", errors="replace") as f:
         result = f.read()
     assert result == "E�n ree\nTwee ree�n\n"
