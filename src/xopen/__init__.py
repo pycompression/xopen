@@ -978,7 +978,10 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     elif detected_format == "bz2":
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     else:
-        opened_file = open(filename, mode, **text_mode_kwargs, buffering=BUFFER_SIZE)
+        # The python default seems the fastest for reading, while using a
+        # bigger buffer size for writing improves performance.
+        bufsize = -1 if "r" in mode else BUFFER_SIZE
+        opened_file = open(filename, mode, **text_mode_kwargs, buffering=bufsize)
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
