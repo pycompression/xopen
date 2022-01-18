@@ -7,6 +7,7 @@ import io
 import os
 import random
 import shutil
+import string
 import sys
 import time
 import pytest
@@ -167,9 +168,7 @@ def lacking_pbzip2_permissions(tmp_path):
 def create_large_file(tmp_path):
     def _create_large_file(extension):
         path = tmp_path / f"large{extension}"
-        random_text = "".join(
-            random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ\n") for _ in range(1024)
-        )
+        random_text = "".join(random.choices(string.ascii_lowercase, k=1024))
         # Make the text a lot bigger in order to ensure that it is larger than the
         # pipe buffer size.
         random_text *= 2048
@@ -328,12 +327,16 @@ def test_next(fname):
 def test_xopen_has_iter_method(ext, tmp_path):
     path = tmp_path / f"out{ext}"
     with xopen(path, mode="w") as f:
+        # Writing anything isn’t strictly necessary, but if we don’t, then
+        # pbzip2 causes a delay of one second
+        f.write("hello")
         assert hasattr(f, "__iter__")
 
 
 def test_writer_has_iter_method(tmp_path, writer):
     opener, extension = writer
     with opener(tmp_path / f"out.{extension}") as f:
+        f.write("hello")
         assert hasattr(f, "__iter__")
 
 
@@ -444,10 +447,6 @@ def test_append_text(ext, tmp_path):
         for appended in f:
             pass
         assert appended == reference
-
-
-class TookTooLongError(Exception):
-    pass
 
 
 @pytest.mark.timeout(5)
