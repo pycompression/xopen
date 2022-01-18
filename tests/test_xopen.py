@@ -328,12 +328,16 @@ def test_next(fname):
 def test_xopen_has_iter_method(ext, tmp_path):
     path = tmp_path / f"out{ext}"
     with xopen(path, mode="w") as f:
+        # Writing anything isn’t strictly necessary, but if we don’t, then
+        # pbzip2 causes a delay of one second
+        f.write("hello")
         assert hasattr(f, "__iter__")
 
 
 def test_writer_has_iter_method(tmp_path, writer):
     opener, extension = writer
     with opener(tmp_path / f"out.{extension}") as f:
+        f.write("hello")
         assert hasattr(f, "__iter__")
 
 
