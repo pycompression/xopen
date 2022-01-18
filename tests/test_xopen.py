@@ -163,8 +163,8 @@ def lacking_pbzip2_permissions(tmp_path):
         yield
 
 
-@pytest.fixture(params=[1024, 2048, 4096])
-def create_large_file(tmp_path, request):
+@pytest.fixture
+def create_large_file(tmp_path):
     def _create_large_file(extension):
         path = tmp_path / f"large{extension}"
         random_text = "".join(
@@ -172,7 +172,7 @@ def create_large_file(tmp_path, request):
         )
         # Make the text a lot bigger in order to ensure that it is larger than the
         # pipe buffer size.
-        random_text *= request.param
+        random_text *= 2048
         with xopen(path, "w") as f:
             f.write(random_text)
         return path
