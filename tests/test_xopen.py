@@ -172,7 +172,7 @@ def create_large_file(tmp_path):
         )
         # Make the text a lot bigger in order to ensure that it is larger than the
         # pipe buffer size.
-        random_text *= 1024
+        random_text *= 2048
         with xopen(path, "w") as f:
             f.write(random_text)
         return path
