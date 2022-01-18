@@ -28,24 +28,23 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10", "pypy-3.7"]
+        optional-deps: [true]
         include:
         - os: macos-latest
           python-version: 3.7
+          optional-deps: true
         - os: ubuntu-20.04
           python-version: 3.7
-          with-isal: true
+          optional-deps: false
         - os: windows-latest
           python-version: 3.7
     steps:
-    - name: Install pigz and pbzip2 MacOS
-      if: runner.os == 'macOS'
-      run: brew install pigz pbzip2
-    - name: Install pigz and pbzip2 Linux
-      if: runner.os == 'Linux'
-      run: sudo apt-get install pigz pbzip2
-    - name: Install isal
-      if: matrix.with-isal && runner.os == 'Linux'
-      run: sudo apt-get install isal libisal-dev
+    - name: Install optional tools macOS
+      if: runner.os == 'macOS' && matrix.optional-deps
+      run: brew install pigz pbzip2 isa-l
+    - name: Install optional tools Linux
+      if: runner.os == 'Linux' && matrix.optional-deps
+      run: sudo apt-get install pigz pbzip2 isal
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
@@ -57,10 +56,6 @@ jobs:
       run: python -m pip install tox
     - name: Test
       run: tox -e py
-      if: matrix.with-isal == null
-    - name: Test with isal
-      run: tox -e isal
-      if: matrix.with-isal
     - name: Upload coverage report
       uses: codecov/codecov-action@v1
 
