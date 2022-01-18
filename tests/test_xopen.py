@@ -7,6 +7,7 @@ import io
 import os
 import random
 import shutil
+import string
 import sys
 import time
 import pytest
@@ -167,9 +168,7 @@ def lacking_pbzip2_permissions(tmp_path):
 def create_large_file(tmp_path, request):
     def _create_large_file(extension):
         path = tmp_path / f"large{extension}"
-        random_text = "".join(
-            random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ\n") for _ in range(1024)
-        )
+        random_text = "".join(random.choices(string.ascii_lowercase, k=1024))
         # Make the text a lot bigger in order to ensure that it is larger than the
         # pipe buffer size.
         random_text *= request.param
