@@ -16,7 +16,7 @@ import pytest
 
 from xopen import xopen
 
-# TODO duplicated section
+# TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
 CONTENT = "".join(CONTENT_LINES)
@@ -257,7 +257,7 @@ def test_append_text(ext, tmp_path):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_file(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
@@ -267,7 +267,7 @@ def test_truncated_file(extension, create_truncated_file):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_iter(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
@@ -278,7 +278,7 @@ def test_truncated_iter(extension, create_truncated_file):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
@@ -287,7 +287,7 @@ def test_truncated_with(extension, create_truncated_file):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_iter_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
