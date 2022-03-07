@@ -1,136 +1,28 @@
+"""
+Tests for the xopen.xopen function
+"""
+import bz2
+from contextlib import contextmanager
 import functools
 import gzip
-import bz2
+import io
 import itertools
 import lzma
-import io
 import os
-import random
-import shutil
-import string
-import sys
-import time
-import pytest
 from pathlib import Path
-from contextlib import contextmanager
-from itertools import cycle
+import shutil
 
-from xopen import (
-    xopen,
-    PipedCompressionReader,
-    PipedCompressionWriter,
-    PipedGzipReader,
-    PipedGzipWriter,
-    PipedPBzip2Reader,
-    PipedPBzip2Writer,
-    PipedPigzReader,
-    PipedPigzWriter,
-    PipedIGzipReader,
-    PipedIGzipWriter,
-    PipedPythonIsalReader,
-    PipedPythonIsalWriter,
-    _MAX_PIPE_SIZE,
-    _can_read_concatenated_gz,
-    igzip,
-)
+import pytest
 
-extensions = ["", ".gz", ".bz2", ".xz"]
+from xopen import xopen
 
-try:
-    import fcntl
-
-    if not hasattr(fcntl, "F_GETPIPE_SZ") and sys.platform == "linux":
-        setattr(fcntl, "F_GETPIPE_SZ", 1032)
-except ImportError:
-    fcntl = None
-
-base = os.path.join(os.path.dirname(__file__), "file.txt")
-files = [base + ext for ext in extensions]
+# TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
 CONTENT = "".join(CONTENT_LINES)
-
-
-def available_gzip_readers_and_writers():
-    readers = [
-        klass
-        for prog, klass in [
-            ("gzip", PipedGzipReader),
-            ("pigz", PipedPigzReader),
-            ("igzip", PipedIGzipReader),
-        ]
-        if shutil.which(prog)
-    ]
-    if PipedIGzipReader in readers and not _can_read_concatenated_gz("igzip"):
-        readers.remove(PipedIGzipReader)
-
-    writers = [
-        klass
-        for prog, klass in [
-            ("gzip", PipedGzipWriter),
-            ("pigz", PipedPigzWriter),
-            ("igzip", PipedIGzipWriter),
-        ]
-        if shutil.which(prog)
-    ]
-    if igzip is not None:
-        readers.append(PipedPythonIsalReader)
-        writers.append(PipedPythonIsalWriter)
-    return readers, writers
-
-
-PIPED_GZIP_READERS, PIPED_GZIP_WRITERS = available_gzip_readers_and_writers()
-
-
-def available_bzip2_readers_and_writers():
-    if shutil.which("pbzip2"):
-        return [PipedPBzip2Reader], [PipedPBzip2Writer]
-    return [], []
-
-
-PIPED_BZIP2_READERS, PIPED_BZIP2_WRITERS = available_bzip2_readers_and_writers()
-
-ALL_READERS_WITH_EXTENSION = list(zip(PIPED_GZIP_READERS, cycle([".gz"]))) + list(
-    zip(PIPED_BZIP2_READERS, cycle([".bz2"]))
-)
-ALL_WRITERS_WITH_EXTENSION = list(zip(PIPED_GZIP_WRITERS, cycle([".gz"]))) + list(
-    zip(PIPED_BZIP2_WRITERS, cycle([".bz2"]))
-)
-
-
-THREADED_READERS = set([(PipedPigzReader, ".gz"), (PipedPBzip2Reader, ".bz2")]) & set(
-    ALL_READERS_WITH_EXTENSION
-)
-
-
-@pytest.fixture(params=PIPED_GZIP_WRITERS)
-def gzip_writer(request):
-    return request.param
-
-
-@pytest.fixture(params=extensions)
-def ext(request):
-    return request.param
-
-
-@pytest.fixture(params=files)
-def fname(request):
-    return request.param
-
-
-@pytest.fixture(params=ALL_READERS_WITH_EXTENSION)
-def reader(request):
-    return request.param
-
-
-@pytest.fixture(params=THREADED_READERS)
-def threaded_reader(request):
-    return request.param
-
-
-@pytest.fixture(params=ALL_WRITERS_WITH_EXTENSION)
-def writer(request):
-    return request.param
+extensions = ["", ".gz", ".bz2", ".xz"]
+base = os.path.join(os.path.dirname(__file__), "file.txt")
+files = [base + ext for ext in extensions]
 
 
 @contextmanager
@@ -152,6 +44,16 @@ def disable_binary(tmp_path, binary_name):
         os.environ["PATH"] = path
 
 
+@pytest.fixture(params=extensions)
+def ext(request):
+    return request.param
+
+
+@pytest.fixture(params=files)
+def fname(request):
+    return request.param
+
+
 @pytest.fixture
 def lacking_pigz_permissions(tmp_path):
     with disable_binary(tmp_path, "pigz"):
@@ -165,32 +67,6 @@ def lacking_pbzip2_permissions(tmp_path):
 
 
 @pytest.fixture
-def create_large_file(tmp_path):
-    def _create_large_file(extension):
-        path = tmp_path / f"large{extension}"
-        random_text = "".join(random.choices(string.ascii_lowercase, k=1024))
-        # Make the text a lot bigger in order to ensure that it is larger than the
-        # pipe buffer size.
-        random_text *= 2048
-        with xopen(path, "w") as f:
-            f.write(random_text)
-        return path
-
-    return _create_large_file
-
-
-@pytest.fixture
-def create_truncated_file(create_large_file):
-    def _create_truncated_file(extension):
-        large_file = create_large_file(extension)
-        with open(large_file, "a") as f:
-            f.truncate(os.stat(large_file).st_size - 10)
-        return large_file
-
-    return _create_truncated_file
-
-
-@pytest.fixture
 def xopen_without_igzip(monkeypatch):
     import xopen  # xopen local overrides xopen global variable
 
@@ -198,28 +74,28 @@ def xopen_without_igzip(monkeypatch):
     return xopen.xopen
 
 
-def test_xopen_text(fname):
+def test_text(fname):
     with xopen(fname, "rt") as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == "The second line.\n", fname
 
 
-def test_xopen_binary(fname):
+def test_binary(fname):
     with xopen(fname, "rb") as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == b"The second line.\n", fname
 
 
-def test_xopen_binary_no_isal_no_threads(fname, xopen_without_igzip):
+def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
     with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == b"The second line.\n", fname
 
 
-def test_xopen_binary_no_isal(fname, xopen_without_igzip):
+def test_binary_no_isal(fname, xopen_without_igzip):
     with xopen_without_igzip(fname, "rb", threads=1) as f:
         lines = list(f)
         assert len(lines) == 2
@@ -244,7 +120,7 @@ def test_no_context_manager_binary(fname):
     assert f.closed
 
 
-def test_xopen_bytes_path(fname):
+def test_bytes_path(fname):
     path = fname.encode("utf-8")
     with xopen(path, "rt") as f:
         lines = list(f)
@@ -259,23 +135,6 @@ def test_readinto(fname):
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
-
-
-def test_reader_readinto(reader):
-    opener, extension = reader
-    content = CONTENT.encode("utf-8")
-    with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
-        b = bytearray(len(content) + 100)
-        length = f.readinto(b)
-        assert length == len(content)
-        assert b[:length] == content
-
-
-def test_reader_textiowrapper(reader):
-    opener, extension = reader
-    with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
-        wrapped = io.TextIOWrapper(f)
-        assert wrapped.read() == CONTENT
 
 
 def test_detect_file_format_from_content(ext, tmp_path):
@@ -296,27 +155,6 @@ def test_readline_text(fname):
         assert f.readline() == CONTENT_LINES[0]
 
 
-def test_reader_readline(reader):
-    opener, extension = reader
-    first_line = CONTENT_LINES[0].encode("utf-8")
-    with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
-        assert f.readline() == first_line
-
-
-def test_reader_readline_text(reader):
-    opener, extension = reader
-    with opener(TEST_DIR / f"file.txt{extension}", "r") as f:
-        assert f.readline() == CONTENT_LINES[0]
-
-
-@pytest.mark.parametrize("threads", [None, 1, 2])
-def test_piped_reader_iter(threads, threaded_reader):
-    opener, extension = threaded_reader
-    with opener(TEST_DIR / f"file.txt{extension}", mode="r", threads=threads) as f:
-        lines = list(f)
-        assert lines[0] == CONTENT_LINES[0]
-
-
 def test_next(fname):
     with xopen(fname, "rt") as f:
         _ = next(f)
@@ -324,18 +162,11 @@ def test_next(fname):
         assert line2 == "The second line.\n", fname
 
 
-def test_xopen_has_iter_method(ext, tmp_path):
+def test_has_iter_method(ext, tmp_path):
     path = tmp_path / f"out{ext}"
     with xopen(path, mode="w") as f:
         # Writing anything isn’t strictly necessary, but if we don’t, then
         # pbzip2 causes a delay of one second
-        f.write("hello")
-        assert hasattr(f, "__iter__")
-
-
-def test_writer_has_iter_method(tmp_path, writer):
-    opener, extension = writer
-    with opener(tmp_path / f"out.{extension}") as f:
         f.write("hello")
         assert hasattr(f, "__iter__")
 
@@ -345,22 +176,6 @@ def test_iter_without_with(fname):
     it = iter(f)
     assert CONTENT_LINES[0] == next(it)
     f.close()
-
-
-def test_reader_iter_without_with(reader):
-    opener, extension = reader
-    it = iter(opener(TEST_DIR / f"file.txt{extension}"))
-    assert CONTENT_LINES[0] == next(it)
-
-
-@pytest.mark.parametrize("mode", ["rb", "rt"])
-def test_reader_close(mode, reader, create_large_file):
-    reader, extension = reader
-    large_file = create_large_file(extension)
-    with reader(large_file, mode=mode) as f:
-        f.readline()
-        time.sleep(0.2)
-    # The subprocess should be properly terminated now
 
 
 @pytest.mark.parametrize("extension", [".gz", ".bz2"])
@@ -410,14 +225,6 @@ def test_invalid_compression_level(tmp_path):
     assert "compresslevel must be" in e.value.args[0]
 
 
-def test_invalid_compression_level_writers(gzip_writer, tmp_path):
-    # Currently only gzip writers handle compression levels
-    with pytest.raises(ValueError) as e:
-        with gzip_writer(tmp_path / "out.gz", mode="w", compresslevel=17) as f:
-            f.write("hello")  # pragma: no cover
-    assert "compresslevel must be" in e.value.args[0]
-
-
 @pytest.mark.parametrize("ext", extensions)
 def test_append(ext, tmp_path):
     text = b"AB"
@@ -450,7 +257,7 @@ def test_append_text(ext, tmp_path):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_file(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
@@ -460,7 +267,7 @@ def test_truncated_file(extension, create_truncated_file):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_iter(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
@@ -471,7 +278,7 @@ def test_truncated_iter(extension, create_truncated_file):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
@@ -480,7 +287,7 @@ def test_truncated_with(extension, create_truncated_file):
 
 
 @pytest.mark.timeout(5)
-@pytest.mark.parametrize("extension", [".gz", ".bz2"])
+@pytest.mark.parametrize("extension", [".gz", ".bz2", ".xz"])
 def test_truncated_iter_with(extension, create_truncated_file):
     truncated_file = create_truncated_file(extension)
     with pytest.raises((EOFError, IOError)):
@@ -490,15 +297,21 @@ def test_truncated_iter_with(extension, create_truncated_file):
 
 
 def test_bare_read_from_gz():
-    hello_file = Path(__file__).parent / "hello.gz"
+    hello_file = TEST_DIR / "hello.gz"
     with xopen(hello_file, "rt") as f:
         assert f.read() == "hello"
 
 
-def test_readers_read(reader):
-    opener, extension = reader
-    with opener(TEST_DIR / f"file.txt{extension}", "rt") as f:
-        assert f.read() == CONTENT
+def test_read_no_threads(ext):
+    klasses = {
+        ".bz2": bz2.BZ2File,
+        ".gz": gzip.GzipFile,
+        ".xz": lzma.LZMAFile,
+        "": io.BufferedReader,
+    }
+    klass = klasses[ext]
+    with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
+        assert isinstance(f, klass), f
 
 
 def test_write_threads(tmp_path, ext):
@@ -515,18 +328,6 @@ def test_write_pigz_threads_no_isal(tmp_path, xopen_without_igzip):
         f.write("hello")
     with xopen_without_igzip(path) as f:
         assert f.read() == "hello"
-
-
-def test_read_no_threads(ext):
-    klasses = {
-        ".bz2": bz2.BZ2File,
-        ".gz": gzip.GzipFile,
-        ".xz": lzma.LZMAFile,
-        "": io.BufferedReader,
-    }
-    klass = klasses[ext]
-    with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
-        assert isinstance(f, klass), f
 
 
 def test_write_no_threads(tmp_path, ext):
@@ -594,39 +395,17 @@ def test_write_pathlib_binary(ext, tmp_path):
         assert f.read() == b"hello"
 
 
-@pytest.mark.skipif(
-    sys.platform.startswith("win"),
-    reason="Windows does not have a gzip application by default.",
-)
-def test_concatenated_gzip_function():
-    assert _can_read_concatenated_gz("gzip") is True
-    assert _can_read_concatenated_gz("pigz") is True
-    assert _can_read_concatenated_gz("xz") is False
-
-
-@pytest.mark.skipif(
-    not hasattr(fcntl, "F_GETPIPE_SZ") or _MAX_PIPE_SIZE is None,
-    reason="Pipe size modifications not available on this platform.",
-)
-def test_pipesize_changed(tmp_path):
-    with xopen(tmp_path / "hello.gz", "wb") as f:
-        assert isinstance(f, PipedCompressionWriter)
-        assert fcntl.fcntl(f._file.fileno(), fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
-
-
-def test_xopen_falls_back_to_gzip_open(lacking_pigz_permissions):
+def test_falls_back_to_gzip_open(lacking_pigz_permissions):
     with xopen(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_xopen_falls_back_to_gzip_open_no_isal(
-    lacking_pigz_permissions, xopen_without_igzip
-):
+def test_falls_back_to_gzip_open_no_isal(lacking_pigz_permissions, xopen_without_igzip):
     with xopen_without_igzip(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_xopen_fals_back_to_gzip_open_write_no_isal(
+def test_fals_back_to_gzip_open_write_no_isal(
     lacking_pigz_permissions, xopen_without_igzip, tmp_path
 ):
     tmp = tmp_path / "test.gz"
@@ -635,7 +414,7 @@ def test_xopen_fals_back_to_gzip_open_write_no_isal(
     assert gzip.decompress(tmp.read_bytes()) == b"hello"
 
 
-def test_xopen_falls_back_to_bzip2_open(lacking_pbzip2_permissions):
+def test_falls_back_to_bzip2_open(lacking_pbzip2_permissions):
     with xopen(TEST_DIR / "file.txt.bz2", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
@@ -652,101 +431,6 @@ def test_open_many_writers(tmp_path, ext):
         files.append(f)
     for f in files:
         f.close()
-
-
-def test_pipedcompressionwriter_wrong_mode(tmp_path):
-    with pytest.raises(ValueError) as error:
-        PipedCompressionWriter(tmp_path / "test", ["gzip"], "xb")
-    error.match("Mode is 'xb', but it must be")
-
-
-def test_pipedcompressionwriter_wrong_program(tmp_path):
-    with pytest.raises(OSError):
-        PipedCompressionWriter(tmp_path / "test", ["XVXCLSKDLA"], "wb")
-
-
-def test_compression_level(tmp_path, gzip_writer):
-    # Currently only the gzip writers handle compression levels.
-    path = tmp_path / "test.gz"
-    with gzip_writer(path, "wt", 2) as test_h:
-        test_h.write("test")
-    assert gzip.decompress(path.read_bytes()) == b"test"
-
-
-def test_iter_method_writers(writer, tmp_path):
-    opener, extension = writer
-    writer = opener(tmp_path / f"test{extension}", "wb")
-    assert iter(writer) == writer
-
-
-def test_next_method_writers(writer, tmp_path):
-    opener, extension = writer
-    writer = opener(tmp_path / f"test.{extension}", "wb")
-    with pytest.raises(io.UnsupportedOperation) as error:
-        next(writer)
-    error.match("not readable")
-
-
-def test_pipedcompressionreader_wrong_mode():
-    with pytest.raises(ValueError) as error:
-        PipedCompressionReader("test", ["gzip"], "xb")
-    error.match("Mode is 'xb', but it must be")
-
-
-def test_piped_compression_reader_peek_binary(reader):
-    opener, extension = reader
-    filegz = Path(__file__).parent / f"file.txt{extension}"
-    with opener(filegz, "rb") as read_h:
-        # Peek returns at least the amount of characters but maybe more
-        # depending on underlying stream. Hence startswith not ==.
-        assert read_h.peek(1).startswith(b"T")
-
-
-@pytest.mark.skipif(
-    sys.platform != "win32", reason="seeking only works on Windows for now"
-)
-def test_piped_compression_reader_seek_and_tell(reader):
-    opener, extension = reader
-    filegz = Path(__file__).parent / f"file.txt{extension}"
-    with opener(filegz, "rb") as f:
-        original_position = f.tell()
-        assert f.read(4) == b"Test"
-        f.seek(original_position)
-        assert f.read(8) == b"Testing,"
-
-
-@pytest.mark.parametrize("mode", ["r", "rt"])
-def test_piped_compression_reader_peek_text(reader, mode):
-    opener, extension = reader
-    compressed_file = Path(__file__).parent / f"file.txt{extension}"
-    with opener(compressed_file, mode) as read_h:
-        with pytest.raises(AttributeError):
-            read_h.peek(1)
-
-
-def writers_and_levels():
-    for writer in PIPED_GZIP_WRITERS:
-        if writer == PipedGzipWriter:
-            # Levels 1-9 are supported
-            yield from ((writer, i) for i in range(1, 10))
-        elif writer == PipedPigzWriter:
-            # Levels 0-9 + 11 are supported
-            yield from ((writer, i) for i in list(range(10)) + [11])
-        elif writer == PipedIGzipWriter or writer == PipedPythonIsalWriter:
-            # Levels 0-3 are supported
-            yield from ((writer, i) for i in range(4))
-        else:
-            raise NotImplementedError(
-                f"Test should be implemented for " f"{writer}"
-            )  # pragma: no cover
-
-
-@pytest.mark.parametrize(["writer", "level"], writers_and_levels())
-def test_valid_compression_levels(writer, level, tmp_path):
-    path = tmp_path / "test.gz"
-    with writer(path, "wb", level) as handle:
-        handle.write(b"test")
-    assert gzip.decompress(path.read_bytes()) == b"test"
 
 
 def test_override_output_format(tmp_path):
