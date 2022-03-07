@@ -74,28 +74,28 @@ def xopen_without_igzip(monkeypatch):
     return xopen.xopen
 
 
-def test_xopen_text(fname):
+def test_text(fname):
     with xopen(fname, "rt") as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == "The second line.\n", fname
 
 
-def test_xopen_binary(fname):
+def test_binary(fname):
     with xopen(fname, "rb") as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == b"The second line.\n", fname
 
 
-def test_xopen_binary_no_isal_no_threads(fname, xopen_without_igzip):
+def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
     with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == b"The second line.\n", fname
 
 
-def test_xopen_binary_no_isal(fname, xopen_without_igzip):
+def test_binary_no_isal(fname, xopen_without_igzip):
     with xopen_without_igzip(fname, "rb", threads=1) as f:
         lines = list(f)
         assert len(lines) == 2
@@ -120,7 +120,7 @@ def test_no_context_manager_binary(fname):
     assert f.closed
 
 
-def test_xopen_bytes_path(fname):
+def test_bytes_path(fname):
     path = fname.encode("utf-8")
     with xopen(path, "rt") as f:
         lines = list(f)
@@ -162,7 +162,7 @@ def test_next(fname):
         assert line2 == "The second line.\n", fname
 
 
-def test_xopen_has_iter_method(ext, tmp_path):
+def test_has_iter_method(ext, tmp_path):
     path = tmp_path / f"out{ext}"
     with xopen(path, mode="w") as f:
         # Writing anything isn’t strictly necessary, but if we don’t, then
@@ -395,19 +395,17 @@ def test_write_pathlib_binary(ext, tmp_path):
         assert f.read() == b"hello"
 
 
-def test_xopen_falls_back_to_gzip_open(lacking_pigz_permissions):
+def test_falls_back_to_gzip_open(lacking_pigz_permissions):
     with xopen(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_xopen_falls_back_to_gzip_open_no_isal(
-    lacking_pigz_permissions, xopen_without_igzip
-):
+def test_falls_back_to_gzip_open_no_isal(lacking_pigz_permissions, xopen_without_igzip):
     with xopen_without_igzip(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_xopen_fals_back_to_gzip_open_write_no_isal(
+def test_fals_back_to_gzip_open_write_no_isal(
     lacking_pigz_permissions, xopen_without_igzip, tmp_path
 ):
     tmp = tmp_path / "test.gz"
@@ -416,7 +414,7 @@ def test_xopen_fals_back_to_gzip_open_write_no_isal(
     assert gzip.decompress(tmp.read_bytes()) == b"hello"
 
 
-def test_xopen_falls_back_to_bzip2_open(lacking_pbzip2_permissions):
+def test_falls_back_to_bzip2_open(lacking_pbzip2_permissions):
     with xopen(TEST_DIR / "file.txt.bz2", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
