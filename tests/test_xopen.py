@@ -297,7 +297,7 @@ def test_truncated_iter_with(extension, create_truncated_file):
 
 
 def test_bare_read_from_gz():
-    hello_file = Path(__file__).parent / "hello.gz"
+    hello_file = TEST_DIR / "hello.gz"
     with xopen(hello_file, "rt") as f:
         assert f.read() == "hello"
 

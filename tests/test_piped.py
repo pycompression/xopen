@@ -255,7 +255,7 @@ def test_pipedcompressionreader_wrong_mode():
 
 def test_piped_compression_reader_peek_binary(reader):
     opener, extension = reader
-    filegz = Path(__file__).parent / f"file.txt{extension}"
+    filegz = TEST_DIR / f"file.txt{extension}"
     with opener(filegz, "rb") as read_h:
         # Peek returns at least the amount of characters but maybe more
         # depending on underlying stream. Hence startswith not ==.
@@ -267,7 +267,7 @@ def test_piped_compression_reader_peek_binary(reader):
 )
 def test_piped_compression_reader_seek_and_tell(reader):
     opener, extension = reader
-    filegz = Path(__file__).parent / f"file.txt{extension}"
+    filegz = TEST_DIR / f"file.txt{extension}"
     with opener(filegz, "rb") as f:
         original_position = f.tell()
         assert f.read(4) == b"Test"
@@ -278,7 +278,7 @@ def test_piped_compression_reader_seek_and_tell(reader):
 @pytest.mark.parametrize("mode", ["r", "rt"])
 def test_piped_compression_reader_peek_text(reader, mode):
     opener, extension = reader
-    compressed_file = Path(__file__).parent / f"file.txt{extension}"
+    compressed_file = TEST_DIR / f"file.txt{extension}"
     with opener(compressed_file, mode) as read_h:
         with pytest.raises(AttributeError):
             read_h.peek(1)
