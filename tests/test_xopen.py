@@ -508,5 +508,5 @@ def test_gzip_compression_is_reproducible_without_piping(tmp_path, compresslevel
     with xopen(path, mode="wb", compresslevel=compresslevel, threads=0) as f:
         f.write(b"hello")
     data = path.read_bytes()
-    assert (data[3] & 8) == 0, "gzip header contains file name"
+    assert (data[3] & gzip.FNAME) == 0, "gzip header contains file name"
     assert data[4:8] == b"\0\0\0\0", "gzip header contains mtime"

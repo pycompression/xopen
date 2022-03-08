@@ -343,5 +343,5 @@ def test_reproducible_gzip_compression(gzip_writer, tmp_path):
         f.write(b"hello")
 
     data = path.read_bytes()
-    assert (data[3] & 8) == 0, "gzip header contains file name"
+    assert (data[3] & gzip.FNAME) == 0, "gzip header contains file name"
     assert data[4:8] == b"\0\0\0\0", "gzip header contains mtime"

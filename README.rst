@@ -75,6 +75,15 @@ and avoid using an external process::
 Changes
 -------
 
+development version
+~~~~~~~~~~~~~~~~~~~
+
+* Issue #94: When writing gzip files, the timestamp and name of the original
+  file is omitted (equivalent to using ``gzip -n`` on the command line).
+  This allows files to be written in a reproducible manner.
+  (The bzip2 and xz compression methods do not store this information in the
+  header and are therefore already reproducible.)
+
 v1.5.0 (2022-03-23)
 ~~~~~~~~~~~~~~~~~~~
 
