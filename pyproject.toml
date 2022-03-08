@@ -3,3 +3,6 @@ requires = ["setuptools", "wheel", "setuptools_scm>=6.2"]
 
 [tool.setuptools_scm]
 write_to = "src/xopen/_version.py"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
