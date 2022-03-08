@@ -499,3 +499,14 @@ def test_text_encoding_errors(opener, extension, tmp_path):
     with opener(path, "rt", encoding="ascii", errors="replace") as f:
         result = f.read()
     assert result == "E�n ree\nTwee ree�n\n"
+
+
+@pytest.mark.parametrize("compresslevel", [1, 6])
+def test_gzip_compression_is_reproducible_without_piping(tmp_path, compresslevel):
+    # compresslevel 1 should give us igzip and 6 should give us regular gzip
+    path = tmp_path / "test.gz"
+    with xopen(path, mode="wb", compresslevel=compresslevel, threads=0) as f:
+        f.write(b"hello")
+    data = path.read_bytes()
+    assert (data[3] & 8) == 0, "gzip header contains file name"
+    assert data[4:8] == b"\0\0\0\0", "gzip header contains mtime"
