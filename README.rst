@@ -44,7 +44,7 @@ tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
 manipulate sequencing data. It has been in successful use within that software
 for a few years.
 
-``xopen`` is compatible with Python versions 3.6 and later.
+``xopen`` is compatible with Python versions 3.7 and later.
 
 
 Usage
@@ -98,6 +98,11 @@ If you also want to open S3 files, you may want to use that module instead.
 
 Changes
 -------
+
+development version
+~~~~~~~~~~~~~~~~~~~
+
+* Dropped Python 3.6 support
 
 v1.4.0
 ~~~~~~
