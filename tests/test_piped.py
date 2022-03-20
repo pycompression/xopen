@@ -25,6 +25,8 @@ from xopen import (
     PipedIGzipWriter,
     PipedPythonIsalReader,
     PipedPythonIsalWriter,
+    PipedXzReader,
+    PipedXzWriter,
     _MAX_PIPE_SIZE,
     _can_read_concatenated_gz,
     igzip,
@@ -86,11 +88,24 @@ def available_bzip2_readers_and_writers():
 
 PIPED_BZIP2_READERS, PIPED_BZIP2_WRITERS = available_bzip2_readers_and_writers()
 
-ALL_READERS_WITH_EXTENSION = list(zip(PIPED_GZIP_READERS, cycle([".gz"]))) + list(
-    zip(PIPED_BZIP2_READERS, cycle([".bz2"]))
+
+def available_xz_readers_and_writers():
+    if shutil.which("xz"):
+        return [PipedXzReader], [PipedXzWriter]
+    return [], []
+
+
+PIPED_XZ_READERS, PIPED_XZ_WRITERS = available_xz_readers_and_writers()
+
+ALL_READERS_WITH_EXTENSION = (
+    list(zip(PIPED_GZIP_READERS, cycle([".gz"])))
+    + list(zip(PIPED_BZIP2_READERS, cycle([".bz2"])))
+    + list(zip(PIPED_XZ_READERS, cycle([".xz"])))
 )
-ALL_WRITERS_WITH_EXTENSION = list(zip(PIPED_GZIP_WRITERS, cycle([".gz"]))) + list(
-    zip(PIPED_BZIP2_WRITERS, cycle([".bz2"]))
+ALL_WRITERS_WITH_EXTENSION = (
+    list(zip(PIPED_GZIP_WRITERS, cycle([".gz"])))
+    + list(zip(PIPED_BZIP2_WRITERS, cycle([".bz2"])))
+    + list(zip(PIPED_XZ_WRITERS, cycle([".xz"])))
 )
 
 
