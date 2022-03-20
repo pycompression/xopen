@@ -12,6 +12,8 @@ __all__ = [
     "PipedPigzWriter",
     "PipedPBzip2Reader",
     "PipedPBzip2Writer",
+    "PipedXzReader",
+    "PipedXzWriter",
     "PipedPythonIsalReader",
     "PipedPythonIsalWriter",
     "__version__",
@@ -650,6 +652,50 @@ class PipedPBzip2Writer(PipedCompressionWriter):
         )
 
 
+class PipedXzReader(PipedCompressionReader):
+    """
+    Open a pipe to xz for reading an xz-compressed file.
+    """
+
+    # TODO: implement threaded decompression once XZ releases it
+    def __init__(
+        self, path, mode: str = "r", *, encoding="utf-8", errors=None, newline=None
+    ):
+        super().__init__(
+            path, ["xz"], mode, encoding=encoding, errors=errors, newline=newline
+        )
+
+
+class PipedXzWriter(PipedCompressionWriter):
+    """
+    Write xz-compressed files by running an external xz process and
+    piping into it. xz can compress using multiple cores.
+    """
+
+    def __init__(
+        self,
+        path,
+        mode: str = "wt",
+        threads: Optional[int] = None,
+        *,
+        encoding="utf-8",
+        errors=None,
+        newline=None,
+    ):
+        # Use default compression level for xz: 6
+        super().__init__(
+            path,
+            ["xz"],
+            mode,
+            6,
+            "-T",
+            threads,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
 class PipedIGzipReader(PipedCompressionReader):
     """
     Uses igzip for reading of a gzipped file. This is much faster than either
@@ -774,7 +820,16 @@ def _open_bz2(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
     return bz2.open(filename, mode, **text_mode_kwargs)  # type: ignore
 
 
-def _open_xz(filename, mode: str, **text_mode_kwargs) -> IO:
+def _open_xz(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
+    if threads != 0:
+        try:
+            if "r" in mode:
+                return PipedXzReader(filename, mode, **text_mode_kwargs)
+            else:
+                return PipedXzWriter(filename, mode, threads, **text_mode_kwargs)
+        except OSError:
+            pass  # We try without threads.
+
     return lzma.open(filename, mode, **text_mode_kwargs)
 
 
@@ -974,7 +1029,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
             filename, mode, compresslevel, threads, **text_mode_kwargs
         )
     elif detected_format == "xz":
-        opened_file = _open_xz(filename, mode, **text_mode_kwargs)
+        opened_file = _open_xz(filename, mode, threads, **text_mode_kwargs)
     elif detected_format == "bz2":
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     else:
