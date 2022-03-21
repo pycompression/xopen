@@ -654,15 +654,32 @@ class PipedPBzip2Writer(PipedCompressionWriter):
 
 class PipedXzReader(PipedCompressionReader):
     """
-    Open a pipe to xz for reading an xz-compressed file.
+    Open a pipe to xz for reading an xz-compressed file. A future
+    version of xz will be able to decompress using multiple cores.
+
+    (N.B. As of 21 March 2022, this feature is only implemented in xz's
+    master branch.)
     """
 
-    # TODO: implement threaded decompression once XZ releases it
     def __init__(
-        self, path, mode: str = "r", *, encoding="utf-8", errors=None, newline=None
+        self,
+        path,
+        mode: str = "r",
+        threads: Optional[int] = None,
+        *,
+        encoding="utf-8",
+        errors=None,
+        newline=None,
     ):
         super().__init__(
-            path, ["xz"], mode, encoding=encoding, errors=errors, newline=newline
+            path,
+            ["xz"],
+            mode,
+            "-T",
+            threads,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
         )
 
 
@@ -824,7 +841,7 @@ def _open_xz(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
     if threads != 0:
         try:
             if "r" in mode:
-                return PipedXzReader(filename, mode, **text_mode_kwargs)
+                return PipedXzReader(filename, mode, threads, **text_mode_kwargs)
             else:
                 return PipedXzWriter(filename, mode, threads, **text_mode_kwargs)
         except OSError:
