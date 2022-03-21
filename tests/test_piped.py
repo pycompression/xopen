@@ -90,9 +90,10 @@ PIPED_BZIP2_READERS, PIPED_BZIP2_WRITERS = available_bzip2_readers_and_writers()
 
 
 def available_xz_readers_and_writers():
+    result = [], []
     if shutil.which("xz"):
-        return [PipedXzReader], [PipedXzWriter]
-    return [], []
+        result = [PipedXzReader], [PipedXzWriter]
+    return result
 
 
 PIPED_XZ_READERS, PIPED_XZ_WRITERS = available_xz_readers_and_writers()
