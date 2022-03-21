@@ -689,22 +689,36 @@ class PipedXzWriter(PipedCompressionWriter):
     piping into it. xz can compress using multiple cores.
     """
 
+    _accepted_compression_levels: Set[int] = set(range(10))
+
     def __init__(
         self,
         path,
         mode: str = "wt",
+        compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
         *,
         encoding="utf-8",
         errors=None,
         newline=None,
     ):
-        # Use default compression level for xz: 6
+        """
+        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+        compresslevel -- compression level
+        threads (int) -- number of xz threads. If this is set to None, a reasonable default is
+            used. At the moment, this means that the number of available CPU cores is used, capped
+            at four to avoid creating too many threads. Use 0 to let xz use all available cores.
+        """
+        if (
+            compresslevel is not None
+            and compresslevel not in self._accepted_compression_levels
+        ):
+            raise ValueError("compresslevel must be between 0 and 9")
         super().__init__(
             path,
             ["xz"],
             mode,
-            6,
+            compresslevel,
             "-T",
             threads,
             encoding=encoding,
@@ -837,13 +851,21 @@ def _open_bz2(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
     return bz2.open(filename, mode, **text_mode_kwargs)  # type: ignore
 
 
-def _open_xz(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
+def _open_xz(
+    filename,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+    **text_mode_kwargs,
+):
     if threads != 0:
         try:
             if "r" in mode:
                 return PipedXzReader(filename, mode, threads, **text_mode_kwargs)
             else:
-                return PipedXzWriter(filename, mode, threads, **text_mode_kwargs)
+                return PipedXzWriter(
+                    filename, mode, compresslevel, threads, **text_mode_kwargs
+                )
         except OSError:
             pass  # We try without threads.
 
@@ -1046,7 +1068,9 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
             filename, mode, compresslevel, threads, **text_mode_kwargs
         )
     elif detected_format == "xz":
-        opened_file = _open_xz(filename, mode, threads, **text_mode_kwargs)
+        opened_file = _open_xz(
+            filename, mode, compresslevel, threads, **text_mode_kwargs
+        )
     elif detected_format == "bz2":
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     else:
