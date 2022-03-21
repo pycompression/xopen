@@ -67,6 +67,12 @@ def lacking_pbzip2_permissions(tmp_path):
 
 
 @pytest.fixture
+def lacking_xz_permissions(tmp_path):
+    with disable_binary(tmp_path, "xz"):
+        yield
+
+
+@pytest.fixture
 def xopen_without_igzip(monkeypatch):
     import xopen  # xopen local overrides xopen global variable
 
@@ -416,6 +422,11 @@ def test_fals_back_to_gzip_open_write_no_isal(
 
 def test_falls_back_to_bzip2_open(lacking_pbzip2_permissions):
     with xopen(TEST_DIR / "file.txt.bz2", "rb") as f:
+        assert f.readline() == CONTENT_LINES[0].encode("utf-8")
+
+
+def test_falls_back_to_lzma_open(lacking_xz_permissions):
+    with xopen(TEST_DIR / "file.txt.xz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
