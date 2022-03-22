@@ -75,7 +75,7 @@ and avoid using an external process::
 Changes
 -------
 
-development version
+v1.5.0 (2022-03-23)
 ~~~~~~~~~~~~~~~~~~~
 
 * #100: Dropped Python 3.6 support
