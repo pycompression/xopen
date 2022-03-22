@@ -858,6 +858,9 @@ def _open_xz(
     threads: Optional[int],
     **text_mode_kwargs,
 ):
+    if compresslevel is None:
+        compresslevel = 6
+
     if threads != 0:
         try:
             if "r" in mode:
@@ -869,7 +872,12 @@ def _open_xz(
         except OSError:
             pass  # We try without threads.
 
-    return lzma.open(filename, mode, **text_mode_kwargs)
+    return lzma.open(
+        filename,
+        mode,
+        preset=compresslevel if "w" in mode else None,
+        **text_mode_kwargs,
+    )
 
 
 def _open_external_gzip_reader(
@@ -1022,7 +1030,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'. Also, the 't' can be omitted,
     so instead of 'rt', 'wt' and 'at', the abbreviations 'r', 'w' and 'a' can be used.
 
-    compresslevel is the compression level for writing to gzip files.
+    compresslevel is the compression level for writing to gzip and xz files.
     This parameter is ignored for the other compression formats. If set to
     None (default), level 6 is used.
 
