@@ -17,32 +17,37 @@
 xopen
 =====
 
-This small Python module provides an ``xopen`` function that works like the
-built-in ``open`` function, but can also deal with compressed files.
-Supported compression formats are gzip, bzip2 and xz. They are automatically
-recognized by their file extensions `.gz`, `.bz2` or `.xz`.
+This Python module provides an ``xopen`` function that works like the
+built-in ``open`` function but also transparently deals with compressed files.
+Supported compression formats are currently gzip, bzip2 and xz.
 
-The focus is on being as efficient as possible on all supported Python versions.
-For example, ``xopen`` uses ``pigz``, which is a parallel version of ``gzip``,
-to open ``.gz`` files, which is faster than using the built-in ``gzip.open``
-function. ``pigz`` can use multiple threads when compressing, but is also faster
-when reading ``.gz`` files, so it is used both for reading and writing if it is
-available. For gzip compression levels 1 to 3,
-`igzip <https://github.com/intel/isa-l/>`_ is used for an even greater speedup.
+``xopen`` selects the most efficient method for reading or writing a compressed file.
+This often means opening a pipe to an external tool, such as
+`pigz <https://zlib.net/pigz/>`_, which is a parallel version of ``gzip``,
+or `igzip <https://github.com/intel/isa-l/>`_, which is a highly optimized
+version of ``gzip``.
 
-For use cases where using only the main thread is desired xopen can be used
-with ``threads=0``. This will use `python-isal
+If ``threads=0`` is passed to ``xopen()``, no external process is used.
+For gzip files, this will then use `python-isal
 <https://github.com/pycompression/python-isal>`_ (which binds isa-l) if
-python-isal is installed (automatic on Linux systems, as it is a requirement).
-For installation instructions for python-isal please
-checkout the `python-isal homepage
-<https://github.com/pycompression/python-isal>`_. If python-isal is not
-available ``gzip.open`` is used.
+it is installed (since ``python-isal`` is a dependency of ``xopen``,
+this should always be the case).
+Neither ``igzip`` nor ``python-isal`` support compression levels
+greater 3, so if no external tool is available or ``threads`` has been set to 0,
+Python’s built-in ``gzip.open`` is used.
 
-This module has originally been developed as part of the `Cutadapt
-tool <https://cutadapt.readthedocs.io/>`_ that is used in bioinformatics to
-manipulate sequencing data. It has been in successful use within that software
-for a few years.
+For xz files, a pipe to the ``xz`` program is used because it has built-in support for multithreaded compression.
+
+For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is used.
+
+``xopen`` falls back to Python’s built-in functions
+(``gzip.open``, ``lzma.open``, ``bz2.open``)
+if none of the other methods can be used.
+
+The file format to use is determined from the file name if the extension is recognized
+(``.gz``, ``.bz2`` or ``.xz``).
+When reading a file without a recognized file extension, xopen attempts to detect the format
+by reading the first couple of bytes from the file.
 
 ``xopen`` is compatible with Python versions 3.7 and later.
 
@@ -54,46 +59,17 @@ Open a file for reading::
 
     from xopen import xopen
 
-    with xopen('file.txt.xz') as f:
+    with xopen("file.txt.gz") as f:
         content = f.read()
 
-Or without context manager::
+Write to a file in binary mode,
+set the compression level
+and avoid using an external process::
 
     from xopen import xopen
 
-    f = xopen('file.txt.xz')
-    content = f.read()
-    f.close()
-
-Open a file in binary mode for writing::
-
-    from xopen import xopen
-
-    with xopen('file.txt.gz', mode='wb') as f:
-        f.write(b'Hello')
-
-
-Credits
--------
-
-The name ``xopen`` was taken from the C function of the same name in the
-`utils.h file which is part of
-BWA <https://github.com/lh3/bwa/blob/83662032a2192d5712996f36069ab02db82acf67/utils.h>`_.
-
-Kyle Beauchamp <https://github.com/kyleabeauchamp/> has contributed support for
-appending to files.
-
-Ruben Vorderman <https://github.com/rhpvorderman/> contributed improvements to
-make reading and writing gzipped files faster.
-
-Benjamin Vaisvil <https://github.com/bvaisvil> contributed support for
-format detection from content.
-
-Dries Schaumont <https://github.com/DriesSchaumont> contributed support for
-faster bz2 reading and writing using pbzip2.
-
-Some ideas were taken from the `canopener project <https://github.com/selassid/canopener>`_.
-If you also want to open S3 files, you may want to use that module instead.
+    with xopen("file.txt.xz", mode="wb", threads=0, compresslevel=3)
+        f.write(b"Hello")
 
 
 Changes
@@ -102,7 +78,8 @@ Changes
 development version
 ~~~~~~~~~~~~~~~~~~~
 
-* Dropped Python 3.6 support
+* #100: Dropped Python 3.6 support
+* #101: Added support for piping into and from an external ``xz`` process. Contributed by @fanninpm.
 
 v1.4.0
 ~~~~~~
@@ -126,7 +103,7 @@ v1.2.0
 ~~~~~~
 
 * `pbzip2 <http://compression.ca/pbzip2/>`_ is now used to open ``.bz2`` files if
-  ``threads`` is greater than zero.
+  ``threads`` is greater than zero (contributed by @DriesSchaumont).
 
 v1.1.0
 ~~~~~~
@@ -144,9 +121,9 @@ v1.0.0
 
 v0.9.0
 ~~~~~~
-* When the file name extension of a file to be opened for reading is not
+* #80: When the file name extension of a file to be opened for reading is not
   available, the content is inspected (if possible) and used to determine
-  which compression format applies.
+  which compression format applies (contributed by @bvaisvil).
 * This release drops Python 2.7 and 3.4 support. Python 3.5 or later is
   now required.
 
@@ -162,8 +139,8 @@ v0.8.4
 
 v0.8.3
 ~~~~~~
-* When reading gzipped files, let ``pigz`` use at most four threads by default.
-  This limit previously only applied when writing to a file.
+* #20: When reading gzipped files, let ``pigz`` use at most four threads by default.
+  This limit previously only applied when writing to a file. Contributed by @bernt-matthias.
 * Support Python 3.8
 
 v0.8.0
@@ -182,13 +159,25 @@ v0.5.0
   problems some users had with too many threads when opening many files at the same time.
 * xopen now accepts pathlib.Path objects.
 
+Credits
+-------
 
-Contributors
-------------
+The name ``xopen`` was taken from the C function of the same name in the
+`utils.h file which is part of
+BWA <https://github.com/lh3/bwa/blob/83662032a2192d5712996f36069ab02db82acf67/utils.h>`_.
+
+Some ideas were taken from the `canopener project <https://github.com/selassid/canopener>`_.
+If you also want to open S3 files, you may want to use that module instead.
+
+@kyleabeauchamp contributed support for appending to files before this repository was created.
+
+
+Maintainers
+-----------
 
 * Marcel Martin
 * Ruben Vorderman
-* For more contributors, see <https://github.com/pycompression/xopen/graphs/contributors>
+* For a list of contributors, see <https://github.com/pycompression/xopen/graphs/contributors>
 
 
 Links
