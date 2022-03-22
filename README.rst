@@ -80,15 +80,16 @@ development version
 
 * #100: Dropped Python 3.6 support
 * #101: Added support for piping into and from an external ``xz`` process. Contributed by @fanninpm.
+* #102: Support setting the xz compression level. Contributed by @tsibley.
 
-v1.4.0
-~~~~~~
+v1.4.0 (2022-01-14)
+~~~~~~~~~~~~~~~~~~~
 
 * Add ``seek()`` and ``tell()`` to the ``PipedCompressionReader`` classes
   (for Windows compatibility)
 
-v1.3.0
-~~~~~~
+v1.3.0 (2022-01-10)
+~~~~~~~~~~~~~~~~~~~
 
 * xopen is now available on Windows (in addition to Linux and macOS).
 * For greater compatibility with `the built-in open()
@@ -99,36 +100,40 @@ v1.3.0
 * A parameter *format* has been added that allows to force the compression
   file format.
 
-v1.2.0
-~~~~~~
+v1.2.0 (2021-09-21)
+~~~~~~~~~~~~~~~~~~~
 
 * `pbzip2 <http://compression.ca/pbzip2/>`_ is now used to open ``.bz2`` files if
   ``threads`` is greater than zero (contributed by @DriesSchaumont).
 
-v1.1.0
-~~~~~~
+v1.1.0 (2021-01-20)
+~~~~~~~~~~~~~~~~~~~
+
 * Python 3.5 support is dropped.
 * On Linux systems, `python-isal <https://github.com/pycompression/python-isal>`_
   is now added as a requirement. This will speed up the reading of gzip files
   significantly when no external processes are used.
 
-v1.0.0
-~~~~~~
+v1.0.0 (2020-11-05)
+~~~~~~~~~~~~~~~~~~~
+
 * If installed, the ``igzip`` program (part of
   `Intel ISA-L <https://github.com/intel/isa-l/>`_) is now used for reading
   and writing gzip-compressed files at compression levels 1-3, which results
   in a significant speedup.
 
-v0.9.0
-~~~~~~
+v0.9.0 (2020-04-02)
+~~~~~~~~~~~~~~~~~~~
+
 * #80: When the file name extension of a file to be opened for reading is not
   available, the content is inspected (if possible) and used to determine
   which compression format applies (contributed by @bvaisvil).
 * This release drops Python 2.7 and 3.4 support. Python 3.5 or later is
   now required.
 
-v0.8.4
-~~~~~~
+v0.8.4 (2019-10-24)
+~~~~~~~~~~~~~~~~~~~
+
 * When reading gzipped files, force ``pigz`` to use only a single process.
   ``pigz`` cannot use multiple cores anyway when decompressing. By default,
   it would use extra I/O processes, which slightly reduces wall-clock time,
@@ -137,27 +142,68 @@ v0.8.4
 * Allow ``threads=0`` for specifying that no external ``pigz``/``gzip``
   process should be used (then regular ``gzip.open()`` is used instead).
 
-v0.8.3
-~~~~~~
+v0.8.3 (2019-10-18)
+~~~~~~~~~~~~~~~~~~~
+
 * #20: When reading gzipped files, let ``pigz`` use at most four threads by default.
   This limit previously only applied when writing to a file. Contributed by @bernt-matthias.
 * Support Python 3.8
 
-v0.8.0
-~~~~~~
-* Speed improvements when iterating over gzipped files.
+v0.8.0 (2019-08-14)
+~~~~~~~~~~~~~~~~~~~
 
-v0.6.0
-~~~~~~
+* #14: Speed improvements when iterating over gzipped files.
+
+v0.6.0 (2019-05-23)
+~~~~~~~~~~~~~~~~~~~
+
 * For reading from gzipped files, xopen will now use a ``pigz`` subprocess.
   This is faster than using ``gzip.open``.
 * Python 2 support will be dropped in one of the next releases.
 
-v0.5.0
-~~~~~~
+v0.5.0 (2019-01-30)
+~~~~~~~~~~~~~~~~~~~
+
 * By default, pigz is now only allowed to use at most four threads. This hopefully reduces
   problems some users had with too many threads when opening many files at the same time.
 * xopen now accepts pathlib.Path objects.
+
+v0.4.0 (2019-01-07)
+~~~~~~~~~~~~~~~~~~~
+
+* Drop Python 3.3 support
+* Add a ``threads`` parameter (passed on to ``pigz``)
+
+v0.3.2 (2017-11-22)
+~~~~~~~~~~~~~~~~~~~
+
+* #6: Make multi-block bz2 work on Python 2 by using external bz2file library.
+
+v0.3.1 (2017-11-22)
+~~~~~~~~~~~~~~~~~~~
+
+* Drop Python 2.6 support
+* #5: Fix PipedGzipReader.read() not returning anything
+
+v0.3.0 (2017-11-15)
+~~~~~~~~~~~~~~~~~~~
+
+* Add gzip compression parameter
+
+v0.2.1 (2017-05-31)
+~~~~~~~~~~~~~~~~~~~
+
+* #3: Allow appending to bz2 and lzma files where possible
+
+v0.1.1 (2016-12-02)
+~~~~~~~~~~~~~~~~~~~
+
+* Fix a deadlock
+
+v0.1.0 (2016-09-09)
+~~~~~~~~~~~~~~~~~~~
+
+* Initial release
 
 Credits
 -------
