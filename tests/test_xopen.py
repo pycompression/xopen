@@ -32,12 +32,12 @@ def disable_binary(tmp_path, binary_name):
     the binary with permissions set to 000. If no suitable binary could be found,
     PATH is set to an empty directory
     """
+    binary_path = shutil.which(binary_name)
+    if binary_path:
+        shutil.copy(binary_path, tmp_path)
+        os.chmod(tmp_path / binary_name, 0)
+    path = os.environ["PATH"]
     try:
-        binary_path = shutil.which(binary_name)
-        if binary_path:
-            shutil.copy(binary_path, tmp_path)
-            os.chmod(tmp_path / binary_name, 0)
-        path = os.environ["PATH"]
         os.environ["PATH"] = str(tmp_path)
         yield
     finally:
