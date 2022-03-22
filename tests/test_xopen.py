@@ -35,7 +35,7 @@ def disable_binary(tmp_path, binary_name):
     binary_path = shutil.which(binary_name)
     if binary_path:
         shutil.copy(binary_path, tmp_path)
-        os.chmod(tmp_path / binary_name, 0)
+        os.chmod(tmp_path / Path(binary_name).name, 0)
     path = os.environ["PATH"]
     try:
         os.environ["PATH"] = str(tmp_path)
