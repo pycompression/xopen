@@ -12,6 +12,8 @@ __all__ = [
     "PipedPigzWriter",
     "PipedPBzip2Reader",
     "PipedPBzip2Writer",
+    "PipedXzReader",
+    "PipedXzWriter",
     "PipedPythonIsalReader",
     "PipedPythonIsalWriter",
     "__version__",
@@ -650,6 +652,81 @@ class PipedPBzip2Writer(PipedCompressionWriter):
         )
 
 
+class PipedXzReader(PipedCompressionReader):
+    """
+    Open a pipe to xz for reading an xz-compressed file. A future
+    version of xz will be able to decompress using multiple cores.
+
+    (N.B. As of 21 March 2022, this feature is only implemented in xz's
+    master branch.)
+    """
+
+    def __init__(
+        self,
+        path,
+        mode: str = "r",
+        threads: Optional[int] = None,
+        *,
+        encoding="utf-8",
+        errors=None,
+        newline=None,
+    ):
+        super().__init__(
+            path,
+            ["xz"],
+            mode,
+            "-T",
+            threads,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
+class PipedXzWriter(PipedCompressionWriter):
+    """
+    Write xz-compressed files by running an external xz process and
+    piping into it. xz can compress using multiple cores.
+    """
+
+    _accepted_compression_levels: Set[int] = set(range(10))
+
+    def __init__(
+        self,
+        path,
+        mode: str = "wt",
+        compresslevel: Optional[int] = None,
+        threads: Optional[int] = None,
+        *,
+        encoding="utf-8",
+        errors=None,
+        newline=None,
+    ):
+        """
+        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+        compresslevel -- compression level
+        threads (int) -- number of xz threads. If this is set to None, a reasonable default is
+            used. At the moment, this means that the number of available CPU cores is used, capped
+            at four to avoid creating too many threads. Use 0 to let xz use all available cores.
+        """
+        if (
+            compresslevel is not None
+            and compresslevel not in self._accepted_compression_levels
+        ):
+            raise ValueError("compresslevel must be between 0 and 9")
+        super().__init__(
+            path,
+            ["xz"],
+            mode,
+            compresslevel,
+            "-T",
+            threads,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
 class PipedIGzipReader(PipedCompressionReader):
     """
     Uses igzip for reading of a gzipped file. This is much faster than either
@@ -774,7 +851,24 @@ def _open_bz2(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
     return bz2.open(filename, mode, **text_mode_kwargs)  # type: ignore
 
 
-def _open_xz(filename, mode: str, **text_mode_kwargs) -> IO:
+def _open_xz(
+    filename,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+    **text_mode_kwargs,
+):
+    if threads != 0:
+        try:
+            if "r" in mode:
+                return PipedXzReader(filename, mode, threads, **text_mode_kwargs)
+            else:
+                return PipedXzWriter(
+                    filename, mode, compresslevel, threads, **text_mode_kwargs
+                )
+        except OSError:
+            pass  # We try without threads.
+
     return lzma.open(filename, mode, **text_mode_kwargs)
 
 
@@ -974,7 +1068,9 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
             filename, mode, compresslevel, threads, **text_mode_kwargs
         )
     elif detected_format == "xz":
-        opened_file = _open_xz(filename, mode, **text_mode_kwargs)
+        opened_file = _open_xz(
+            filename, mode, compresslevel, threads, **text_mode_kwargs
+        )
     elif detected_format == "bz2":
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     else:
