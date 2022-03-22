@@ -268,7 +268,7 @@ class PipedCompressionWriter(Closing):
                 )
             )
 
-    def __iter__(self):  # type: ignore
+    def __iter__(self):
         # For compatibility with Pandas, which checks for an __iter__ method
         # to determine whether an object is file-like.
         return self
@@ -384,7 +384,7 @@ class PipedCompressionReader(Closing):
 
         # stdout is io.BufferedReader if set to PIPE
         while True:
-            first_output = self.process.stdout.peek(1)  # type: ignore
+            first_output = self.process.stdout.peek(1)
             if first_output or self.process.poll() is not None:
                 break
             time.sleep(0.01)
@@ -845,10 +845,7 @@ def _open_bz2(filename, mode: str, threads: Optional[int], **text_mode_kwargs):
         except OSError:
             pass  # We try without threads.
 
-    # Ignore a TypeError that has been fixed in the typeshed.
-    # https://github.com/python/typeshed/pull/6722
-    # The ignore can be removed when a version of mypy with a synced typeshed is released.
-    return bz2.open(filename, mode, **text_mode_kwargs)  # type: ignore
+    return bz2.open(filename, mode, **text_mode_kwargs)
 
 
 def _open_xz(
