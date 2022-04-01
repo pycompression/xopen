@@ -60,7 +60,9 @@ except ImportError:
 
 _MAX_PIPE_SIZE_PATH = pathlib.Path("/proc/sys/fs/pipe-max-size")
 try:
-    _MAX_PIPE_SIZE = int(_MAX_PIPE_SIZE_PATH.read_text())  # type: Optional[int]
+    _MAX_PIPE_SIZE = int(
+        _MAX_PIPE_SIZE_PATH.read_text(encoding="ascii")
+    )  # type: Optional[int]
 except OSError:  # Catches file not found and permission errors. Possible other errors too.
     _MAX_PIPE_SIZE = None
 

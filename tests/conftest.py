@@ -25,7 +25,7 @@ def create_large_file(tmp_path):
 def create_truncated_file(create_large_file):
     def _create_truncated_file(extension):
         large_file = create_large_file(extension)
-        with open(large_file, "a") as f:
+        with open(large_file, "a", encoding="ascii") as f:
             f.truncate(os.stat(large_file).st_size - 10)
         return large_file
 

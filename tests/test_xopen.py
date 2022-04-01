@@ -191,7 +191,7 @@ def test_partial_iteration_closes_correctly(extension, create_large_file):
             self.file = xopen(file, "rb")
 
         def __iter__(self):
-            wrapper = io.TextIOWrapper(self.file)
+            wrapper = io.TextIOWrapper(self.file, encoding="utf-8")
             yield from wrapper
 
     large_file = create_large_file(extension)
@@ -463,7 +463,7 @@ def test_override_output_format_unsupported_format(tmp_path):
 
 def test_override_output_format_wrong_format(tmp_path):
     path = tmp_path / "not_compressed"
-    path.write_text("I am not compressed.")
+    path.write_text("I am not compressed.", encoding="utf-8")
     with pytest.raises(OSError):  # BadGzipFile is a subclass of OSError
         with xopen(path, "rt", format="gz") as opened_file:
             opened_file.read()
