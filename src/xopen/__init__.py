@@ -189,7 +189,7 @@ class PipedCompressionWriter(Closing):
             )
 
         # TODO use a context manager
-        self.outfile = open(path, mode)
+        self.outfile = open(path, mode[0] + "b")
         self.closed: bool = False
         self.name: str = str(os.fspath(path))
         self._mode: str = mode
