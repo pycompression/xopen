@@ -148,7 +148,7 @@ def test_reader_readinto(reader):
 def test_reader_textiowrapper(reader):
     opener, extension = reader
     with opener(TEST_DIR / f"file.txt{extension}", "rb") as f:
-        wrapped = io.TextIOWrapper(f)
+        wrapped = io.TextIOWrapper(f, encoding="utf-8")
         assert wrapped.read() == CONTENT
 
 
@@ -323,3 +323,14 @@ def test_valid_compression_levels(writer, level, tmp_path):
     with writer(path, "wb", level) as handle:
         handle.write(b"test")
     assert gzip.decompress(path.read_bytes()) == b"test"
+
+
+@pytest.mark.skipif(
+    sys.platform.startswith("win"), reason="cat is not available on Windows"
+)
+def test_compression_writer_unusual_encoding(tmp_path):
+    with PipedCompressionWriter(
+        tmp_path / "out.txt", program_args=["cat"], mode="wt", encoding="utf-16-le"
+    ) as f:
+        f.write("Hello")
+    assert (tmp_path / "out.txt").read_bytes() == b"H\0e\0l\0l\0o\0"

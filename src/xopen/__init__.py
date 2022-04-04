@@ -60,7 +60,9 @@ except ImportError:
 
 _MAX_PIPE_SIZE_PATH = pathlib.Path("/proc/sys/fs/pipe-max-size")
 try:
-    _MAX_PIPE_SIZE = int(_MAX_PIPE_SIZE_PATH.read_text())  # type: Optional[int]
+    _MAX_PIPE_SIZE = int(
+        _MAX_PIPE_SIZE_PATH.read_text(encoding="ascii")
+    )  # type: Optional[int]
 except OSError:  # Catches file not found and permission errors. Possible other errors too.
     _MAX_PIPE_SIZE = None
 
@@ -189,7 +191,7 @@ class PipedCompressionWriter(Closing):
             )
 
         # TODO use a context manager
-        self.outfile = open(path, mode)
+        self.outfile = open(path, mode[0] + "b")
         self.closed: bool = False
         self.name: str = str(os.fspath(path))
         self._mode: str = mode
@@ -1051,14 +1053,14 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
     filename = os.fspath(filename)
-    if filename == "-":
-        return _open_stdin_or_out(mode)
 
     if "b" in mode:
         # Do not pass encoding etc. in binary mode as this raises errors.
         text_mode_kwargs = dict()
     else:
         text_mode_kwargs = dict(encoding=encoding, errors=errors, newline=newline)
+    if filename == "-":
+        return _open_stdin_or_out(mode, **text_mode_kwargs)
 
     if format not in (None, "gz", "xz", "bz2"):
         raise ValueError(
