@@ -19,7 +19,7 @@ xopen
 
 This Python module provides an ``xopen`` function that works like the
 built-in ``open`` function but also transparently deals with compressed files.
-Supported compression formats are currently gzip, bzip2 and xz.
+Supported compression formats are currently gzip, bzip2, xz and zstandard.
 
 ``xopen`` selects the most efficient method for reading or writing a compressed file.
 This often means opening a pipe to an external tool, such as
@@ -45,7 +45,7 @@ For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is use
 if none of the other methods can be used.
 
 The file format to use is determined from the file name if the extension is recognized
-(``.gz``, ``.bz2`` or ``.xz``).
+(``.gz``, ``.bz2``, ``.xz`` or ``.zst``).
 When reading a file without a recognized file extension, xopen attempts to detect the format
 by reading the first couple of bytes from the file.
 
