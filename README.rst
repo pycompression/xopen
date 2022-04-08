@@ -19,7 +19,7 @@ xopen
 
 This Python module provides an ``xopen`` function that works like the
 built-in ``open`` function but also transparently deals with compressed files.
-Supported compression formats are currently gzip, bzip2, xz and zstandard.
+Supported compression formats are currently gzip, bzip2, xz and Zstandard.
 
 ``xopen`` selects the most efficient method for reading or writing a compressed file.
 This often means opening a pipe to an external tool, such as
@@ -95,6 +95,13 @@ so output from them is also reproducible.
 
 Changes
 -------
+
+development version
+~~~~~~~~~~~~~~~~~~~
+
+* #91: Added preliminary support for Zstandard (``.zst``) files.
+  This requires that the Python ``zstandard`` package is installed
+  or that the ``zstd`` command-line program is available.
 
 v1.6.0 (2022-08-10)
 ~~~~~~~~~~~~~~~~~~~
