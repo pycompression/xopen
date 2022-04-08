@@ -40,6 +40,8 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Literal
 
+import zstandard  # type: ignore
+
 from ._version import version as __version__
 
 # 128K buffer size also used by cat, pigz etc. It is faster than the 8K default.
@@ -891,6 +893,26 @@ def _open_xz(
     )
 
 
+def _open_zst(
+    filename, mode: str, compresslevel: Optional[int] = 3, **text_mode_kwargs
+) -> IO:
+    if compresslevel is not None and "w" in mode:
+        cctx = zstandard.ZstdCompressor(level=compresslevel)
+    else:
+        cctx = None
+    f = zstandard.open(
+        filename,
+        mode,
+        cctx=cctx,
+        **text_mode_kwargs,
+    )
+    if mode == "rb":
+        return io.BufferedReader(f)
+    elif mode == "wb":
+        return io.BufferedWriter(f)
+    return f
+
+
 def _open_external_gzip_reader(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
@@ -1024,6 +1046,9 @@ def _detect_format_from_content(filename: FilePath) -> Optional[str]:
             elif bs[:6] == b"\xfd\x37\x7a\x58\x5a\x00":
                 # https://tukaani.org/xz/xz-file-format.txt
                 return "xz"
+            elif bs[:4] == b"\x28\xb5\x2f\xfd":
+                # https://datatracker.ietf.org/doc/html/rfc8478#section-3.1.1
+                return "zst"
     except OSError:
         pass
 
@@ -1035,7 +1060,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
     Attempt to detect file format from the filename extension.
     Return None if no format could be detected.
     """
-    for ext in ("bz2", "xz", "gz"):
+    for ext in ("bz2", "xz", "gz", "zst"):
         if isinstance(filename, bytes):
             if filename.endswith(b"." + ext.encode()):
                 return ext
@@ -1089,13 +1114,14 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     """
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
-    bzip2 and xz. If the filename is '-', standard output (mode 'w') or
+    bzip2, xz an zstandard. If the filename is '-', standard output (mode 'w') or
     standard input (mode 'r') is returned.
 
     When writing, the file format is chosen based on the file name extension:
     - .gz uses gzip compression
     - .bz2 uses bzip2 compression
     - .xz uses xz/lzma compression
+    - .zst uses zstandard compression
     - otherwise, no compression is used
 
     When reading, if a file name extension is available, the format is detected
@@ -1121,7 +1147,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
 
     format overrides the autodetection of input and output formats. This can be
     useful when compressed output needs to be written to a file without an
-    extension. Possible values are "gz", "xz" and "bz2".
+    extension. Possible values are "gz", "xz", "bz2", "zst".
     """
     if mode in ("r", "w", "a"):
         mode += "t"  # type: ignore
@@ -1137,9 +1163,10 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if filename == "-":
         return _open_stdin_or_out(mode, **text_mode_kwargs)
 
-    if format not in (None, "gz", "xz", "bz2"):
+    if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
-            f"Format not supported: {format}. " f"Choose one of: 'gz', 'xz', 'bz2'"
+            f"Format not supported: {format}. "
+            f"Choose one of: 'gz', 'xz', 'bz2', 'zst'"
         )
     detected_format = format or _detect_format_from_extension(filename)
     if detected_format is None and "w" not in mode:
@@ -1155,6 +1182,10 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
         )
     elif detected_format == "bz2":
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
+    elif detected_format == "zst":
+        opened_file = _open_zst(
+            filename, mode, compresslevel=compresslevel, **text_mode_kwargs
+        )
     else:
         opened_file = open(filename, mode, **text_mode_kwargs)  # type: ignore
 
@@ -1164,7 +1195,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     # less. The effect is very noticeable when writing small units such as
     # lines or FASTQ records.
     if (
-        isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))
+        isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))  # FIXME
         and "w" in mode
     ):
         opened_file = io.BufferedWriter(
