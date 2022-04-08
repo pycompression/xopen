@@ -14,13 +14,13 @@ import shutil
 
 import pytest
 
-from xopen import xopen
+from xopen import xopen, _detect_format_from_content
 
 # TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
 CONTENT = "".join(CONTENT_LINES)
-extensions = ["", ".gz", ".bz2", ".xz"]
+extensions = ["", ".gz", ".bz2", ".xz", ".zst"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
 
@@ -141,6 +141,14 @@ def test_readinto(fname):
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
+
+
+def test_detect_format_from_content(ext):
+    detected = _detect_format_from_content(Path(__file__).parent / f"file.txt{ext}")
+    if ext == "":
+        assert detected is None
+    else:
+        assert ext[1:] == detected
 
 
 def test_detect_file_format_from_content(ext, tmp_path):
@@ -313,6 +321,7 @@ def test_read_no_threads(ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
+        ".zst": io.BufferedReader,
         "": io.BufferedReader,
     }
     klass = klasses[ext]
@@ -341,12 +350,13 @@ def test_write_no_threads(tmp_path, ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
+        ".zst": None,
         "": io.BufferedWriter,
     }
     klass = klasses[ext]
     with xopen(tmp_path / f"out.{ext}", "wb", threads=0) as f:
         assert isinstance(f, io.BufferedWriter)
-        if ext:
+        if ext and klass is not None:
             assert isinstance(f.raw, klass), f
 
 
