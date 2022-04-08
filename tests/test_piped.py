@@ -27,12 +27,14 @@ from xopen import (
     PipedPythonIsalWriter,
     PipedXzReader,
     PipedXzWriter,
+    PipedZstdReader,
+    PipedZstdWriter,
     _MAX_PIPE_SIZE,
     _can_read_concatenated_gz,
     igzip,
 )
 
-extensions = ["", ".gz", ".bz2", ".xz"]
+extensions = ["", ".gz", ".bz2", ".xz", ".zst"]
 
 try:
     import fcntl
@@ -86,9 +88,6 @@ def available_bzip2_readers_and_writers():
     return [], []
 
 
-PIPED_BZIP2_READERS, PIPED_BZIP2_WRITERS = available_bzip2_readers_and_writers()
-
-
 def available_xz_readers_and_writers():
     result = [], []
     if shutil.which("xz"):
@@ -96,17 +95,28 @@ def available_xz_readers_and_writers():
     return result
 
 
+def available_zstd_readers_and_writers():
+    result = [], []
+    if shutil.which("zstd"):
+        result = [PipedZstdReader], [PipedZstdWriter]
+    return result
+
+
+PIPED_BZIP2_READERS, PIPED_BZIP2_WRITERS = available_bzip2_readers_and_writers()
 PIPED_XZ_READERS, PIPED_XZ_WRITERS = available_xz_readers_and_writers()
+PIPED_ZST_READERS, PIPED_ZST_WRITERS = available_zstd_readers_and_writers()
 
 ALL_READERS_WITH_EXTENSION = (
     list(zip(PIPED_GZIP_READERS, cycle([".gz"])))
     + list(zip(PIPED_BZIP2_READERS, cycle([".bz2"])))
     + list(zip(PIPED_XZ_READERS, cycle([".xz"])))
+    + list(zip(PIPED_ZST_READERS, cycle([".zst"])))
 )
 ALL_WRITERS_WITH_EXTENSION = (
     list(zip(PIPED_GZIP_WRITERS, cycle([".gz"])))
     + list(zip(PIPED_BZIP2_WRITERS, cycle([".bz2"])))
     + list(zip(PIPED_XZ_WRITERS, cycle([".xz"])))
+    + list(zip(PIPED_ZST_WRITERS, cycle([".zst"])))
 )
 
 
@@ -196,10 +206,23 @@ def test_reader_close(mode, reader, create_large_file):
     # The subprocess should be properly terminated now
 
 
-def test_invalid_compression_level_writers(gzip_writer, tmp_path):
-    # Currently only gzip writers handle compression levels
+def test_invalid_gzip_compression_level(gzip_writer, tmp_path):
     with pytest.raises(ValueError) as e:
         with gzip_writer(tmp_path / "out.gz", mode="w", compresslevel=17) as f:
+            f.write("hello")  # pragma: no cover
+    assert "compresslevel must be" in e.value.args[0]
+
+
+def test_invalid_xz_compression_level(tmp_path):
+    with pytest.raises(ValueError) as e:
+        with PipedXzWriter(tmp_path / "out.xz", mode="w", compresslevel=10) as f:
+            f.write("hello")  # pragma: no cover
+    assert "compresslevel must be" in e.value.args[0]
+
+
+def test_invalid_zstd_compression_level(tmp_path):
+    with pytest.raises(ValueError) as e:
+        with PipedZstdWriter(tmp_path / "out.zst", mode="w", compresslevel=25) as f:
             f.write("hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
 

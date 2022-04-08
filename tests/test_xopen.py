@@ -321,9 +321,12 @@ def test_read_no_threads(ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
-        ".zst": io.BufferedReader,
         "": io.BufferedReader,
     }
+    if ext == ".zst":
+        # Skip zst because if python-zstandard is not installed,
+        # we fall back to an external process even when threads=0
+        return
     klass = klasses[ext]
     with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
         assert isinstance(f, klass), f
@@ -350,13 +353,16 @@ def test_write_no_threads(tmp_path, ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
-        ".zst": None,
         "": io.BufferedWriter,
     }
+    if ext == ".zst":
+        # Skip zst because if python-zstandard is not installed,
+        # we fall back to an external process even when threads=0
+        return
     klass = klasses[ext]
-    with xopen(tmp_path / f"out.{ext}", "wb", threads=0) as f:
+    with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
         assert isinstance(f, io.BufferedWriter)
-        if ext and klass is not None:
+        if ext:
             assert isinstance(f.raw, klass), f
 
 

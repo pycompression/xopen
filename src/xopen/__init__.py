@@ -14,6 +14,8 @@ __all__ = [
     "PipedPBzip2Writer",
     "PipedXzReader",
     "PipedXzWriter",
+    "PipedZstdReader",
+    "PipedZstdWriter",
     "PipedPythonIsalReader",
     "PipedPythonIsalWriter",
     "__version__",
@@ -35,8 +37,6 @@ from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, Union, TextIO, AnyStr, IO, List, Set
 
-import zstandard  # type: ignore
-
 from ._version import version as __version__
 
 # 128K buffer size also used by cat, pigz etc. It is faster than the 8K default.
@@ -48,6 +48,11 @@ try:
 except ImportError:
     igzip = None
     isal_zlib = None
+
+try:
+    import zstandard  # type: ignore
+except ImportError:
+    zstandard = None
 
 try:
     import fcntl
@@ -756,6 +761,74 @@ class PipedIGzipReader(PipedCompressionReader):
         )
 
 
+class PipedZstdReader(PipedCompressionReader):
+    """
+    Open a pipe to zstd for reading a zstandard-compressed file (.zst).
+    """
+
+    def __init__(
+        self,
+        path,
+        mode: str = "r",
+        *,
+        encoding="utf-8",
+        errors=None,
+        newline=None,
+    ):
+        super().__init__(
+            path,
+            ["zstd"],
+            mode,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
+class PipedZstdWriter(PipedCompressionWriter):
+    """
+    Write Zstandard-compressed files by running an external xz process and
+    piping into it. xz can compress using multiple cores.
+    """
+
+    _accepted_compression_levels: Set[int] = set(range(1, 20))
+
+    def __init__(
+        self,
+        path,
+        mode: str = "wt",
+        compresslevel: Optional[int] = None,
+        threads: Optional[int] = None,
+        *,
+        encoding="utf-8",
+        errors=None,
+        newline=None,
+    ):
+        """
+        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
+        compresslevel -- compression level
+        threads (int) -- number of zstd threads. If this is set to None, a reasonable default is
+            used. At the moment, this means that the number of available CPU cores is used, capped
+            at four to avoid creating too many threads. Use 0 to let zstd use all available cores.
+        """
+        if (
+            compresslevel is not None
+            and compresslevel not in self._accepted_compression_levels
+        ):
+            raise ValueError("compresslevel must be between 1 and 19")
+        super().__init__(
+            path,
+            ["zstd"],
+            mode,
+            compresslevel,
+            "-T",
+            threads,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
 class PipedIGzipWriter(PipedCompressionWriter):
     """
     Uses igzip for writing a gzipped file. This is much faster than either
@@ -882,8 +955,27 @@ def _open_xz(
 
 
 def _open_zst(
-    filename, mode: str, compresslevel: Optional[int] = 3, **text_mode_kwargs
-) -> IO:
+    filename,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+    **text_mode_kwargs,
+):
+    assert compresslevel != 0
+    if compresslevel is None:
+        compresslevel = 3
+    if threads != 0 or zstandard is None:
+        try:
+            if "r" in mode:
+                return PipedZstdReader(filename, mode, **text_mode_kwargs)
+            else:
+                return PipedZstdWriter(
+                    filename, mode, compresslevel, threads, **text_mode_kwargs
+                )
+        except OSError:
+            if zstandard is None:
+                raise
+
     if compresslevel is not None and "w" in mode:
         cctx = zstandard.ZstdCompressor(level=compresslevel)
     else:
@@ -1039,7 +1131,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     """
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
-    bzip2, xz an zstandard. If the filename is '-', standard output (mode 'w') or
+    bzip2, xz and zstandard. If the filename is '-', standard output (mode 'w') or
     standard input (mode 'r') is returned.
 
     When writing, the file format is chosen based on the file name extension:
@@ -1109,7 +1201,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     elif detected_format == "zst":
         opened_file = _open_zst(
-            filename, mode, compresslevel=compresslevel, **text_mode_kwargs
+            filename, mode, compresslevel, threads, **text_mode_kwargs
         )
     else:
         opened_file = open(filename, mode, **text_mode_kwargs)
