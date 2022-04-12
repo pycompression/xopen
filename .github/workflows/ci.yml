@@ -47,6 +47,8 @@ jobs:
       if: matrix.with-isal && runner.os == 'Linux'
       run: sudo apt-get install isal libisal-dev
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
