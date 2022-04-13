@@ -72,6 +72,96 @@ and avoid using an external process::
         f.write(b"Hello")
 
 
+
+File opening methods
+--------------------
+
+xopen attempts to open an input or output file using the most efficient
+method available given the file format and the parameters for threads,
+mode and compression level. If an method is not available, it falls
+successively back to less efficient options.
+
+The following pseudo code shows the logic followed by xopen().
+In the steps using the word "Try", a succesfully opened file
+is returned immediately. Execution continues only if the attempt
+was unsuccesful (failure is usually due to a missing external program).
+"reading" means that the mode parameter contains "r"
+and "writing" means that the mode contains "w".
+
+Wen gzip2, bz2 or xz files are opened, ``xopen()`` always falls back to a
+builtin method of opening the file as a last resort.
+Opening zst files can fail if neither the Python package
+``zstandard`` is available nor the command-line program ``zstd`` is installed.
+
+
+Opening gzip files
+~~~~~~~~~~~~~~~~~~
+
+::
+
+    if threads != 0:
+      if reading:
+          - Try a pipe to ``igzip``
+          - Try a pipe to ``python -m isal.igzip``
+          - Try a pipe to ``pigz`` (passing the threads parameter)
+          - Try a pipe to ``gzip``
+      if writing:
+        if compression level <= 3:
+          - Try a pipe to ``igzip``
+          - Try a pipe to ``python -m isal.igzip``
+        - Try a pipe to ``pigz`` (passing the threads parameter)
+        - Try a pipe to ``gzip``
+
+    if reading:
+      - Try ``igzip.open()``
+      - Use ``gzip.open()``
+
+    if writing:
+      if compression level <= 3:
+        - Try ``igzip.open()``
+      - Use ``gzip.open()``
+
+
+Opening bzip2 files
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+    if threads != 0:
+      - Try a pipe to ``pbzip2``
+    - Use ``bz2.open()`` (should always succeed)
+
+
+Opening xz files
+~~~~~~~~~~~~~~~~
+
+::
+
+    if threads != 0:
+      - Try a pipe to ``xz`` (passing the threads parameter)
+    - Use ``lzma.open()``
+
+
+Opening zstd files
+~~~~~~~~~~~~~~~~~~
+
+::
+
+    if threads != 0 or python-zstandard not installed:
+      - Try a pipe to ``zstd``
+    - Try ``zstandard.open()``
+
+
+Optional dependencies
+~~~~~~~~~~~~~~~~~~~~~
+
+To ensure xopen opens files in the most efficient way,
+install these packages on Ubuntu: ``pigz pbzip2 isal zstd``.
+Homebrew: ``pigz pbzip2 isa-l zstd``
+
+Also, install the Python package named ``zstandard`` (``pip install zstandard``)
+
+
 Changes
 -------
 
