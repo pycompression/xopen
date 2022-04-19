@@ -966,7 +966,7 @@ def _open_xz(
     )
 
 
-def _open_zst(
+def _open_zst(  # noqa: C901
     filename,
     mode: str,
     compresslevel: Optional[int],
@@ -976,7 +976,7 @@ def _open_zst(
     assert compresslevel != 0
     if compresslevel is None:
         compresslevel = 3
-    if threads != 0 or zstandard is None:
+    if threads != 0:
         try:
             if "r" in mode:
                 return PipedZstdReader(filename, mode, **text_mode_kwargs)
@@ -986,8 +986,11 @@ def _open_zst(
                 )
         except OSError:
             if zstandard is None:
+                # No fallback available
                 raise
 
+    if zstandard is None:
+        raise ImportError("zstandard module (python-zstandard) not available")
     if compresslevel is not None and "w" in mode:
         cctx = zstandard.ZstdCompressor(level=compresslevel)
     else:
@@ -1222,20 +1225,26 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     mode can be: 'rt', 'rb', 'at', 'ab', 'wt', or 'wb'. Also, the 't' can be omitted,
     so instead of 'rt', 'wt' and 'at', the abbreviations 'r', 'w' and 'a' can be used.
 
-    compresslevel is the compression level for writing to gzip and xz files.
-    This parameter is ignored for the other compression formats. If set to
-    None (default), level 6 is used.
+    compresslevel is the compression level for writing to gzip, xz and zst files.
+    This parameter is ignored for the other compression formats.
+    If set to None, a default depending on the format is used:
+    gzip: 6, xz: 6, zstd: 3.
 
-    threads only has a meaning when reading or writing gzip files.
+    When threads is None (the default), compressed file formats are read or written
+    using a pipe to a subprocess running an external tool such as ``igzip``,
+    ``pbzip2``, ``pigz`` etc., see PipedIGzipWriter, PipedIGzipReader etc.
+    If the external tool supports multiple threads, *threads* can be set to an int
+    specifying the number of threads to use.
+    If no external tool supporting the compression format is available, the file is
+    opened calling the appropriate Python function
+    (that is, no subprocess is spawned).
 
-    When threads is None (the default), reading or writing a gzip file is done with a pigz
-    (parallel gzip) subprocess if possible. See PipedGzipWriter and PipedGzipReader.
+    Set threads to 0 to force opening the file without using a subprocess.
 
-    When threads = 0, no subprocess is used.
-
-    encoding, errors and newline are used when opening in text mode. The parameters
-    have the same meaning as in the built-in open function, except that the
-    default encoding is always UTF-8 instead of the preferred locale encoding.
+    encoding, errors and newline are used when opening a file in text mode.
+    The parameters have the same meaning as in the built-in open function,
+    except that the default encoding is always UTF-8 instead of the
+    preferred locale encoding.
 
     format overrides the autodetection of input and output formats. This can be
     useful when compressed output needs to be written to a file without an
