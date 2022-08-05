@@ -960,7 +960,6 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     # Neither gzip.open nor igzip.open have an mtime option, and they will
     # always write the file name, so we need to open the file separately
     # and pass it to gzip.GzipFile/igzip.IGzipFile.
-    # The file will *not* be closed explicitly when the (I)GzipFile is closed.
     binary_file = open(filename, mode=mode)
     kwargs = dict(
         fileobj=binary_file,
@@ -968,9 +967,10 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         mode=mode,
         mtime=0,
     )
+    gzip_file = None
     if igzip is not None:
         try:
-            return igzip.IGzipFile(
+            gzip_file = igzip.IGzipFile(
                 **kwargs,
                 compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION
                 if compresslevel is None
@@ -979,12 +979,18 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         except ValueError:
             # Compression level not supported, move to built-in gzip.
             pass
-    return gzip.GzipFile(
-        **kwargs,
-        # Override gzip.open's default of 9 for consistency
-        # with command-line gzip.
-        compresslevel=6 if compresslevel is None else compresslevel,
-    )
+    if gzip_file is None:
+        gzip_file = gzip.GzipFile(
+            **kwargs,
+            # Override gzip.open's default of 9 for consistency
+            # with command-line gzip.
+            compresslevel=6 if compresslevel is None else compresslevel,
+        )
+    # When (I)GzipFile is created with a fileobj instead of a filename,
+    # the passed file object is not closed when (I)GzipFile.close()
+    # is called. With this, we can force it to do so.
+    gzip_file.myfileobj = binary_file
+    return gzip_file
 
 
 def _detect_format_from_content(
