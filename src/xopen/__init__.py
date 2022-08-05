@@ -821,7 +821,7 @@ class PipedPythonIsalWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(
             path,
-            [sys.executable, "-m", "isal.igzip"],
+            [sys.executable, "-m", "isal.igzip", "-n"],
             mode,
             compresslevel,
             encoding=encoding,
