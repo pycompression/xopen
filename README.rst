@@ -2,7 +2,7 @@
   :target: https://github.com/pycompression/xopen
   :alt:
 
-.. image:: https://img.shields.io/pypi/v/xopen.svg?branch=master
+.. image:: https://img.shields.io/pypi/v/xopen.svg?branch=main
   :target: https://pypi.python.org/pypi/xopen
 
 .. image:: https://img.shields.io/conda/v/conda-forge/xopen.svg
