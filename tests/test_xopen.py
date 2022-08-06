@@ -94,6 +94,16 @@ def test_binary(fname):
         assert lines[1] == b"The second line.\n", fname
 
 
+@pytest.mark.parametrize("threads", [None, 0])
+def test_roundtrip(ext, tmp_path, threads):
+    path = tmp_path / f"file{ext}"
+    data = b"Hello"
+    with xopen(path, "wb", threads=threads) as f:
+        f.write(data)
+    with xopen(path, "rb", threads=threads) as f:
+        assert f.read() == data
+
+
 def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
     with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
