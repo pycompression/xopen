@@ -508,7 +508,7 @@ class PipedGzipWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 1 and 9")
         super().__init__(
             path,
-            ["gzip"],
+            ["gzip", "-n"],
             mode,
             compresslevel,
             None,
