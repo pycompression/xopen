@@ -508,7 +508,7 @@ class PipedGzipWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 1 and 9")
         super().__init__(
             path,
-            ["gzip"],
+            ["gzip", "--no-name"],
             mode,
             compresslevel,
             None,
@@ -583,7 +583,7 @@ class PipedPigzWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 0 and 9 or 11")
         super().__init__(
             path,
-            ["pigz"],
+            ["pigz", "--no-name"],
             mode,
             compresslevel,
             "-p",
@@ -783,7 +783,7 @@ class PipedIGzipWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(
             path,
-            ["igzip"],
+            ["igzip", "--no-name"],
             mode,
             compresslevel,
             encoding=encoding,
@@ -821,7 +821,7 @@ class PipedPythonIsalWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(
             path,
-            [sys.executable, "-m", "isal.igzip"],
+            [sys.executable, "-m", "isal.igzip", "--no-name"],
             mode,
             compresslevel,
             encoding=encoding,
@@ -882,7 +882,7 @@ def _open_xz(
 def _open_external_gzip_reader(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
-    assert "r" in mode
+    assert mode in ("rt", "rb")
     try:
         return PipedIGzipReader(filename, mode, **text_mode_kwargs)
     except (OSError, ValueError):
@@ -900,7 +900,7 @@ def _open_external_gzip_reader(
 def _open_external_gzip_writer(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
-    assert "r" not in mode
+    assert mode in ("wt", "wb", "at", "ab")
     try:
         return PipedIGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
     except (OSError, ValueError):
@@ -922,6 +922,7 @@ def _open_external_gzip_writer(
 
 
 def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
+    assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
     if threads != 0:
         try:
             if "r" in mode:
@@ -940,11 +941,38 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
             return igzip.open(filename, mode, **text_mode_kwargs)
         return gzip.open(filename, mode, **text_mode_kwargs)
 
+    g = _open_reproducible_gzip(
+        filename,
+        mode=mode[0] + "b",
+        compresslevel=compresslevel,
+    )
+    if "t" in mode:
+        return io.TextIOWrapper(g, **text_mode_kwargs)
+    return g
+
+
+def _open_reproducible_gzip(filename, mode, compresslevel):
+    """
+    Open a gzip file for writing (without external processes)
+    that has neither mtime nor the file name in the header
+    (equivalent to gzip --no-name)
+    """
+    assert mode in ("rb", "wb", "ab")
+    # Neither gzip.open nor igzip.open have an mtime option, and they will
+    # always write the file name, so we need to open the file separately
+    # and pass it to gzip.GzipFile/igzip.IGzipFile.
+    binary_file = open(filename, mode=mode)
+    kwargs = dict(
+        fileobj=binary_file,
+        filename="",
+        mode=mode,
+        mtime=0,
+    )
+    gzip_file = None
     if igzip is not None:
         try:
-            return igzip.open(
-                filename,
-                mode,
+            gzip_file = igzip.IGzipFile(
+                **kwargs,
                 compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION
                 if compresslevel is None
                 else compresslevel,
@@ -952,11 +980,18 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
         except ValueError:
             # Compression level not supported, move to built-in gzip.
             pass
-
-    # Override gzip.open's default of 9 for consistency with command-line gzip.
-    return gzip.open(
-        filename, mode, compresslevel=6 if compresslevel is None else compresslevel
-    )
+    if gzip_file is None:
+        gzip_file = gzip.GzipFile(
+            **kwargs,
+            # Override gzip.open's default of 9 for consistency
+            # with command-line gzip.
+            compresslevel=6 if compresslevel is None else compresslevel,
+        )
+    # When (I)GzipFile is created with a fileobj instead of a filename,
+    # the passed file object is not closed when (I)GzipFile.close()
+    # is called. This forces it to be closed.
+    gzip_file.myfileobj = binary_file
+    return gzip_file
 
 
 def _detect_format_from_content(

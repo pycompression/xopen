@@ -334,3 +334,13 @@ def test_compression_writer_unusual_encoding(tmp_path):
     ) as f:
         f.write("Hello")
     assert (tmp_path / "out.txt").read_bytes() == b"H\0e\0l\0l\0o\0"
+
+
+def test_reproducible_gzip_compression(gzip_writer, tmp_path):
+    path = tmp_path / "file.gz"
+    with gzip_writer(path, mode="wb") as f:
+        f.write(b"hello")
+
+    data = path.read_bytes()
+    assert (data[3] & gzip.FNAME) == 0, "gzip header contains file name"
+    assert data[4:8] == b"\0\0\0\0", "gzip header contains mtime"

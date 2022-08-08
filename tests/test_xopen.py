@@ -94,6 +94,17 @@ def test_binary(fname):
         assert lines[1] == b"The second line.\n", fname
 
 
+@pytest.mark.parametrize("mode", ["b", "", "t"])
+@pytest.mark.parametrize("threads", [None, 0])
+def test_roundtrip(ext, tmp_path, threads, mode):
+    path = tmp_path / f"file{ext}"
+    data = b"Hello" if mode == "b" else "Hello"
+    with xopen(path, "w" + mode, threads=threads) as f:
+        f.write(data)
+    with xopen(path, "r" + mode, threads=threads) as f:
+        assert f.read() == data
+
+
 def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
     with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
@@ -499,3 +510,14 @@ def test_text_encoding_errors(opener, extension, tmp_path):
     with opener(path, "rt", encoding="ascii", errors="replace") as f:
         result = f.read()
     assert result == "E�n ree\nTwee ree�n\n"
+
+
+@pytest.mark.parametrize("compresslevel", [1, 6])
+def test_gzip_compression_is_reproducible_without_piping(tmp_path, compresslevel):
+    # compresslevel 1 should give us igzip and 6 should give us regular gzip
+    path = tmp_path / "test.gz"
+    with xopen(path, mode="wb", compresslevel=compresslevel, threads=0) as f:
+        f.write(b"hello")
+    data = path.read_bytes()
+    assert (data[3] & gzip.FNAME) == 0, "gzip header contains file name"
+    assert data[4:8] == b"\0\0\0\0", "gzip header contains mtime"

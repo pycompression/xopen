@@ -36,6 +36,12 @@ Neither ``igzip`` nor ``python-isal`` support compression levels
 greater 3, so if no external tool is available or ``threads`` has been set to 0,
 Python’s built-in ``gzip.open`` is used.
 
+When writing a gzip file (with any of the supported methods), it is written
+without timestamp and without the name of the original file (this corresponds
+to the ``gzip --no-name`` (or ``-n``) command-line option). Since `igzip adjusts its algorithm depending
+on the CPU architecture <https://github.com/intel/isa-l/issues/140#issuecomment-634877966>`_,
+reproducible output is achieved only between runs on the same machine.
+
 For xz files, a pipe to the ``xz`` program is used because it has built-in support for multithreaded compression.
 
 For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is used.
@@ -74,6 +80,15 @@ and avoid using an external process::
 
 Changes
 -------
+
+development version
+~~~~~~~~~~~~~~~~~~~
+
+* Issue #94: When writing gzip files, the timestamp and name of the original
+  file is omitted (equivalent to using ``gzip --no-name`` (or ``-n``) on the
+  command line). This allows files to be written in a reproducible manner.
+  (The bzip2 and xz compression methods do not store this information in the
+  header and are therefore already reproducible.)
 
 v1.5.0 (2022-03-23)
 ~~~~~~~~~~~~~~~~~~~
