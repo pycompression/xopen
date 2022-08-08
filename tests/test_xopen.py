@@ -94,13 +94,14 @@ def test_binary(fname):
         assert lines[1] == b"The second line.\n", fname
 
 
+@pytest.mark.parametrize("mode", ["b", "", "t"])
 @pytest.mark.parametrize("threads", [None, 0])
-def test_roundtrip(ext, tmp_path, threads):
+def test_roundtrip(ext, tmp_path, threads, mode):
     path = tmp_path / f"file{ext}"
-    data = b"Hello"
-    with xopen(path, "wb", threads=threads) as f:
+    data = b"Hello" if mode == "b" else "Hello"
+    with xopen(path, "w" + mode, threads=threads) as f:
         f.write(data)
-    with xopen(path, "rb", threads=threads) as f:
+    with xopen(path, "r" + mode, threads=threads) as f:
         assert f.read() == data
 
 

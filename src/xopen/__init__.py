@@ -882,7 +882,7 @@ def _open_xz(
 def _open_external_gzip_reader(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
-    assert "r" in mode
+    assert mode in ("rt", "rb")
     try:
         return PipedIGzipReader(filename, mode, **text_mode_kwargs)
     except (OSError, ValueError):
@@ -900,7 +900,7 @@ def _open_external_gzip_reader(
 def _open_external_gzip_writer(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
-    assert "r" not in mode
+    assert mode in ("wt", "wb", "at", "ab")
     try:
         return PipedIGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
     except (OSError, ValueError):
@@ -922,6 +922,7 @@ def _open_external_gzip_writer(
 
 
 def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
+    assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
     if threads != 0:
         try:
             if "r" in mode:
@@ -942,7 +943,7 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
 
     g = _open_reproducible_gzip(
         filename,
-        mode=mode.replace("t", "").replace("b", "") + "b",
+        mode=mode[0] + "b",
         compresslevel=compresslevel,
     )
     if "t" in mode:
@@ -956,7 +957,7 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     that has neither mtime nor the file name in the header
     (equivalent to gzip --no-name)
     """
-    assert "b" in mode
+    assert mode in ("rb", "wb", "ab")
     # Neither gzip.open nor igzip.open have an mtime option, and they will
     # always write the file name, so we need to open the file separately
     # and pass it to gzip.GzipFile/igzip.IGzipFile.
@@ -988,7 +989,7 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         )
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
-    # is called. With this, we can force it to do so.
+    # is called. This forces it to be closed.
     gzip_file.myfileobj = binary_file
     return gzip_file
 
