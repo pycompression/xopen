@@ -339,7 +339,6 @@ def test_compression_writer_unusual_encoding(tmp_path):
 def test_reproducible_gzip_compression(gzip_writer, tmp_path):
     path = tmp_path / "file.gz"
     with gzip_writer(path, mode="wb") as f:
-        print(f)
         f.write(b"hello")
 
     data = path.read_bytes()
