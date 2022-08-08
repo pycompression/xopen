@@ -38,7 +38,7 @@ Python’s built-in ``gzip.open`` is used.
 
 When writing a gzip file (with any of the supported methods), it is written
 without timestamp and without the name of the original file (this corresponds
-to the ``gzip -n`` command-line option). Since `igzip adjusts its algorithm depending
+to the ``gzip --no-name`` command-line option). Since `igzip adjusts its algorithm depending
 on the CPU architecture <https://github.com/intel/isa-l/issues/140#issuecomment-634877966>`_,
 reproducible output is achieved only between runs on the same machine.
 
@@ -85,7 +85,7 @@ development version
 ~~~~~~~~~~~~~~~~~~~
 
 * Issue #94: When writing gzip files, the timestamp and name of the original
-  file is omitted (equivalent to using ``gzip -n`` on the command line).
+  file is omitted (equivalent to using ``gzip --no-name`` on the command line).
   This allows files to be written in a reproducible manner.
   (The bzip2 and xz compression methods do not store this information in the
   header and are therefore already reproducible.)

@@ -508,7 +508,7 @@ class PipedGzipWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 1 and 9")
         super().__init__(
             path,
-            ["gzip", "-n"],
+            ["gzip", "--no-name"],
             mode,
             compresslevel,
             None,
@@ -583,7 +583,7 @@ class PipedPigzWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 0 and 9 or 11")
         super().__init__(
             path,
-            ["pigz", "-n"],
+            ["pigz", "--no-name"],
             mode,
             compresslevel,
             "-p",
@@ -783,7 +783,7 @@ class PipedIGzipWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(
             path,
-            ["igzip", "-n"],
+            ["igzip", "--no-name"],
             mode,
             compresslevel,
             encoding=encoding,
@@ -821,7 +821,7 @@ class PipedPythonIsalWriter(PipedCompressionWriter):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(
             path,
-            [sys.executable, "-m", "isal.igzip", "-n"],
+            [sys.executable, "-m", "isal.igzip", "--no-name"],
             mode,
             compresslevel,
             encoding=encoding,
@@ -954,7 +954,7 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     """
     Open a gzip file for writing (without external processes)
     that has neither mtime nor the file name in the header
-    (equivalent to gzip -n)
+    (equivalent to gzip --no-name)
     """
     assert "b" in mode
     # Neither gzip.open nor igzip.open have an mtime option, and they will
