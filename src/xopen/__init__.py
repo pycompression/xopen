@@ -88,12 +88,8 @@ def _available_cpu_count() -> int:
                 return res
     except OSError:
         pass
-    try:
-        import multiprocessing
-
-        return multiprocessing.cpu_count()
-    except (ImportError, NotImplementedError):
-        return 1
+    count = os.cpu_count()
+    return 1 if count is None else count
 
 
 def _set_pipe_size_to_max(fd: int) -> None:
