@@ -45,6 +45,9 @@ jobs:
     - name: Install optional tools Linux
       if: runner.os == 'Linux' && matrix.optional-deps
       run: sudo apt-get install pigz pbzip2 isal
+    - name: Remove xz
+      if: runner.os == 'Linux' && !matrix.optional-deps
+      run: while which xz; do sudo rm $(which xz); done
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
