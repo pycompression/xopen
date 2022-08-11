@@ -223,7 +223,7 @@ def test_readers_read(reader):
 def test_concatenated_gzip_function():
     assert _can_read_concatenated_gz("gzip") is True
     assert _can_read_concatenated_gz("pigz") is True
-    assert _can_read_concatenated_gz("xz") is False
+    assert _can_read_concatenated_gz("cat") is False
 
 
 @pytest.mark.skipif(
