@@ -196,10 +196,16 @@ def test_reader_close(mode, reader, create_large_file):
     # The subprocess should be properly terminated now
 
 
-def test_invalid_compression_level_writers(gzip_writer, tmp_path):
-    # Currently only gzip writers handle compression levels
+def test_invalid_compression_level_gzip(gzip_writer, tmp_path):
     with pytest.raises(ValueError) as e:
         with gzip_writer(tmp_path / "out.gz", mode="w", compresslevel=17) as f:
+            f.write("hello")  # pragma: no cover
+    assert "compresslevel must be" in e.value.args[0]
+
+
+def test_invalid_compression_level_xz(tmp_path):
+    with pytest.raises(ValueError) as e:
+        with xopen(tmp_path / "out.xz", mode="w", compresslevel=10) as f:
             f.write("hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
 
@@ -217,7 +223,7 @@ def test_readers_read(reader):
 def test_concatenated_gzip_function():
     assert _can_read_concatenated_gz("gzip") is True
     assert _can_read_concatenated_gz("pigz") is True
-    assert _can_read_concatenated_gz("xz") is False
+    assert _can_read_concatenated_gz("cat") is False
 
 
 @pytest.mark.skipif(
