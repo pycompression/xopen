@@ -260,9 +260,17 @@ class PipedCompressionWriter(Closing):
         retcode = self.process.wait()
         self.outfile.close()
         if retcode != 0:
+            try:
+                cause = (
+                    f". Possible cause: {os.strerror(retcode)}" if retcode > 1 else ""
+                )
+            except ValueError:
+                cause = ""
             raise OSError(
-                "Output {} process terminated with exit code {}".format(
-                    " ".join(self._program_args), retcode
+                "Output process '{}' terminated with exit code {}{}".format(
+                    " ".join(self._program_args),
+                    retcode,
+                    cause,
                 )
             )
 
