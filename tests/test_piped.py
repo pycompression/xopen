@@ -350,3 +350,18 @@ def test_reproducible_gzip_compression(gzip_writer, tmp_path):
     data = path.read_bytes()
     assert (data[3] & gzip.FNAME) == 0, "gzip header contains file name"
     assert data[4:8] == b"\0\0\0\0", "gzip header contains mtime"
+
+
+def test_piped_tool_fails_on_close(tmp_path):
+    # This test exercises the retcode != 0 case in PipedCompressionWriter.close()
+    with pytest.raises(OSError) as e:
+        with PipedCompressionWriter(
+            tmp_path / "out.txt",
+            [
+                sys.executable,
+                "-c",
+                "import sys\nfor line in sys.stdin: pass\nprint()\nsys.exit(5)",
+            ],
+        ) as f:
+            f.write(b"Hello")
+    assert "terminated with exit code 5" in e.value.args[0]
