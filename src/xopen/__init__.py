@@ -1046,7 +1046,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
 
 @overload
 def xopen(
-    filename: Union[str, bytes, os.PathLike[str]],
+    filename: Union[str, bytes, os.PathLike],
     mode: Literal["r", "w", "a", "rt", "wt", "at"] = ...,
     compresslevel: Optional[int] = ...,
     threads: Optional[int] = ...,
@@ -1061,7 +1061,7 @@ def xopen(
 
 @overload
 def xopen(
-    filename: Union[str, bytes, os.PathLike[str]],
+    filename: Union[str, bytes, os.PathLike],
     mode: Literal["rb", "wb", "ab"],
     compresslevel: Optional[int] = ...,
     threads: Optional[int] = ...,
@@ -1075,7 +1075,7 @@ def xopen(
 
 
 def xopen(  # noqa: C901  # The function is complex, but readable.
-    filename: Union[str, bytes, os.PathLike[str]],
+    filename: Union[str, bytes, os.PathLike],
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
