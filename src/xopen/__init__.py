@@ -72,6 +72,9 @@ except OSError:  # Catches file not found and permission errors. Possible other 
     _MAX_PIPE_SIZE = None
 
 
+FilePath = Union[str, bytes, os.PathLike]
+
+
 def _available_cpu_count() -> int:
     """
     Number of available virtual or physical CPUs on this system
@@ -164,7 +167,7 @@ class PipedCompressionWriter(Closing):
 
     def __init__(
         self,
-        path: Union[str, bytes, os.PathLike],
+        path: FilePath,
         program_args: List[str],
         mode="wt",
         compresslevel: Optional[int] = None,
@@ -301,7 +304,7 @@ class PipedCompressionReader(Closing):
 
     def __init__(
         self,
-        path: Union[str, bytes, os.PathLike],
+        path: FilePath,
         program_args: List[Union[str, bytes]],
         mode: str = "r",
         threads_flag: Optional[str] = None,
@@ -1003,9 +1006,7 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     return gzip_file
 
 
-def _detect_format_from_content(
-    filename: Union[str, bytes, os.PathLike]
-) -> Optional[str]:
+def _detect_format_from_content(filename: FilePath) -> Optional[str]:
     """
     Attempts to detect file format from the content by reading the first
     6 bytes. Returns None if no format could be detected.
@@ -1046,7 +1047,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
 
 @overload
 def xopen(
-    filename: Union[str, bytes, os.PathLike],
+    filename: FilePath,
     mode: Literal["r", "w", "a", "rt", "wt", "at"] = ...,
     compresslevel: Optional[int] = ...,
     threads: Optional[int] = ...,
@@ -1061,7 +1062,7 @@ def xopen(
 
 @overload
 def xopen(
-    filename: Union[str, bytes, os.PathLike],
+    filename: FilePath,
     mode: Literal["rb", "wb", "ab"],
     compresslevel: Optional[int] = ...,
     threads: Optional[int] = ...,
@@ -1075,7 +1076,7 @@ def xopen(
 
 
 def xopen(  # noqa: C901  # The function is complex, but readable.
-    filename: Union[str, bytes, os.PathLike],
+    filename: FilePath,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
