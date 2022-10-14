@@ -33,7 +33,12 @@ import tempfile
 import time
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, Union, TextIO, AnyStr, IO, List, Set
+from typing import Optional, Union, TextIO, AnyStr, IO, List, Set, overload, BinaryIO
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 from ._version import version as __version__
 
@@ -65,6 +70,9 @@ try:
     )  # type: Optional[int]
 except OSError:  # Catches file not found and permission errors. Possible other errors too.
     _MAX_PIPE_SIZE = None
+
+
+FilePath = Union[str, bytes, os.PathLike]
 
 
 def _available_cpu_count() -> int:
@@ -159,7 +167,7 @@ class PipedCompressionWriter(Closing):
 
     def __init__(
         self,
-        path: Union[str, bytes, os.PathLike],
+        path: FilePath,
         program_args: List[str],
         mode="wt",
         compresslevel: Optional[int] = None,
@@ -296,7 +304,7 @@ class PipedCompressionReader(Closing):
 
     def __init__(
         self,
-        path: Union[str, bytes, os.PathLike],
+        path: FilePath,
         program_args: List[Union[str, bytes]],
         mode: str = "r",
         threads_flag: Optional[str] = None,
@@ -998,9 +1006,7 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     return gzip_file
 
 
-def _detect_format_from_content(
-    filename: Union[str, bytes, os.PathLike]
-) -> Optional[str]:
+def _detect_format_from_content(filename: FilePath) -> Optional[str]:
     """
     Attempts to detect file format from the content by reading the first
     6 bytes. Returns None if no format could be detected.
@@ -1039,15 +1045,45 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
     return None
 
 
+@overload
+def xopen(
+    filename: FilePath,
+    mode: Literal["r", "w", "a", "rt", "wt", "at"] = ...,
+    compresslevel: Optional[int] = ...,
+    threads: Optional[int] = ...,
+    *,
+    encoding: str = ...,
+    errors: Optional[str] = ...,
+    newline: Optional[str] = ...,
+    format: Optional[str] = ...,
+) -> TextIO:
+    ...
+
+
+@overload
+def xopen(
+    filename: FilePath,
+    mode: Literal["rb", "wb", "ab"],
+    compresslevel: Optional[int] = ...,
+    threads: Optional[int] = ...,
+    *,
+    encoding: str = ...,
+    errors: None = ...,
+    newline: None = ...,
+    format: Optional[str] = ...,
+) -> BinaryIO:
+    ...
+
+
 def xopen(  # noqa: C901  # The function is complex, but readable.
-    filename: Union[str, bytes, os.PathLike],
-    mode: str = "r",
+    filename: FilePath,
+    mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
     *,
-    encoding="utf-8",
-    errors=None,
-    newline=None,
+    encoding: str = "utf-8",
+    errors: Optional[str] = None,
+    newline: Optional[str] = None,
     format: Optional[str] = None,
 ) -> IO:
     """
@@ -1088,7 +1124,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     extension. Possible values are "gz", "xz" and "bz2".
     """
     if mode in ("r", "w", "a"):
-        mode += "t"
+        mode += "t"  # type: ignore
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
     filename = os.fspath(filename)
@@ -1120,7 +1156,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     elif detected_format == "bz2":
         opened_file = _open_bz2(filename, mode, threads, **text_mode_kwargs)
     else:
-        opened_file = open(filename, mode, **text_mode_kwargs)
+        opened_file = open(filename, mode, **text_mode_kwargs)  # type: ignore
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
