@@ -105,6 +105,8 @@ def test_binary(fname):
 @pytest.mark.parametrize("mode", ["b", "", "t"])
 @pytest.mark.parametrize("threads", [None, 0])
 def test_roundtrip(ext, tmp_path, threads, mode):
+    if ext == ".zst" and threads == 0 and zstandard is None:
+        return
     path = tmp_path / f"file{ext}"
     data = b"Hello" if mode == "b" else "Hello"
     with xopen(path, "w" + mode, threads=threads) as f:
@@ -513,6 +515,8 @@ OPENERS = (xopen, functools.partial(xopen, threads=0))
     ["opener", "extension"], itertools.product(OPENERS, extensions)
 )
 def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
+    if extension == ".zst" and zstandard is None:
+        return
     # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
     encoded_text = b"E\xe9n ree\rTwee ree\xebn\r"
     path = tmp_path / f"test.txt{extension}"
@@ -527,6 +531,8 @@ def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
     ["opener", "extension"], itertools.product(OPENERS, extensions)
 )
 def test_text_encoding_errors(opener, extension, tmp_path):
+    if extension == ".zst" and zstandard is None:
+        return
     # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
     encoded_text = b"E\xe9n ree\nTwee ree\xebn\n"
     path = tmp_path / f"test.txt{extension}"
