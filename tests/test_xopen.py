@@ -14,13 +14,21 @@ import shutil
 
 import pytest
 
-from xopen import xopen
+from xopen import xopen, _detect_format_from_content
+
+try:
+    import zstandard
+except ImportError:
+    zstandard = None
+
 
 # TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
 CONTENT = "".join(CONTENT_LINES)
 extensions = ["", ".gz", ".bz2", ".xz"]
+if shutil.which("zstd") or zstandard:
+    extensions += [".zst"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
 
@@ -97,6 +105,8 @@ def test_binary(fname):
 @pytest.mark.parametrize("mode", ["b", "", "t"])
 @pytest.mark.parametrize("threads", [None, 0])
 def test_roundtrip(ext, tmp_path, threads, mode):
+    if ext == ".zst" and threads == 0 and zstandard is None:
+        return
     path = tmp_path / f"file{ext}"
     data = b"Hello" if mode == "b" else "Hello"
     with xopen(path, "w" + mode, threads=threads) as f:
@@ -106,6 +116,8 @@ def test_roundtrip(ext, tmp_path, threads, mode):
 
 
 def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
+    if fname.endswith(".zst") and zstandard is None:
+        return
     with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
         assert len(lines) == 2
@@ -152,6 +164,14 @@ def test_readinto(fname):
         length = f.readinto(b)
         assert length == len(content)
         assert b[:length] == content
+
+
+def test_detect_format_from_content(ext):
+    detected = _detect_format_from_content(Path(__file__).parent / f"file.txt{ext}")
+    if ext == "":
+        assert detected is None
+    else:
+        assert ext[1:] == detected
 
 
 def test_detect_file_format_from_content(ext, tmp_path):
@@ -324,8 +344,11 @@ def test_read_no_threads(ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
+        ".zst": io.BufferedReader,
         "": io.BufferedReader,
     }
+    if ext == ".zst" and zstandard is None:
+        return
     klass = klasses[ext]
     with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
         assert isinstance(f, klass), f
@@ -354,8 +377,12 @@ def test_write_no_threads(tmp_path, ext):
         ".xz": lzma.LZMAFile,
         "": io.BufferedWriter,
     }
+    if ext == ".zst":
+        # Skip zst because if python-zstandard is not installed,
+        # we fall back to an external process even when threads=0
+        return
     klass = klasses[ext]
-    with xopen(tmp_path / f"out.{ext}", "wb", threads=0) as f:
+    with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
         assert isinstance(f, io.BufferedWriter)
         if ext:
             assert isinstance(f.raw, klass), f
@@ -487,7 +514,9 @@ OPENERS = (xopen, functools.partial(xopen, threads=0))
 @pytest.mark.parametrize(
     ["opener", "extension"], itertools.product(OPENERS, extensions)
 )
-def test_text_encoding_newline_passtrough(opener, extension, tmp_path):
+def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
+    if extension == ".zst" and zstandard is None:
+        return
     # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
     encoded_text = b"E\xe9n ree\rTwee ree\xebn\r"
     path = tmp_path / f"test.txt{extension}"
@@ -502,6 +531,8 @@ def test_text_encoding_newline_passtrough(opener, extension, tmp_path):
     ["opener", "extension"], itertools.product(OPENERS, extensions)
 )
 def test_text_encoding_errors(opener, extension, tmp_path):
+    if extension == ".zst" and zstandard is None:
+        return
     # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
     encoded_text = b"E\xe9n ree\nTwee ree\xebn\n"
     path = tmp_path / f"test.txt{extension}"
@@ -526,3 +557,12 @@ def test_gzip_compression_is_reproducible_without_piping(tmp_path, compresslevel
 def test_read_devnull():
     with xopen(os.devnull):
         pass
+
+
+def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
+    import xopen
+
+    monkeypatch.setattr(xopen, "zstandard", None)
+    with pytest.raises(ImportError):
+        with xopen.xopen(TEST_DIR / "file.txt.zst", mode="rb", threads=0) as f:
+            f.read()

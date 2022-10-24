@@ -36,15 +36,19 @@ jobs:
         - os: ubuntu-20.04
           python-version: 3.7
           optional-deps: false
+        - os: ubuntu-20.04
+          python-version: 3.7
+          optional-deps: false
+          with-zstandard: true
         - os: windows-latest
           python-version: 3.7
     steps:
     - name: Install optional tools macOS
       if: runner.os == 'macOS' && matrix.optional-deps
-      run: brew install pigz pbzip2 isa-l
+      run: brew install pigz pbzip2 isa-l zstd
     - name: Install optional tools Linux
       if: runner.os == 'Linux' && matrix.optional-deps
-      run: sudo apt-get install pigz pbzip2 isal
+      run: sudo apt-get install pigz pbzip2 isal zstd
     - name: Remove xz
       if: runner.os == 'Linux' && !matrix.optional-deps
       run: while which xz; do sudo rm $(which xz); done
@@ -59,6 +63,9 @@ jobs:
       run: python -m pip install tox
     - name: Test
       run: tox -e py
+    - name: Test with zstandard
+      if: matrix.with-zstandard
+      run: tox -e zstd
     - name: Upload coverage report
       uses: codecov/codecov-action@v1
 

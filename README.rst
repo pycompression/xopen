@@ -19,7 +19,7 @@ xopen
 
 This Python module provides an ``xopen`` function that works like the
 built-in ``open`` function but also transparently deals with compressed files.
-Supported compression formats are currently gzip, bzip2 and xz.
+Supported compression formats are currently gzip, bzip2, xz and optionally Zstandard.
 
 ``xopen`` selects the most efficient method for reading or writing a compressed file.
 This often means opening a pipe to an external tool, such as
@@ -45,7 +45,7 @@ For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is use
 if none of the other methods can be used.
 
 The file format to use is determined from the file name if the extension is recognized
-(``.gz``, ``.bz2`` or ``.xz``).
+(``.gz``, ``.bz2``, ``.xz`` or ``.zst``).
 When reading a file without a recognized file extension, xopen attempts to detect the format
 by reading the first couple of bytes from the file.
 
@@ -93,8 +93,30 @@ bzip2 and xz compression methods do not store timestamps in the file headers,
 so output from them is also reproducible.
 
 
+Optional Zstandard support
+--------------------------
+
+For reading and writing Zstandard (``.zst``) files, either the ``zstd`` command-line
+program or the Python ``zstandard`` package needs to be installed.
+
+* If the ``threads`` parameter to ``xopen()`` is ``None`` (the default) or any value greater than 0,
+  ``xopen`` uses an external ``zstd`` process.
+* If the above fails (because no ``zstd`` program is available) or if ``threads`` is 0,
+  the ``zstandard`` package is used.
+
+To ensure that you get the correct ``zstandard`` version, you can specify the ``zstd`` extra for
+``xopen``, that is, install it using ``pip install xopen[zstd]``.
+
+
 Changes
 -------
+
+development version
+~~~~~~~~~~~~~~~~~~~
+
+* #91: Added preliminary support for Zstandard (``.zst``) files.
+  This requires that the Python ``zstandard`` package is installed
+  or that the ``zstd`` command-line program is available.
 
 v1.6.0 (2022-08-10)
 ~~~~~~~~~~~~~~~~~~~
