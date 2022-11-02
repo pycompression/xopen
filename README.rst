@@ -107,7 +107,6 @@ program or the Python ``zstandard`` package needs to be installed.
 To ensure that you get the correct ``zstandard`` version, you can specify the ``zstd`` extra for
 ``xopen``, that is, install it using ``pip install xopen[zstd]``.
 
-.. _changes:
 
 Changelog
 ---------
