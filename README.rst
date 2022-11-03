@@ -111,10 +111,10 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
-development version
+v1.7.0 (2022-11-03)
 ~~~~~~~~~~~~~~~~~~~
 
-* #91: Added preliminary support for Zstandard (``.zst``) files.
+* #91: Added optional support for Zstandard (``.zst``) files.
   This requires that the Python ``zstandard`` package is installed
   or that the ``zstd`` command-line program is available.
 
