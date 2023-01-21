@@ -68,7 +68,7 @@ and avoid using an external process::
 
     from xopen import xopen
 
-    with xopen("file.txt.xz", mode="wb", threads=0, compresslevel=3)
+    with xopen("file.txt.xz", mode="wb", threads=0, compresslevel=3) as f:
         f.write(b"Hello")
 
 
