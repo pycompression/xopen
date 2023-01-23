@@ -36,6 +36,7 @@ import time
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, Union, TextIO, AnyStr, IO, List, Set, overload, BinaryIO
+from types import ModuleType
 
 if sys.version_info >= (3, 8):
     from typing import Literal
@@ -48,8 +49,11 @@ from ._version import version as __version__
 BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
 
+igzip: Optional[ModuleType]
+isal_zlib: Optional[ModuleType]
+
 try:
-    from isal import igzip, isal_zlib  # type: ignore
+    from isal import igzip, isal_zlib
 except ImportError:
     igzip = None
     isal_zlib = None
@@ -469,7 +473,7 @@ class PipedCompressionReader(Closing):
     def seek(self, offset, whence=0) -> int:
         return self._file.seek(offset, whence)
 
-    def peek(self, n: int = None):
+    def peek(self, n: Optional[int] = None):
         if hasattr(self._file, "peek"):
             return self._file.peek(n)  # type: ignore
         else:
