@@ -340,6 +340,8 @@ def writers_and_levels():
         elif writer == PipedIGzipWriter or writer == PipedPythonIsalWriter:
             # Levels 0-3 are supported
             yield from ((writer, i) for i in range(4))
+        elif writer == PipedPythonZlibNGWriter:
+            yield from ((writer, i) for i in range(1, 10))
         else:
             raise NotImplementedError(
                 f"Test should be implemented for " f"{writer}"
