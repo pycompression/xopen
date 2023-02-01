@@ -33,6 +33,7 @@ import pathlib
 import subprocess
 import tempfile
 import time
+import zlib
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import Optional, Union, TextIO, AnyStr, IO, List, Set, overload, BinaryIO
@@ -51,12 +52,18 @@ BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
+gzip_ng: Optional[ModuleType]
 
 try:
     from isal import igzip, isal_zlib
 except ImportError:
     igzip = None
     isal_zlib = None
+
+try:
+    from zlib_ng import gzip_ng
+except:
+    gzip_ng = None
 
 try:
     import zstandard  # type: ignore
@@ -79,7 +86,9 @@ try:
     _MAX_PIPE_SIZE = int(
         _MAX_PIPE_SIZE_PATH.read_text(encoding="ascii")
     )  # type: Optional[int]
-except OSError:  # Catches file not found and permission errors. Possible other errors too.
+except (
+    OSError
+):  # Catches file not found and permission errors. Possible other errors too.
     _MAX_PIPE_SIZE = None
 
 
@@ -921,6 +930,44 @@ class PipedPythonIsalWriter(PipedCompressionWriter):
         )
 
 
+class PipedPythonZlibNGReader(PipedCompressionReader):
+    def __init__(
+        self, path, mode: str = "r", *, encoding="utf-8", errors=None, newline=None
+    ):
+        super().__init__(
+            path,
+            [sys.executable, "-m", "zlib_ng.gzip_ng"],
+            mode,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
+class PipedPythonZlibNGWriter(PipedCompressionWriter):
+    def __init__(
+        self,
+        path,
+        mode: str = "wt",
+        compresslevel: Optional[int] = None,
+        *,
+        encoding="utf-8",
+        errors=None,
+        newline=None,
+    ):
+        if compresslevel is not None and compresslevel not in range(1, 10):
+            raise ValueError("compresslevel must be between 1 and 10")
+        super().__init__(
+            path,
+            [sys.executable, "-m", "zlib_ng.gzip_ng", "--no-name"],
+            mode,
+            compresslevel,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+        )
+
+
 def _open_stdin_or_out(mode: str, **text_mode_kwargs) -> IO:
     # Do not return sys.stdin or sys.stdout directly as we want the returned object
     # to be closable without closing sys.stdout.
@@ -1024,6 +1071,8 @@ def _open_external_gzip_reader(
         pass
     if igzip:
         return PipedPythonIsalReader(filename, mode, **text_mode_kwargs)
+    if gzip_ng:
+        return PipedPythonZlibNGReader(filename, mode, **text_mode_kwargs)
     try:
         return PipedPigzReader(filename, mode, threads=threads, **text_mode_kwargs)
     except OSError:
@@ -1042,6 +1091,13 @@ def _open_external_gzip_writer(
     if igzip:  # We can use the CLI from isal.igzip
         try:
             return PipedPythonIsalWriter(
+                filename, mode, compresslevel, **text_mode_kwargs
+            )
+        except ValueError:  # Wrong compression level
+            pass
+    if gzip_ng:
+        try:
+            return PipedPythonZlibNGWriter(
                 filename, mode, compresslevel, **text_mode_kwargs
             )
         except ValueError:  # Wrong compression level
@@ -1072,6 +1128,8 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     if "r" in mode:
         if igzip is not None:
             return igzip.open(filename, mode, **text_mode_kwargs)
+        if gzip_ng is not None:
+            return gzip_ng.open(filename, mode, **text_mode_kwargs)
         return gzip.open(filename, mode, **text_mode_kwargs)
 
     g = _open_reproducible_gzip(
@@ -1111,14 +1169,23 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
                 else compresslevel,
             )
         except ValueError:
-            # Compression level not supported, move to built-in gzip.
+            # Compression level not supported, move to gzip_ng or builtin gzip.
             pass
+    if gzip_ng is not None:
+        gzip_file = gzip_ng.GzipNGFile(
+            **kwargs,
+            compresslevel=zlib.Z_DEFAULT_COMPRESSION
+            if compresslevel is None
+            else compresslevel,
+        )
     if gzip_file is None:
         gzip_file = gzip.GzipFile(
             **kwargs,
             # Override gzip.open's default of 9 for consistency
             # with command-line gzip.
-            compresslevel=6 if compresslevel is None else compresslevel,
+            compresslevel=zlib.Z_DEFAULT_COMPRESSION
+            if compresslevel is None
+            else compresslevel,
         )
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()

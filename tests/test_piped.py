@@ -25,6 +25,8 @@ from xopen import (
     PipedIGzipWriter,
     PipedPythonIsalReader,
     PipedPythonIsalWriter,
+    PipedPythonZlibNGReader,
+    PipedPythonZlibNGWriter,
     PipedXzReader,
     PipedXzWriter,
     PipedZstdReader,
@@ -32,6 +34,7 @@ from xopen import (
     _MAX_PIPE_SIZE,
     _can_read_concatenated_gz,
     igzip,
+    gzip_ng,
 )
 
 extensions = ["", ".gz", ".bz2", ".xz", ".zst"]
@@ -76,6 +79,9 @@ def available_gzip_readers_and_writers():
     if igzip is not None:
         readers.append(PipedPythonIsalReader)
         writers.append(PipedPythonIsalWriter)
+    if gzip_ng is not None:
+        readers.append(PipedPythonZlibNGReader)
+        writers.append(PipedPythonZlibNGWriter)
     return readers, writers
 
 
