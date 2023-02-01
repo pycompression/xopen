@@ -1100,7 +1100,7 @@ def _open_external_gzip_writer(
             )
         except ValueError:  # Wrong compression level
             pass
-    elif gzip_ng:
+    if gzip_ng:
         return PipedPythonZlibNGWriter(
             filename, mode, compresslevel, **text_mode_kwargs
         )
