@@ -1173,24 +1173,27 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         except ValueError:
             # Compression level not supported, move to gzip_ng or builtin gzip.
             pass
-    if gzip_ng is not None:
-        gzip_file = gzip_ng.GzipNGFile(
-            **kwargs,
-            compresslevel=zlib.Z_DEFAULT_COMPRESSION if compresslevel is None
-            # Compresslevel 1 results in files that are typically 50% larger
-            # than zlib. So in that case use level 2, which is more similar
-            # to zlib and also still faster.
-            else max(compresslevel, 2),
-        )
+
     if gzip_file is None:
-        gzip_file = gzip.GzipFile(
-            **kwargs,
-            # Override gzip.open's default of 9 for consistency
-            # with command-line gzip.
-            compresslevel=zlib.Z_DEFAULT_COMPRESSION
-            if compresslevel is None
-            else compresslevel,
-        )
+        if gzip_ng is not None:
+            gzip_file = gzip_ng.GzipNGFile(
+                **kwargs,
+                compresslevel=zlib.Z_DEFAULT_COMPRESSION if compresslevel is None
+                # Compresslevel 1 results in files that are typically 50%
+                # larger
+                # than zlib. So in that case use level 2, which is more similar
+                # to zlib and also still faster.
+                else max(compresslevel, 2),
+            )
+        else:
+            gzip_file = gzip.GzipFile(
+                **kwargs,
+                # Override gzip.open's default of 9 for consistency
+                # with command-line gzip.
+                compresslevel=zlib.Z_DEFAULT_COMPRESSION
+                if compresslevel is None
+                else compresslevel,
+            )
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
     # is called. This forces it to be closed.
