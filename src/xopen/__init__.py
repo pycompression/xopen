@@ -62,7 +62,7 @@ except ImportError:
 
 try:
     from zlib_ng import gzip_ng
-except:
+except ImportError:
     gzip_ng = None
 
 try:
@@ -1100,13 +1100,10 @@ def _open_external_gzip_writer(
             )
         except ValueError:  # Wrong compression level
             pass
-    if gzip_ng:
-        try:
-            return PipedPythonZlibNGWriter(
-                filename, mode, compresslevel, **text_mode_kwargs
-            )
-        except ValueError:  # Wrong compression level
-            pass
+    elif gzip_ng:
+        return PipedPythonZlibNGWriter(
+            filename, mode, compresslevel, **text_mode_kwargs
+        )
     try:
         return PipedPigzWriter(
             filename, mode, compresslevel, threads=threads, **text_mode_kwargs
