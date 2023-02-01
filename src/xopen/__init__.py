@@ -957,6 +957,11 @@ class PipedPythonZlibNGWriter(PipedCompressionWriter):
     ):
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 10")
+        if compresslevel == 1:
+            # Compresslevel 1 results in files that are typically 50% larger
+            # than zlib. So in that case use level 2, which is more similar
+            # to zlib and also still faster.
+            compresslevel = 2
         super().__init__(
             path,
             [sys.executable, "-m", "zlib_ng.gzip_ng", "--no-name"],
@@ -1174,9 +1179,11 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     if gzip_ng is not None:
         gzip_file = gzip_ng.GzipNGFile(
             **kwargs,
-            compresslevel=zlib.Z_DEFAULT_COMPRESSION
-            if compresslevel is None
-            else compresslevel,
+            compresslevel=zlib.Z_DEFAULT_COMPRESSION if compresslevel is None
+            # Compresslevel 1 results in files that are typically 50% larger
+            # than zlib. So in that case use level 2, which is more similar
+            # to zlib and also still faster.
+            else max(compresslevel, 2),
         )
     if gzip_file is None:
         gzip_file = gzip.GzipFile(
