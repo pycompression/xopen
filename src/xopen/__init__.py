@@ -23,6 +23,7 @@ __all__ = [
 
 import functools
 import gzip
+import platform
 import sys
 import io
 import os
@@ -1069,7 +1070,7 @@ def _open_external_gzip_reader(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
     assert mode in ("rt", "rb")
-    if sys.platform == "AMD64" or sys.platform == "x86_64":
+    if platform.machine() == "AMD64" or platform.machine() == "x86_64":
         # For x86-64 there are optimized libraries available for decompression
         preferred_applications = [
             PipedIGzipReader,
