@@ -80,12 +80,13 @@ def lacking_xz_permissions(tmp_path):
         yield
 
 
-@pytest.fixture
-def xopen_without_igzip(monkeypatch):
+@pytest.fixture(params=[("igzip",), ("gzip_ng",), ("igzip", "gzip_ng")])
+def xopen_without_libs(monkeypatch, request):
     import xopen  # xopen local overrides xopen global variable
 
-    monkeypatch.setattr(xopen, "igzip", None)
-    return xopen.xopen
+    for lib in request.param:
+        monkeypatch.setattr(xopen, lib, None)
+    yield xopen.xopen
 
 
 def test_text(fname):
@@ -115,17 +116,17 @@ def test_roundtrip(ext, tmp_path, threads, mode):
         assert f.read() == data
 
 
-def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
+def test_binary_no_libs_no_threads(fname, xopen_without_libs):
     if fname.endswith(".zst") and zstandard is None:
         return
-    with xopen_without_igzip(fname, "rb", threads=0) as f:
+    with xopen_without_libs(fname, "rb", threads=0) as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == b"The second line.\n", fname
 
 
-def test_binary_no_isal(fname, xopen_without_igzip):
-    with xopen_without_igzip(fname, "rb", threads=1) as f:
+def test_binary_no_libs(fname, xopen_without_libs):
+    with xopen_without_libs(fname, "rb", threads=1) as f:
         lines = list(f)
         assert len(lines) == 2
         assert lines[1] == b"The second line.\n", fname
@@ -366,11 +367,11 @@ def test_write_threads(tmp_path, ext):
         assert f.read() == "hello"
 
 
-def test_write_pigz_threads_no_isal(tmp_path, xopen_without_igzip):
+def test_write_pigz_threads_no_libs(tmp_path, xopen_without_libs):
     path = tmp_path / "out.gz"
-    with xopen_without_igzip(path, mode="w", threads=3) as f:
+    with xopen_without_libs(path, mode="w", threads=3) as f:
         f.write("hello")
-    with xopen_without_igzip(path) as f:
+    with xopen_without_libs(path) as f:
         assert f.read() == "hello"
 
 
@@ -392,10 +393,10 @@ def test_write_no_threads(tmp_path, ext):
             assert isinstance(f.raw, klass), f
 
 
-def test_write_gzip_no_threads_no_isal(tmp_path, xopen_without_igzip):
+def test_write_gzip_no_threads_no_libs(tmp_path, xopen_without_libs):
     import gzip
 
-    with xopen_without_igzip(tmp_path / "out.gz", "wb", threads=0) as f:
+    with xopen_without_libs(tmp_path / "out.gz", "wb", threads=0) as f:
         assert isinstance(f.raw, gzip.GzipFile), f
 
 
@@ -448,16 +449,16 @@ def test_falls_back_to_gzip_open(lacking_pigz_permissions):
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_falls_back_to_gzip_open_no_isal(lacking_pigz_permissions, xopen_without_igzip):
-    with xopen_without_igzip(TEST_DIR / "file.txt.gz", "rb") as f:
+def test_falls_back_to_gzip_open_no_libs(lacking_pigz_permissions, xopen_without_libs):
+    with xopen_without_libs(TEST_DIR / "file.txt.gz", "rb") as f:
         assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-def test_fals_back_to_gzip_open_write_no_isal(
-    lacking_pigz_permissions, xopen_without_igzip, tmp_path
+def test_fals_back_to_gzip_open_write_no_libs(
+    lacking_pigz_permissions, xopen_without_libs, tmp_path
 ):
     tmp = tmp_path / "test.gz"
-    with xopen_without_igzip(tmp, "wb") as f:
+    with xopen_without_libs(tmp, "wb") as f:
         f.write(b"hello")
     assert gzip.decompress(tmp.read_bytes()) == b"hello"
 
