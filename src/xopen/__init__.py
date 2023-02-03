@@ -1196,11 +1196,15 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         else:
             compresslevel = zlib.Z_DEFAULT_COMPRESSION
     if gzip_ng is not None:
-        preferred_class = [gzip_ng.GzipNGFile] + preferred_class
         # Compresslevel 1 results in files that are typically 50% larger than
         # zlib. So in that case use level 2, which is more similar to zlib and
         # also still faster.
-        compresslevel = max(compresslevel, 2)
+        def zlibng_class_opener(*args, compresslevel, **kwargs):
+            return gzip_ng.GzipNGFile(
+                *args, compresslevel=max(compresslevel, 2), **kwargs
+            )
+
+        preferred_class = [zlibng_class_opener] + preferred_class
     if igzip is not None:
         preferred_class = [igzip.IGzipFile] + preferred_class
     last_error = None
