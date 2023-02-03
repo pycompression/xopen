@@ -21,6 +21,7 @@ __all__ = [
     "__version__",
 ]
 
+import functools
 import gzip
 import sys
 import io
@@ -1068,48 +1069,72 @@ def _open_external_gzip_reader(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
     assert mode in ("rt", "rb")
-    try:
-        return PipedIGzipReader(filename, mode, **text_mode_kwargs)
-    except (OSError, ValueError):
-        # No igzip installed or version does not support reading
-        # concatenated files.
-        pass
-    if igzip:
-        return PipedPythonIsalReader(filename, mode, **text_mode_kwargs)
-    if gzip_ng:
-        return PipedPythonZlibNGReader(filename, mode, **text_mode_kwargs)
-    try:
-        return PipedPigzReader(filename, mode, threads=threads, **text_mode_kwargs)
-    except OSError:
-        return PipedGzipReader(filename, mode, **text_mode_kwargs)
+    if sys.platform == "AMD64" or sys.platform == "x86_64":
+        # For x86-64 there are optimized libraries available for decompression
+        preferred_applications = [
+            PipedIGzipReader,
+            PipedPythonIsalReader,
+            PipedPythonZlibNGReader,
+            functools.partial(PipedPigzReader, threads=threads),
+            PipedGzipReader,
+        ]
+    else:
+        # For other platforms, libraries zlib, zlib-ng and isal perform
+        # similarly at decompressions. C implementations perform better than
+        # Python implementations.
+        preferred_applications = [
+            functools.partial(PipedPigzReader, threads=threads),
+            PipedIGzipReader,
+            PipedPythonIsalReader,
+            PipedPythonZlibNGReader,
+            PipedGzipReader,  # Gzip decompresses very slowly.
+        ]
+    for app_class in preferred_applications:
+        try:
+            return app_class(filename, mode, **text_mode_kwargs)
+        except (OSError, ValueError):
+            continue
+    raise OSError("No external applications available")
 
 
 def _open_external_gzip_writer(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
     assert mode in ("wt", "wb", "at", "ab")
-    try:
-        return PipedIGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
-    except (OSError, ValueError):
-        # No igzip installed or compression level higher than 3
-        pass
-    if igzip:  # We can use the CLI from isal.igzip
+    if compresslevel is None:
+        preferred_applications = [
+            PipedIGzipWriter,
+            PipedPythonIsalWriter,
+            PipedPythonZlibNGWriter,
+            functools.partial(PipedPigzWriter, threads=threads),
+            PipedGzipWriter,
+        ]
+    elif compresslevel < 3:
+        preferred_applications = [
+            PipedIGzipWriter,
+            PipedPythonIsalWriter,
+            PipedPythonZlibNGWriter,
+            functools.partial(PipedPigzWriter, threads=threads),
+            PipedGzipWriter,
+        ]
+    else:
+        # ISA-L level 3 is very similar in compression to levels 1 and 2.
+        # prefer zlib-ng instead for better compression.
+        preferred_applications = [
+            PipedPythonZlibNGWriter,
+            PipedIGzipWriter,
+            PipedPythonIsalWriter,
+            functools.partial(PipedPigzWriter, threads=threads),
+            PipedGzipWriter,
+        ]
+    for app_class in preferred_applications:
         try:
-            return PipedPythonIsalWriter(
-                filename, mode, compresslevel, **text_mode_kwargs
+            return app_class(
+                filename, mode, compresslevel=compresslevel, **text_mode_kwargs
             )
-        except ValueError:  # Wrong compression level
-            pass
-    if gzip_ng:
-        return PipedPythonZlibNGWriter(
-            filename, mode, compresslevel, **text_mode_kwargs
-        )
-    try:
-        return PipedPigzWriter(
-            filename, mode, compresslevel, threads=threads, **text_mode_kwargs
-        )
-    except OSError:
-        return PipedGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
+        except (OSError, ValueError):
+            continue
+    raise OSError("No external applications available")
 
 
 def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
