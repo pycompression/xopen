@@ -898,6 +898,9 @@ class PipedPythonIsalReader(PipedCompressionReader):
     def __init__(
         self, path, mode: str = "r", *, encoding="utf-8", errors=None, newline=None
     ):
+        if not igzip:
+            # Raise error here, otherwise it will occur during write.
+            raise OSError("isal module not installed.")
         super().__init__(
             path,
             [sys.executable, "-m", "isal.igzip"],
@@ -919,6 +922,9 @@ class PipedPythonIsalWriter(PipedCompressionWriter):
         errors=None,
         newline=None,
     ):
+        if not igzip:
+            # Raise error here, otherwise it will occur during write.
+            raise OSError("isal module not installed.")
         if compresslevel is not None and compresslevel not in range(0, 4):
             raise ValueError("compresslevel must be between 0 and 3")
         super().__init__(
@@ -936,6 +942,9 @@ class PipedPythonZlibNGReader(PipedCompressionReader):
     def __init__(
         self, path, mode: str = "r", *, encoding="utf-8", errors=None, newline=None
     ):
+        if not gzip_ng:
+            # Raise error here, otherwise it will occur during write.
+            raise OSError("zlib-ng module not installed.")
         super().__init__(
             path,
             [sys.executable, "-m", "zlib_ng.gzip_ng"],
@@ -957,6 +966,9 @@ class PipedPythonZlibNGWriter(PipedCompressionWriter):
         errors=None,
         newline=None,
     ):
+        if not gzip_ng:
+            # Raise error here, otherwise it will occur during write.
+            raise OSError("zlib-ng module not installed.")
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 10")
         if compresslevel == 1:
