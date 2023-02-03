@@ -1162,13 +1162,13 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     return g
 
 
-def gzip_class(*args, compresslevel, **kwargs):
+def _gzip_class(*args, compresslevel, **kwargs):
     if compresslevel is None:
         compresslevel = zlib.Z_DEFAULT_COMPRESSION
     return gzip.GzipFile(*args, compresslevel=compresslevel, **kwargs)
 
 
-def igzip_class(*args, compresslevel, **kwargs):
+def _igzip_class(*args, compresslevel, **kwargs):
     if igzip is None:
         raise ValueError("No igzip available")
     if compresslevel is None:
@@ -1176,7 +1176,7 @@ def igzip_class(*args, compresslevel, **kwargs):
     return igzip.IGzipFile(*args, compresslevel=compresslevel, **kwargs)
 
 
-def gzip_ng_class(*args, compresslevel, **kwargs):
+def _gzip_ng_class(*args, compresslevel, **kwargs):
     if gzip_ng is None:
         raise ValueError("No gzip_ng available")
     if compresslevel is None:
@@ -1203,11 +1203,11 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     )
 
     if compresslevel is None or compresslevel < 3:
-        preferred_classes = [igzip_class, gzip_ng_class, gzip_class]
+        preferred_classes = [_igzip_class, _gzip_ng_class, _gzip_class]
     else:
         # ISA-L level 3 is very similar in compression to levels 1 and 2.
         # prefer zlib-ng instead for better compression at levels higher than 2.
-        preferred_classes = [gzip_ng_class, igzip_class, gzip_class]
+        preferred_classes = [_gzip_ng_class, _igzip_class, _gzip_class]
 
     last_error = None
     for klass in preferred_classes:
