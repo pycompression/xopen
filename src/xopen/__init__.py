@@ -1186,39 +1186,33 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         mode=mode,
         mtime=0,
     )
-    gzip_file = None
-    if igzip is not None:
-        try:
-            gzip_file = igzip.IGzipFile(
-                **kwargs,
-                compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION
-                if compresslevel is None
-                else compresslevel,
-            )
-        except ValueError:
-            # Compression level not supported, move to gzip_ng or builtin gzip.
-            pass
-
-    if gzip_file is None:
-        if gzip_ng is not None:
-            gzip_file = gzip_ng.GzipNGFile(
-                **kwargs,
-                compresslevel=zlib.Z_DEFAULT_COMPRESSION if compresslevel is None
-                # Compresslevel 1 results in files that are typically 50%
-                # larger
-                # than zlib. So in that case use level 2, which is more similar
-                # to zlib and also still faster.
-                else max(compresslevel, 2),
-            )
+    preferred_class = [gzip.GzipFile]
+    if compresslevel is None:
+        # By default, the highest available compression level is chosen by
+        # the python implementations. Choose medium copmpression level for
+        # consistency with command line applications.
+        if igzip is not None:
+            compresslevel = isal_zlib.ISAL_DEFAULT_COMPRESSION
         else:
-            gzip_file = gzip.GzipFile(
-                **kwargs,
-                # Override gzip.open's default of 9 for consistency
-                # with command-line gzip.
-                compresslevel=zlib.Z_DEFAULT_COMPRESSION
-                if compresslevel is None
-                else compresslevel,
-            )
+            compresslevel = zlib.Z_DEFAULT_COMPRESSION
+    if gzip_ng is not None:
+        preferred_class = [gzip_ng.GzipNGFile] + preferred_class
+        # Compresslevel 1 results in files that are typically 50% larger than
+        # zlib. So in that case use level 2, which is more similar to zlib and
+        # also still faster.
+        compresslevel = max(compresslevel, 2)
+    if igzip is not None:
+        preferred_class = [igzip.IGzipFile] + preferred_class
+    last_error = None
+    for klass in preferred_class:
+        try:
+            gzip_file = klass(**kwargs, compresslevel=compresslevel)
+            break
+        except ValueError as e:  # igzip does not support all compression levels
+            last_error = e
+            continue
+    else:  # no break
+        raise last_error
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
     # is called. This forces it to be closed.
