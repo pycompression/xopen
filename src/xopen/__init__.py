@@ -1102,15 +1102,7 @@ def _open_external_gzip_writer(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
     assert mode in ("wt", "wb", "at", "ab")
-    if compresslevel is None:
-        preferred_applications = [
-            PipedIGzipWriter,
-            PipedPythonIsalWriter,
-            PipedPythonZlibNGWriter,
-            functools.partial(PipedPigzWriter, threads=threads),
-            PipedGzipWriter,
-        ]
-    elif compresslevel < 3:
+    if compresslevel is None or compresslevel < 3:
         preferred_applications = [
             PipedIGzipWriter,
             PipedPythonIsalWriter,
@@ -1120,7 +1112,7 @@ def _open_external_gzip_writer(
         ]
     else:
         # ISA-L level 3 is very similar in compression to levels 1 and 2.
-        # prefer zlib-ng instead for better compression.
+        # prefer zlib-ng instead for better compression at levels higher than 2.
         preferred_applications = [
             PipedPythonZlibNGWriter,
             PipedIGzipWriter,
@@ -1210,11 +1202,11 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         mtime=0,
     )
 
-    if compresslevel is None:
-        preferred_classes = [igzip_class, gzip_ng_class, gzip_class]
-    elif compresslevel < 3:
+    if compresslevel is None or compresslevel < 3:
         preferred_classes = [igzip_class, gzip_ng_class, gzip_class]
     else:
+        # ISA-L level 3 is very similar in compression to levels 1 and 2.
+        # prefer zlib-ng instead for better compression at levels higher than 2.
         preferred_classes = [gzip_ng_class, igzip_class, gzip_class]
 
     last_error = None
