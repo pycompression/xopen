@@ -1170,6 +1170,28 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     return g
 
 
+def gzip_class(*args, compresslevel, **kwargs):
+    if compresslevel is None:
+        compresslevel = zlib.Z_DEFAULT_COMPRESSION
+    return gzip.GzipFile(*args, compresslevel=compresslevel, **kwargs)
+
+
+def igzip_class(*args, compresslevel, **kwargs):
+    if igzip is None:
+        raise ValueError("No igzip available")
+    if compresslevel is None:
+        compresslevel = isal_zlib.ISAL_DEFAULT_COMPRESSION
+    return igzip.IGzipFile(*args, compresslevel=compresslevel, **kwargs)
+
+
+def gzip_ng_class(*args, compresslevel, **kwargs):
+    if gzip_ng is None:
+        raise ValueError("No gzip_ng available")
+    if compresslevel is None:
+        compresslevel = zlib.Z_DEFAULT_COMPRESSION
+    return gzip_ng.GzipNGFile(*args, compresslevel=max(compresslevel, 2), **kwargs)
+
+
 def _open_reproducible_gzip(filename, mode, compresslevel):
     """
     Open a gzip file for writing (without external processes)
@@ -1187,29 +1209,16 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         mode=mode,
         mtime=0,
     )
-    preferred_class = [gzip.GzipFile]
-    if compresslevel is None:
-        # By default, the highest available compression level is chosen by
-        # the python implementations. Choose medium copmpression level for
-        # consistency with command line applications.
-        if igzip is not None:
-            compresslevel = isal_zlib.ISAL_DEFAULT_COMPRESSION
-        else:
-            compresslevel = zlib.Z_DEFAULT_COMPRESSION
-    if gzip_ng is not None:
-        # Compresslevel 1 results in files that are typically 50% larger than
-        # zlib. So in that case use level 2, which is more similar to zlib and
-        # also still faster.
-        def zlibng_class_opener(*args, compresslevel, **kwargs):
-            return gzip_ng.GzipNGFile(
-                *args, compresslevel=max(compresslevel, 2), **kwargs
-            )
 
-        preferred_class = [zlibng_class_opener] + preferred_class
-    if igzip is not None:
-        preferred_class = [igzip.IGzipFile] + preferred_class
+    if compresslevel is None:
+        preferred_classes = [igzip_class, gzip_ng_class, gzip_class]
+    elif compresslevel < 3:
+        preferred_classes = [igzip_class, gzip_ng_class, gzip_class]
+    else:
+        preferred_classes = [gzip_ng_class, igzip_class, gzip_class]
+
     last_error = None
-    for klass in preferred_class:
+    for klass in preferred_classes:
         try:
             gzip_file = klass(**kwargs, compresslevel=compresslevel)
             break
