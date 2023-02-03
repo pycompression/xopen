@@ -259,7 +259,11 @@ def test_invalid_compression_level(tmp_path):
     with pytest.raises(ValueError) as e:
         with xopen(tmp_path / "out.gz", mode="w", compresslevel=17) as f:
             f.write("hello")  # pragma: no cover
-    assert "compresslevel must be" in e.value.args[0]
+    # The value error should warn about compresslevel or about an invalid
+    # initialization option.
+    assert (
+        "compresslevel must be" in e.value.args[0] or "nitialization" in e.value.args[0]
+    )
 
 
 @pytest.mark.parametrize("ext", extensions)
