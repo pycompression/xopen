@@ -183,6 +183,18 @@ def test_piped_reader_iter(threads, threaded_reader):
         assert lines[0] == CONTENT_LINES[0]
 
 
+def test_writer(tmp_path, writer):
+    opener, extension = writer
+    print(opener, writer)
+    print(repr(opener))
+    path = tmp_path / f"out{extension}"
+    with opener(path, mode="wt") as f:
+        print(f)
+        f.write("hello")
+    with xopen(path, mode="rt") as f:
+        assert f.read() == "hello"
+
+
 def test_writer_has_iter_method(tmp_path, writer):
     opener, extension = writer
     with opener(tmp_path / f"out.{extension}") as f:
