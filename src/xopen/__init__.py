@@ -268,8 +268,8 @@ class PipedCompressionWriter(Closing):
         process = Popen(program_args + extra_args, **kwargs)  # type: ignore
         return process
 
-    def write(self, arg: AnyStr) -> None:
-        self._file.write(arg)
+    def write(self, arg: AnyStr) -> int:
+        return self._file.write(arg)
 
     def close(self) -> None:
         if self.closed:
