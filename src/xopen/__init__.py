@@ -53,10 +53,11 @@ igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
 
 try:
-    from isal import igzip, isal_zlib
+    from isal import igzip, igzip_threaded, isal_zlib
 except ImportError:
     igzip = None
     isal_zlib = None
+    igzip_threaded = None
 
 try:
     import zstandard  # type: ignore
@@ -1022,8 +1023,6 @@ def _open_external_gzip_reader(
         # No igzip installed or version does not support reading
         # concatenated files.
         pass
-    if igzip:
-        return PipedPythonIsalReader(filename, mode, **text_mode_kwargs)
     try:
         return PipedPigzReader(filename, mode, threads=threads, **text_mode_kwargs)
     except OSError:
@@ -1039,13 +1038,6 @@ def _open_external_gzip_writer(
     except (OSError, ValueError):
         # No igzip installed or compression level higher than 3
         pass
-    if igzip:  # We can use the CLI from isal.igzip
-        try:
-            return PipedPythonIsalWriter(
-                filename, mode, compresslevel, **text_mode_kwargs
-            )
-        except ValueError:  # Wrong compression level
-            pass
     try:
         return PipedPigzWriter(
             filename, mode, compresslevel, threads=threads, **text_mode_kwargs
@@ -1056,6 +1048,17 @@ def _open_external_gzip_writer(
 
 def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
+    if igzip_threaded:
+        try:
+            return igzip_threaded.open(
+                filename,
+                mode,
+                compresslevel or isal_zlib.ISAL_DEFAULT_COMPRESSION,
+                **text_mode_kwargs,
+                threads=threads or 1,
+            )
+        except ValueError:  # Wrong compression level
+            pass
     if threads != 0:
         try:
             if "r" in mode:
