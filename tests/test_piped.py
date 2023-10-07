@@ -259,8 +259,9 @@ def test_concatenated_gzip_function():
     not hasattr(fcntl, "F_GETPIPE_SZ") or _MAX_PIPE_SIZE is None,
     reason="Pipe size modifications not available on this platform.",
 )
-def test_pipesize_changed(tmp_path):
-    with xopen(tmp_path / "hello.gz", "wb") as f:
+def test_pipesize_changed(tmp_path, monkeypatch):
+    # Higher compression level to avoid openingen with threaded opener
+    with xopen(tmp_path / "hello.gz", "wb", compresslevel=5) as f:
         assert isinstance(f, PipedCompressionWriter)
         assert fcntl.fcntl(f._file.fileno(), fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
 
