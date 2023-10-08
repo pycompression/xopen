@@ -1048,7 +1048,7 @@ def _open_external_gzip_writer(
 
 def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
-    if igzip_threaded:
+    if igzip_threaded and threads != 0:
         try:
             return igzip_threaded.open(
                 filename,
