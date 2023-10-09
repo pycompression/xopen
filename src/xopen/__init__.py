@@ -1048,6 +1048,8 @@ def _open_external_gzip_writer(
 
 def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
+    # With threads == 0 igzip_threaded defers to igzip.open, but that is not
+    # desirable as a reproducible header is required.
     if igzip_threaded and threads != 0:
         try:
             return igzip_threaded.open(
