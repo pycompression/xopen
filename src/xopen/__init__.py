@@ -35,22 +35,28 @@ import tempfile
 import time
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, Union, TextIO, AnyStr, IO, List, Set, overload, BinaryIO
+from typing import (
+    Optional,
+    Union,
+    TextIO,
+    AnyStr,
+    IO,
+    List,
+    Set,
+    overload,
+    BinaryIO,
+    Literal,
+)
 from types import ModuleType
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 from ._version import version as __version__
 
 # 128K buffer size also used by cat, pigz etc. It is faster than the 8K default.
 BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
-
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
+igzip_threaded: Optional[ModuleType]
 
 try:
     from isal import igzip, igzip_threaded, isal_zlib
@@ -393,7 +399,7 @@ class PipedCompressionReader(Closing):
     def __iter__(self):
         return self
 
-    def __next__(self) -> AnyStr:
+    def __next__(self) -> Union[str, bytes]:
         return self._file.__next__()
 
     def _wait_for_output_or_process_exit(self):
@@ -456,13 +462,13 @@ class PipedCompressionReader(Closing):
         self._file.close()
         raise OSError("{!r} (exit code {})".format(stderr_message, retcode))
 
-    def read(self, *args) -> AnyStr:
+    def read(self, *args) -> Union[str, bytes]:
         return self._file.read(*args)
 
     def readinto(self, *args):
         return self._file.readinto(*args)
 
-    def readline(self, *args) -> AnyStr:
+    def readline(self, *args) -> Union[str, bytes]:
         return self._file.readline(*args)
 
     def seekable(self) -> bool:
@@ -1052,10 +1058,10 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     # desirable as a reproducible header is required.
     if threads != 0:
         try:
-            return igzip_threaded.open(
+            return igzip_threaded.open(  # type: ignore
                 filename,
                 mode,
-                isal_zlib.ISAL_DEFAULT_COMPRESSION
+                isal_zlib.ISAL_DEFAULT_COMPRESSION  # type: ignore
                 if compresslevel is None
                 else compresslevel,
                 **text_mode_kwargs,
