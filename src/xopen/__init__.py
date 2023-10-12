@@ -1055,7 +1055,8 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
             return igzip_threaded.open(
                 filename,
                 mode,
-                isal_zlib.ISAL_DEFAULT_COMPRESSION if compresslevel is None
+                isal_zlib.ISAL_DEFAULT_COMPRESSION
+                if compresslevel is None
                 else compresslevel,
                 **text_mode_kwargs,
                 threads=1 if threads is None else threads,
