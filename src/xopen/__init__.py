@@ -1050,7 +1050,7 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
     # With threads == 0 igzip_threaded defers to igzip.open, but that is not
     # desirable as a reproducible header is required.
-    if igzip_threaded and threads != 0:
+    if threads != 0:
         try:
             return igzip_threaded.open(
                 filename,
@@ -1061,9 +1061,9 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
                 **text_mode_kwargs,
                 threads=1 if threads is None else threads,
             )
-        except ValueError:  # Wrong compression level
+        except (AttributeError, ValueError):
+            # Igzip_threaded is None or wrong compression level
             pass
-    if threads != 0:
         try:
             if "r" in mode:
                 return _open_external_gzip_reader(
