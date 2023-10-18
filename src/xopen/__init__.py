@@ -86,7 +86,9 @@ try:
     _MAX_PIPE_SIZE = int(
         _MAX_PIPE_SIZE_PATH.read_text(encoding="ascii")
     )  # type: Optional[int]
-except OSError:  # Catches file not found and permission errors. Possible other errors too.
+except (
+    OSError
+):  # Catches file not found and permission errors. Possible other errors too.
     _MAX_PIPE_SIZE = None
 
 
@@ -1052,7 +1054,9 @@ def _open_external_gzip_writer(
         return PipedGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
 
 
-def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
+def _open_gz(  # noqa: C901
+    filename, mode: str, compresslevel, threads, **text_mode_kwargs
+):
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
     # With threads == 0 igzip_threaded defers to igzip.open, but that is not
     # desirable as a reproducible header is required.
