@@ -35,28 +35,35 @@ import tempfile
 import time
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
-from typing import Optional, Union, TextIO, AnyStr, IO, List, Set, overload, BinaryIO
+from typing import (
+    Optional,
+    Union,
+    TextIO,
+    AnyStr,
+    IO,
+    List,
+    Set,
+    overload,
+    BinaryIO,
+    Literal,
+)
 from types import ModuleType
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 from ._version import version as __version__
 
 # 128K buffer size also used by cat, pigz etc. It is faster than the 8K default.
 BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
-
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
+igzip_threaded: Optional[ModuleType]
 
 try:
-    from isal import igzip, isal_zlib
+    from isal import igzip, igzip_threaded, isal_zlib
 except ImportError:
     igzip = None
     isal_zlib = None
+    igzip_threaded = None
 
 try:
     import zstandard  # type: ignore
@@ -79,7 +86,9 @@ try:
     _MAX_PIPE_SIZE = int(
         _MAX_PIPE_SIZE_PATH.read_text(encoding="ascii")
     )  # type: Optional[int]
-except OSError:  # Catches file not found and permission errors. Possible other errors too.
+except (
+    OSError
+):  # Catches file not found and permission errors. Possible other errors too.
     _MAX_PIPE_SIZE = None
 
 
@@ -392,7 +401,7 @@ class PipedCompressionReader(Closing):
     def __iter__(self):
         return self
 
-    def __next__(self) -> AnyStr:
+    def __next__(self) -> Union[str, bytes]:
         return self._file.__next__()
 
     def _wait_for_output_or_process_exit(self):
@@ -455,13 +464,13 @@ class PipedCompressionReader(Closing):
         self._file.close()
         raise OSError("{!r} (exit code {})".format(stderr_message, retcode))
 
-    def read(self, *args) -> AnyStr:
+    def read(self, *args) -> Union[str, bytes]:
         return self._file.read(*args)
 
     def readinto(self, *args):
         return self._file.readinto(*args)
 
-    def readline(self, *args) -> AnyStr:
+    def readline(self, *args) -> Union[str, bytes]:
         return self._file.readline(*args)
 
     def seekable(self) -> bool:
@@ -1022,8 +1031,6 @@ def _open_external_gzip_reader(
         # No igzip installed or version does not support reading
         # concatenated files.
         pass
-    if igzip:
-        return PipedPythonIsalReader(filename, mode, **text_mode_kwargs)
     try:
         return PipedPigzReader(filename, mode, threads=threads, **text_mode_kwargs)
     except OSError:
@@ -1039,13 +1046,6 @@ def _open_external_gzip_writer(
     except (OSError, ValueError):
         # No igzip installed or compression level higher than 3
         pass
-    if igzip:  # We can use the CLI from isal.igzip
-        try:
-            return PipedPythonIsalWriter(
-                filename, mode, compresslevel, **text_mode_kwargs
-            )
-        except ValueError:  # Wrong compression level
-            pass
     try:
         return PipedPigzWriter(
             filename, mode, compresslevel, threads=threads, **text_mode_kwargs
@@ -1054,8 +1054,25 @@ def _open_external_gzip_writer(
         return PipedGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
 
 
-def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
+def _open_gz(  # noqa: C901
+    filename, mode: str, compresslevel, threads, **text_mode_kwargs
+):
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
+    # With threads == 0 igzip_threaded defers to igzip.open, but that is not
+    # desirable as a reproducible header is required.
+    if igzip_threaded and threads != 0:
+        try:
+            return igzip_threaded.open(  # type: ignore
+                filename,
+                mode,
+                isal_zlib.ISAL_DEFAULT_COMPRESSION  # type: ignore
+                if compresslevel is None
+                else compresslevel,
+                **text_mode_kwargs,
+                threads=1 if threads is None else threads,
+            )
+        except ValueError:  # Wrong compression level
+            pass
     if threads != 0:
         try:
             if "r" in mode:
