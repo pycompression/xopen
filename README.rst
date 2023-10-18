@@ -22,9 +22,9 @@ built-in ``open`` function but also transparently deals with compressed files.
 Supported compression formats are currently gzip, bzip2, xz and optionally Zstandard.
 
 ``xopen`` selects the most efficient method for reading or writing a compressed file.
-This often means opening a pipe to an external tool, such as
-`pigz <https://zlib.net/pigz/>`_, which is a parallel version of ``gzip``,
-or `igzip <https://github.com/intel/isa-l/>`_, which is a highly optimized
+For gzip files this means falling back on the threaded methods of the
+``python-isal`` library if supported. Alternatively a pipe can be opened to
+an external tool, such as `pigz <https://zlib.net/pigz/>`_, which is a parallel
 version of ``gzip``.
 
 If ``threads=0`` is passed to ``xopen()``, no external process is used.
@@ -32,8 +32,8 @@ For gzip files, this will then use `python-isal
 <https://github.com/pycompression/python-isal>`_ (which binds isa-l) if
 it is installed (since ``python-isal`` is a dependency of ``xopen``,
 this should always be the case).
-Neither ``igzip`` nor ``python-isal`` support compression levels
-greater 3, so if no external tool is available or ``threads`` has been set to 0,
+``python-isal`` does not support compression levels
+greater than 3, so if no external tool is available or ``threads`` has been set to 0,
 Python’s built-in ``gzip.open`` is used.
 
 For xz files, a pipe to the ``xz`` program is used because it has built-in support for multithreaded compression.
@@ -49,7 +49,7 @@ The file format to use is determined from the file name if the extension is reco
 When reading a file without a recognized file extension, xopen attempts to detect the format
 by reading the first couple of bytes from the file.
 
-``xopen`` is compatible with Python versions 3.7 and later.
+``xopen`` is compatible with Python versions 3.8 and later.
 
 
 Usage
@@ -110,6 +110,13 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 
 Changelog
 ---------
+
+v1.8.0 (2023-11-03)
+~~~~~~~~~~~~~~~~~~~
+* #131: xopen now defers to the ``isal.igzip_threaded`` module rather than
+  piping to external programs in applicable cases. This makes reading and
+  writing to external files more efficient.
+* Support for Python 3.7 is dropped and support for Python 3.12 is added.
 
 v1.7.0 (2022-11-03)
 ~~~~~~~~~~~~~~~~~~~
