@@ -115,7 +115,7 @@ v1.8.0 (2023-11-03)
 ~~~~~~~~~~~~~~~~~~~
 * #131: xopen now defers to the ``isal.igzip_threaded`` module rather than
   piping to external programs in applicable cases. This makes reading and
-  writing to external files more efficient.
+  writing to gzip files using threads more efficient.
 * Support for Python 3.7 is dropped and support for Python 3.12 is added.
 
 v1.7.0 (2022-11-03)
