@@ -36,16 +36,19 @@ jobs:
         os: [ubuntu-latest]
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "pypy-3.9"]
         optional-deps: [true]
+        with-python-isal: [true]
         include:
         - os: macos-latest
           python-version: "3.10"
           optional-deps: true
         - os: ubuntu-20.04
           python-version: "3.10"
+          with-python-isal: false
           optional-deps: false
         - os: ubuntu-20.04
           python-version: "3.10"
           optional-deps: false
+          with-python-isal: false
           with-zstandard: true
         - os: windows-latest
           python-version: "3.10"
@@ -70,6 +73,10 @@ jobs:
       run: python -m pip install tox
     - name: Test
       run: tox -e py
+      if: matrix.with-python-isal
+    - name: Test without python-isal
+      run: tox -e no-isal
+      if: true && !matrix.with-python-isal
     - name: Test with zstandard
       if: matrix.with-zstandard
       run: tox -e zstd
