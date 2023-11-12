@@ -175,6 +175,12 @@ def test_reader_readline_text(reader):
         assert f.readline() == CONTENT_LINES[0]
 
 
+def test_reader_readlines(reader):
+    opener, extension = reader
+    with opener(TEST_DIR / f"file.txt{extension}", "r") as f:
+        assert f.readlines() == CONTENT_LINES
+
+
 @pytest.mark.parametrize("threads", [None, 1, 2])
 def test_piped_reader_iter(threads, threaded_reader):
     opener, extension = threaded_reader
