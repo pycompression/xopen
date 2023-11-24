@@ -1026,12 +1026,6 @@ def _open_external_gzip_reader(
 ):
     assert mode in ("rt", "rb")
     try:
-        return PipedIGzipReader(filename, mode, **text_mode_kwargs)
-    except (OSError, ValueError):
-        # No igzip installed or version does not support reading
-        # concatenated files.
-        pass
-    try:
         return PipedPigzReader(filename, mode, threads=threads, **text_mode_kwargs)
     except OSError:
         return PipedGzipReader(filename, mode, **text_mode_kwargs)
@@ -1041,11 +1035,6 @@ def _open_external_gzip_writer(
     filename, mode, compresslevel, threads, **text_mode_kwargs
 ):
     assert mode in ("wt", "wb", "at", "ab")
-    try:
-        return PipedIGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
-    except (OSError, ValueError):
-        # No igzip installed or compression level higher than 3
-        pass
     try:
         return PipedPigzWriter(
             filename, mode, compresslevel, threads=threads, **text_mode_kwargs
@@ -1252,8 +1241,8 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     gzip: 6, xz: 6, zstd: 3.
 
     When threads is None (the default), compressed file formats are read or written
-    using a pipe to a subprocess running an external tool such as ``igzip``,
-    ``pbzip2``, ``pigz`` etc., see PipedIGzipWriter, PipedIGzipReader etc.
+    using a pipe to a subprocess running an external tool such as,
+    ``pbzip2``, ``gzip`` etc., see PipedGzipWriter, PipedGzipReader etc.
     If the external tool supports multiple threads, *threads* can be set to an int
     specifying the number of threads to use.
     If no external tool supporting the compression format is available, the file is
