@@ -66,6 +66,13 @@ except ImportError:
     igzip_threaded = None
 
 try:
+    from zlib_ng import gzip_ng, gzip_ng_threaded, zlib_ng
+except ImportError:
+    gzip_ng = None
+    gzip_ng_threaded = None
+    zlib_ng = None
+
+try:
     import zstandard  # type: ignore
 except ImportError:
     zstandard = None
@@ -1062,6 +1069,14 @@ def _open_gz(  # noqa: C901
             )
         except ValueError:  # Wrong compression level
             pass
+    if gzip_ng_threaded and threads != 0:
+        return gzip_ng_threaded.open(
+            filename,
+            mode,
+            zlib_ng.Z_DEFAULT_COMPRESSION if compresslevel is None else compresslevel,
+            **text_mode_kwargs,
+            threads=1 if threads is None else threads,
+        )
     if threads != 0:
         try:
             if "r" in mode:
@@ -1078,6 +1093,8 @@ def _open_gz(  # noqa: C901
     if "r" in mode:
         if igzip is not None:
             return igzip.open(filename, mode, **text_mode_kwargs)
+        elif gzip_ng is not None:
+            return gzip_ng.open(filename, mode, **text_mode_kwargs)
         return gzip.open(filename, mode, **text_mode_kwargs)
 
     g = _open_reproducible_gzip(
@@ -1119,6 +1136,14 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         except ValueError:
             # Compression level not supported, move to built-in gzip.
             pass
+    elif gzip_ng is not None:
+        gzip_file = gzip_ng.GzipNGFile(
+            **kwargs,
+            compresslevel=zlib_ng.Z_DEFAULT_COMPRESSION
+            if compresslevel is None
+            else compresslevel,
+        )
+
     if gzip_file is None:
         gzip_file = gzip.GzipFile(
             **kwargs,
