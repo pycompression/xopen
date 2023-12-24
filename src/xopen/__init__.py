@@ -1070,13 +1070,16 @@ def _open_gz(  # noqa: C901
         except ValueError:  # Wrong compression level
             pass
     if gzip_ng_threaded and threads != 0:
-        return gzip_ng_threaded.open(
-            filename,
-            mode,
-            zlib_ng.Z_DEFAULT_COMPRESSION if compresslevel is None else compresslevel,
-            **text_mode_kwargs,
-            threads=1 if threads is None else threads,
-        )
+        try:
+            return gzip_ng_threaded.open(
+                filename,
+                mode,
+                zlib_ng.Z_DEFAULT_COMPRESSION if compresslevel is None else compresslevel,
+                **text_mode_kwargs,
+                threads=1 if threads is None else threads,
+            )
+        except zlib_ng.error:  # Bad compression level
+            pass
     if threads != 0:
         try:
             if "r" in mode:
