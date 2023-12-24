@@ -33,6 +33,7 @@ import pathlib
 import subprocess
 import tempfile
 import time
+import zlib
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import (
@@ -1071,10 +1072,20 @@ def _open_gz(  # noqa: C901
             pass
     if gzip_ng_threaded and threads != 0:
         try:
+            if compresslevel is None:
+                level = zlib_ng.Z_DEFAULT_COMPRESSION
+            elif compresslevel == 1:
+                # zlib-ng level 1 is 50% bigger than zlib level 1.
+                # This will be wildly outside user ballpark expectations, so
+                # increase the level
+                level = 2
+            else:
+                level = compresslevel
+
             return gzip_ng_threaded.open(
                 filename,
                 mode,
-                zlib_ng.Z_DEFAULT_COMPRESSION if compresslevel is None else compresslevel,
+                level,
                 **text_mode_kwargs,
                 threads=1 if threads is None else threads,
             )
@@ -1140,19 +1151,22 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
             # Compression level not supported, move to built-in gzip.
             pass
     elif gzip_ng is not None:
-        gzip_file = gzip_ng.GzipNGFile(
-            **kwargs,
-            compresslevel=zlib_ng.Z_DEFAULT_COMPRESSION
-            if compresslevel is None
-            else compresslevel,
-        )
+        if compresslevel == 1:
+            level = 2
+        elif compresslevel is None:
+            level = zlib_ng.Z_DEFAULT_COMPRESSION
+        else:
+            level = compresslevel
+        gzip_file = gzip_ng.GzipNGFile(**kwargs, compresslevel=level)
 
     if gzip_file is None:
         gzip_file = gzip.GzipFile(
             **kwargs,
             # Override gzip.open's default of 9 for consistency
             # with command-line gzip.
-            compresslevel=6 if compresslevel is None else compresslevel,
+            compresslevel=zlib.Z_DEFAULT_COMPRESSION
+            if compresslevel is None
+            else compresslevel,
         )
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
