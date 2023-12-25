@@ -58,6 +58,9 @@ BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
 igzip_threaded: Optional[ModuleType]
+zlib_ng: Optional[ModuleType]
+gzip_ng: Optional[ModuleType]
+gzip_ng_threaded: Optional[ModuleType]
 
 try:
     from isal import igzip, igzip_threaded, isal_zlib
@@ -1070,7 +1073,7 @@ def _open_gz(  # noqa: C901
             )
         except ValueError:  # Wrong compression level
             pass
-    if gzip_ng_threaded and threads != 0:
+    if gzip_ng_threaded and zlib_ng and threads != 0:
         try:
             if compresslevel is None:
                 level = zlib_ng.Z_DEFAULT_COMPRESSION
