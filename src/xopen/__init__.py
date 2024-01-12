@@ -1077,19 +1077,24 @@ def _open_gz(  # noqa: C901
         try:
             if "r" in mode:
                 try:
-                    return PipedPigzReader(filename, mode, threads=threads,
-                                           **text_mode_kwargs)
+                    return PipedPigzReader(
+                        filename, mode, threads=threads, **text_mode_kwargs
+                    )
                 except OSError:
                     return PipedGzipReader(filename, mode, **text_mode_kwargs)
             else:
                 try:
                     return PipedPigzWriter(
-                        filename, mode, compresslevel, threads=threads,
-                        **text_mode_kwargs
+                        filename,
+                        mode,
+                        compresslevel,
+                        threads=threads,
+                        **text_mode_kwargs,
                     )
                 except OSError:
-                    return PipedGzipWriter(filename, mode, compresslevel,
-                                           **text_mode_kwargs)
+                    return PipedGzipWriter(
+                        filename, mode, compresslevel, **text_mode_kwargs
+                    )
         except OSError:
             pass  # We try without threads.
 
