@@ -33,7 +33,6 @@ import pathlib
 import subprocess
 import tempfile
 import time
-import zlib
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import (
@@ -54,6 +53,9 @@ from ._version import version as __version__
 
 # 128K buffer size also used by cat, pigz etc. It is faster than the 8K default.
 BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
+
+# "xopen selects the most efficient method for reading or writing a compressed file."
+XOPEN_DEFAULT_GZIP_COMPRESSION = 1
 
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
@@ -1036,8 +1038,12 @@ def _open_gz(  # noqa: C901
     filename, mode: str, compresslevel, threads, **text_mode_kwargs
 ):
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
-    # With threads == 0 igzip_threaded defers to igzip.open, but that is not
-    # desirable as a reproducible header is required.
+    if compresslevel is None:
+        # Force the same compression level on every tool regardless of
+        # library defaults
+        compresslevel = XOPEN_DEFAULT_GZIP_COMPRESSION
+    if threads is None:
+        threads = 1
 
     if threads != 0:
         if igzip_threaded:
@@ -1045,32 +1051,23 @@ def _open_gz(  # noqa: C901
                 return igzip_threaded.open(  # type: ignore
                     filename,
                     mode,
-                    isal_zlib.ISAL_DEFAULT_COMPRESSION  # type: ignore
-                    if compresslevel is None
-                    else compresslevel,
+                    compresslevel,
                     **text_mode_kwargs,
-                    threads=1 if threads is None else threads,
+                    threads=threads,
                 )
             except ValueError:  # Wrong compression level
                 pass
         if gzip_ng_threaded and zlib_ng:
             try:
-                if compresslevel is None:
-                    level = zlib_ng.Z_DEFAULT_COMPRESSION
-                elif compresslevel == 1:
-                    # zlib-ng level 1 is 50% bigger than zlib level 1.
-                    # This will be wildly outside user ballpark expectations, so
-                    # increase the level
-                    level = 2
-                else:
-                    level = compresslevel
-
                 return gzip_ng_threaded.open(
                     filename,
                     mode,
-                    level,
+                    # zlib-ng level 1 is 50% bigger than zlib level 1.
+                    # This will be wildly outside user ballpark expectations, so
+                    # increase the level
+                    max(compresslevel, 2),
                     **text_mode_kwargs,
-                    threads=1 if threads is None else threads,
+                    threads=threads,
                 )
             except zlib_ng.error:  # Bad compression level
                 pass
@@ -1108,13 +1105,14 @@ def _open_gz(  # noqa: C901
     return g
 
 
-def _open_reproducible_gzip(filename, mode, compresslevel):
+def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     """
     Open a gzip file for writing (without external processes)
     that has neither mtime nor the file name in the header
     (equivalent to gzip --no-name)
     """
     assert mode in ("rb", "wb", "ab")
+    assert compresslevel is not None
     # Neither gzip.open nor igzip.open have an mtime option, and they will
     # always write the file name, so we need to open the file separately
     # and pass it to gzip.GzipFile/igzip.IGzipFile.
@@ -1128,33 +1126,16 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
     gzip_file = None
     if igzip is not None:
         try:
-            gzip_file = igzip.IGzipFile(
-                **kwargs,
-                compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION
-                if compresslevel is None
-                else compresslevel,
-            )
+            gzip_file = igzip.IGzipFile(**kwargs, compresslevel=compresslevel)
         except ValueError:
             # Compression level not supported, move to built-in gzip.
             pass
     elif gzip_ng is not None:
-        if compresslevel == 1:
-            level = 2
-        elif compresslevel is None:
-            level = zlib_ng.Z_DEFAULT_COMPRESSION
-        else:
-            level = compresslevel
-        gzip_file = gzip_ng.GzipNGFile(**kwargs, compresslevel=level)
+        # Compression level should be at least 2 for zlib-ng to prevent very big files.
+        gzip_file = gzip_ng.GzipNGFile(**kwargs, compresslevel=max(compresslevel, 2))
 
     if gzip_file is None:
-        gzip_file = gzip.GzipFile(
-            **kwargs,
-            # Override gzip.open's default of 9 for consistency
-            # with command-line gzip.
-            compresslevel=zlib.Z_DEFAULT_COMPRESSION
-            if compresslevel is None
-            else compresslevel,
-        )
+        gzip_file = gzip.GzipFile(**kwargs, compresslevel=compresslevel)  # type: ignore
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
     # is called. This forces it to be closed.
