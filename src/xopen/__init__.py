@@ -1051,7 +1051,7 @@ def _open_gz(  # noqa: C901
                     mode,
                     compresslevel,
                     **text_mode_kwargs,
-                    threads=threads or max(_available_cpu_count(), 4),
+                    threads=1,
                 )
             except ValueError:  # Wrong compression level
                 pass
