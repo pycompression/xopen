@@ -1065,7 +1065,7 @@ def _open_gz(  # noqa: C901
                     # increase the level
                     max(compresslevel, 2),
                     **text_mode_kwargs,
-                    threads=threads or max(_available_cpu_count(), 4)
+                    threads=threads or max(_available_cpu_count(), 4),
                 )
             except zlib_ng.error:  # Bad compression level
                 pass
