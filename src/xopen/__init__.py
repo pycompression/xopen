@@ -1032,28 +1032,6 @@ def _open_zst(  # noqa: C901
     return f
 
 
-def _open_external_gzip_reader(
-    filename, mode, compresslevel, threads, **text_mode_kwargs
-):
-    assert mode in ("rt", "rb")
-    try:
-        return PipedPigzReader(filename, mode, threads=threads, **text_mode_kwargs)
-    except OSError:
-        return PipedGzipReader(filename, mode, **text_mode_kwargs)
-
-
-def _open_external_gzip_writer(
-    filename, mode, compresslevel, threads, **text_mode_kwargs
-):
-    assert mode in ("wt", "wb", "at", "ab")
-    try:
-        return PipedPigzWriter(
-            filename, mode, compresslevel, threads=threads, **text_mode_kwargs
-        )
-    except OSError:
-        return PipedGzipWriter(filename, mode, compresslevel, **text_mode_kwargs)
-
-
 def _open_gz(  # noqa: C901
     filename, mode: str, compresslevel, threads, **text_mode_kwargs
 ):
@@ -1098,13 +1076,20 @@ def _open_gz(  # noqa: C901
                 pass
         try:
             if "r" in mode:
-                return _open_external_gzip_reader(
-                    filename, mode, compresslevel, threads, **text_mode_kwargs
-                )
+                try:
+                    return PipedPigzReader(filename, mode, threads=threads,
+                                           **text_mode_kwargs)
+                except OSError:
+                    return PipedGzipReader(filename, mode, **text_mode_kwargs)
             else:
-                return _open_external_gzip_writer(
-                    filename, mode, compresslevel, threads, **text_mode_kwargs
-                )
+                try:
+                    return PipedPigzWriter(
+                        filename, mode, compresslevel, threads=threads,
+                        **text_mode_kwargs
+                    )
+                except OSError:
+                    return PipedGzipWriter(filename, mode, compresslevel,
+                                           **text_mode_kwargs)
         except OSError:
             pass  # We try without threads.
 
