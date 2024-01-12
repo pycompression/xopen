@@ -1060,41 +1060,42 @@ def _open_gz(  # noqa: C901
     assert mode in ("rt", "rb", "wt", "wb", "at", "ab")
     # With threads == 0 igzip_threaded defers to igzip.open, but that is not
     # desirable as a reproducible header is required.
-    if igzip_threaded and threads != 0:
-        try:
-            return igzip_threaded.open(  # type: ignore
-                filename,
-                mode,
-                isal_zlib.ISAL_DEFAULT_COMPRESSION  # type: ignore
-                if compresslevel is None
-                else compresslevel,
-                **text_mode_kwargs,
-                threads=1 if threads is None else threads,
-            )
-        except ValueError:  # Wrong compression level
-            pass
-    if gzip_ng_threaded and zlib_ng and threads != 0:
-        try:
-            if compresslevel is None:
-                level = zlib_ng.Z_DEFAULT_COMPRESSION
-            elif compresslevel == 1:
-                # zlib-ng level 1 is 50% bigger than zlib level 1.
-                # This will be wildly outside user ballpark expectations, so
-                # increase the level
-                level = 2
-            else:
-                level = compresslevel
 
-            return gzip_ng_threaded.open(
-                filename,
-                mode,
-                level,
-                **text_mode_kwargs,
-                threads=1 if threads is None else threads,
-            )
-        except zlib_ng.error:  # Bad compression level
-            pass
     if threads != 0:
+        if igzip_threaded:
+            try:
+                return igzip_threaded.open(  # type: ignore
+                    filename,
+                    mode,
+                    isal_zlib.ISAL_DEFAULT_COMPRESSION  # type: ignore
+                    if compresslevel is None
+                    else compresslevel,
+                    **text_mode_kwargs,
+                    threads=1 if threads is None else threads,
+                )
+            except ValueError:  # Wrong compression level
+                pass
+        if gzip_ng_threaded and zlib_ng:
+            try:
+                if compresslevel is None:
+                    level = zlib_ng.Z_DEFAULT_COMPRESSION
+                elif compresslevel == 1:
+                    # zlib-ng level 1 is 50% bigger than zlib level 1.
+                    # This will be wildly outside user ballpark expectations, so
+                    # increase the level
+                    level = 2
+                else:
+                    level = compresslevel
+
+                return gzip_ng_threaded.open(
+                    filename,
+                    mode,
+                    level,
+                    **text_mode_kwargs,
+                    threads=1 if threads is None else threads,
+                )
+            except zlib_ng.error:  # Bad compression level
+                pass
         try:
             if "r" in mode:
                 return _open_external_gzip_reader(
