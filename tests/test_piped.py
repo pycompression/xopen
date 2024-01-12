@@ -261,7 +261,7 @@ def test_concatenated_gzip_function():
 )
 def test_pipesize_changed(tmp_path, monkeypatch):
     # Higher compression level to avoid opening with threaded opener
-    with xopen(tmp_path / "hello.gz", "wb", compresslevel=5) as f:
+    with PipedGzipWriter(tmp_path / "hello.gz", "wb", compresslevel=5) as f:
         assert isinstance(f, PipedCompressionWriter)
         assert fcntl.fcntl(f._file.fileno(), fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
 

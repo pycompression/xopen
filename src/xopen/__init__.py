@@ -33,6 +33,7 @@ import pathlib
 import subprocess
 import tempfile
 import time
+import zlib
 from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import (
@@ -57,6 +58,9 @@ BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
 igzip_threaded: Optional[ModuleType]
+zlib_ng: Optional[ModuleType]
+gzip_ng: Optional[ModuleType]
+gzip_ng_threaded: Optional[ModuleType]
 
 try:
     from isal import igzip, igzip_threaded, isal_zlib
@@ -64,6 +68,13 @@ except ImportError:
     igzip = None
     isal_zlib = None
     igzip_threaded = None
+
+try:
+    from zlib_ng import gzip_ng, gzip_ng_threaded, zlib_ng
+except ImportError:
+    gzip_ng = None
+    gzip_ng_threaded = None
+    zlib_ng = None
 
 try:
     import zstandard  # type: ignore
@@ -1062,6 +1073,27 @@ def _open_gz(  # noqa: C901
             )
         except ValueError:  # Wrong compression level
             pass
+    if gzip_ng_threaded and zlib_ng and threads != 0:
+        try:
+            if compresslevel is None:
+                level = zlib_ng.Z_DEFAULT_COMPRESSION
+            elif compresslevel == 1:
+                # zlib-ng level 1 is 50% bigger than zlib level 1.
+                # This will be wildly outside user ballpark expectations, so
+                # increase the level
+                level = 2
+            else:
+                level = compresslevel
+
+            return gzip_ng_threaded.open(
+                filename,
+                mode,
+                level,
+                **text_mode_kwargs,
+                threads=1 if threads is None else threads,
+            )
+        except zlib_ng.error:  # Bad compression level
+            pass
     if threads != 0:
         try:
             if "r" in mode:
@@ -1078,6 +1110,8 @@ def _open_gz(  # noqa: C901
     if "r" in mode:
         if igzip is not None:
             return igzip.open(filename, mode, **text_mode_kwargs)
+        elif gzip_ng is not None:
+            return gzip_ng.open(filename, mode, **text_mode_kwargs)
         return gzip.open(filename, mode, **text_mode_kwargs)
 
     g = _open_reproducible_gzip(
@@ -1119,12 +1153,23 @@ def _open_reproducible_gzip(filename, mode, compresslevel):
         except ValueError:
             # Compression level not supported, move to built-in gzip.
             pass
+    elif gzip_ng is not None:
+        if compresslevel == 1:
+            level = 2
+        elif compresslevel is None:
+            level = zlib_ng.Z_DEFAULT_COMPRESSION
+        else:
+            level = compresslevel
+        gzip_file = gzip_ng.GzipNGFile(**kwargs, compresslevel=level)
+
     if gzip_file is None:
         gzip_file = gzip.GzipFile(
             **kwargs,
             # Override gzip.open's default of 9 for consistency
             # with command-line gzip.
-            compresslevel=6 if compresslevel is None else compresslevel,
+            compresslevel=zlib.Z_DEFAULT_COMPRESSION
+            if compresslevel is None
+            else compresslevel,
         )
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
