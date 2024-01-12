@@ -1042,8 +1042,6 @@ def _open_gz(  # noqa: C901
         # Force the same compression level on every tool regardless of
         # library defaults
         compresslevel = XOPEN_DEFAULT_GZIP_COMPRESSION
-    if threads is None:
-        threads = 1
 
     if threads != 0:
         if igzip_threaded:
@@ -1053,7 +1051,7 @@ def _open_gz(  # noqa: C901
                     mode,
                     compresslevel,
                     **text_mode_kwargs,
-                    threads=threads,
+                    threads=threads or max(_available_cpu_count(), 4),
                 )
             except ValueError:  # Wrong compression level
                 pass
@@ -1067,7 +1065,7 @@ def _open_gz(  # noqa: C901
                     # increase the level
                     max(compresslevel, 2),
                     **text_mode_kwargs,
-                    threads=threads,
+                    threads=threads or max(_available_cpu_count(), 4)
                 )
             except zlib_ng.error:  # Bad compression level
                 pass
