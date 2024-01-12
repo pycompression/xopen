@@ -113,6 +113,8 @@ Changelog
 
 in-development
 ~~~~~~~~~~~~~~~~~~~
+* #138: The gzip default compression level is now 1 when no value is provided
+  by the calling function. The default used to be determined by the backend.
 * #135: xopen now uses zlib-ng when available and applicable.
 
 v1.8.0 (2023-11-03)
