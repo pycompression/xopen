@@ -111,6 +111,10 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
+in-development
+~~~~~~~~~~~~~~~~~~~
+* #135: xopen now uses zlib-ng when available and applicable.
+
 v1.8.0 (2023-11-03)
 ~~~~~~~~~~~~~~~~~~~
 * #131: xopen now defers to the ``isal.igzip_threaded`` module rather than
