@@ -1093,13 +1093,6 @@ def _open_gz(  # noqa: C901
         except OSError:
             pass  # We try without threads.
 
-    if "r" in mode:
-        if igzip is not None:
-            return igzip.open(filename, mode, **text_mode_kwargs)
-        elif gzip_ng is not None:
-            return gzip_ng.open(filename, mode, **text_mode_kwargs)
-        return gzip.open(filename, mode, **text_mode_kwargs)
-
     g = _open_reproducible_gzip(
         filename,
         mode=mode[0] + "b",
