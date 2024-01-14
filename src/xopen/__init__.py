@@ -202,8 +202,6 @@ class PipedCompressionWriter(io.IOBase):
                 )
             )
 
-        # TODO use a context manager
-        self.outfile = open(path, mode[0] + "b")
         self.name: str = str(os.fspath(path))
         self._mode: str = mode
         self._program_args: List[str] = program_args
@@ -212,6 +210,7 @@ class PipedCompressionWriter(io.IOBase):
         if threads is None:
             threads = min(_available_cpu_count(), 4)
         self._threads = threads
+        self.outfile = open(path, mode[0] + "b")
         try:
             self.process = self._open_process(
                 mode, compresslevel, threads, self.outfile
@@ -271,6 +270,9 @@ class PipedCompressionWriter(io.IOBase):
         if self.closed:
             return
         super().close()
+        if not hasattr(self, "process"):
+            # Exception was raised during __init__
+            return
         self._file.close()
         retcode = self.process.wait()
         self.outfile.close()
@@ -322,7 +324,7 @@ class PipedCompressionReader(io.IOBase):
         newline=None,
     ):
         """
-        Raise an OSError when pigz could not be found.
+        Raise an OSError when the binary could not be found.
         """
         if mode not in ("r", "rt", "rb"):
             raise ValueError(
@@ -345,13 +347,13 @@ class PipedCompressionReader(io.IOBase):
                 threads = 1
             program_args += [f"{threads_flag}{threads}"]
         self._threads = threads
-        self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
+        self._mode = mode
+        self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
 
         assert self.process.stdout is not None
         _set_pipe_size_to_max(self.process.stdout.fileno())
 
-        self._mode = mode
         if "b" not in mode:
             self._file: IO = io.TextIOWrapper(
                 self.process.stdout, encoding=encoding, errors=errors, newline=newline
@@ -374,6 +376,9 @@ class PipedCompressionReader(io.IOBase):
         if self.closed:
             return
         super().close()
+        if not hasattr(self, "process"):
+            # Exception was raised during __init__
+            return
         retcode = self.process.poll()
         check_allowed_code_and_message = False
         if retcode is None:
@@ -445,6 +450,8 @@ class PipedCompressionReader(io.IOBase):
 
         assert self.process.stderr is not None
         if not stderr_message:
+            if self.process.stderr.closed:
+                return
             stderr_message = self.process.stderr.read()
 
         self._file.close()
