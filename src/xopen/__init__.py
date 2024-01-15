@@ -543,9 +543,6 @@ class PipedGzipWriter(PipedCompressionWriter):
         """
         mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
         compresslevel -- compression level
-        threads (int) -- number of pigz threads. If this is set to None, a reasonable default is
-            used. At the moment, this means that the number of available CPU cores is used, capped
-            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
         """
         if compresslevel is not None and compresslevel not in range(1, 10):
             raise ValueError("compresslevel must be between 1 and 9")
