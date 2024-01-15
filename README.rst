@@ -100,7 +100,7 @@ preferred locale encoding.
 **compresslevel**:
 The compression level for writing to gzip, xz and Zstandard files.
 If set to None, a default depending on the format is used:
-gzip: 6, xz: 6, Zstandard: 3.
+gzip: 1, xz: 6, Zstandard: 3.
 
 This parameter is ignored for other compression formats.
 
