@@ -54,7 +54,6 @@ from ._version import version as __version__
 # 128K buffer size also used by cat, pigz etc. It is faster than the 8K default.
 BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
-# 1 is by far the fastest and most efficient level.
 XOPEN_DEFAULT_GZIP_COMPRESSION = 1
 
 igzip: Optional[ModuleType]
