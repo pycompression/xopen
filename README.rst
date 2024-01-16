@@ -79,7 +79,8 @@ If the extension is not recognized, no compression is used.
 When reading and a file name extension is available, the format is detected
 from the extension.
 When reading and no file name extension is available,
-the format is detected from the contents.
+the format is detected from the
+`file signature <https://en.wikipedia.org/wiki/File_format#Magic_number>`.
 
 Parameters
 ~~~~~~~~~~
@@ -109,16 +110,18 @@ Override the autodetection of the input or output format.
 Possible values are: ``"gz"``, ``"xz"``, ``"bz2"``, ``"zst"``.
 
 **threads**:
-If multi-threaded compression or decompression is available,
-this parameter can be used to override the number of threads
-used. It is ignored otherwise.
+Set the number of additional threads spawned for compression or decompression.
+May be ignored if the backend does not support threads.
 
-Set threads to 0 to force opening the file without using a subprocess.
-For some compression levels,
-compressed files are by default read or written
-using a pipe to a subprocess running an external tool such as
-``pbzip2`` or ``xz``.
-With *threads* set to 0, a normal function call is used instead.
+If *threads* is None (the default), as many threads as available CPU cores are
+used, but not more than four.
+
+xopen tries to offload the (de)compression to other threads
+to free up the main Python thread for the application.
+This can either be done by using a subprocess to an external application or
+using a library that supports threads.
+
+Set threads to 0 to force xopen to use only the main Python thread.
 
 
 Backends
@@ -128,8 +131,9 @@ Opening of gzip files is delegated to one of these programs or libraries:
 
 * `python-isal <https://github.com/pycompression/python-isal>`_.
   Supports multiple threads and compression levels up to 3.
-* zlib-ng
+* `python-zlib-ng <https://github.com/pycompression/python-zlib-ng>`_
 * `pigz <https://zlib.net/pigz/>`_ (a parallel version of ``gzip``)
+* `gzip <https://www.gnu.org/software/gzip/>`_
 
 For xz files, a pipe to the ``xz`` program is used because it has
 built-in support for multithreaded compression.
