@@ -17,43 +17,22 @@
 xopen
 =====
 
-This Python module provides an ``xopen`` function that works like the
+This Python module provides an ``xopen`` function that works like Python’s
 built-in ``open`` function but also transparently deals with compressed files.
-Supported compression formats are currently gzip, bzip2, xz and optionally Zstandard.
-
 ``xopen`` selects the most efficient method for reading or writing a compressed file.
-For gzip files this means falling back on the threaded methods of the
-``python-isal`` library if supported. Alternatively a pipe can be opened to
-an external tool, such as `pigz <https://zlib.net/pigz/>`_, which is a parallel
-version of ``gzip``.
 
-If ``threads=0`` is passed to ``xopen()``, no external process is used.
-For gzip files, this will then use `python-isal
-<https://github.com/pycompression/python-isal>`_ (which binds isa-l) if
-it is installed (since ``python-isal`` is a dependency of ``xopen``,
-this should always be the case).
-``python-isal`` does not support compression levels
-greater than 3, so if no external tool is available or ``threads`` has been set to 0,
-Python’s built-in ``gzip.open`` is used.
+Supported compression formats are:
 
-For xz files, a pipe to the ``xz`` program is used because it has built-in support for multithreaded compression.
-
-For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is used.
-
-``xopen`` falls back to Python’s built-in functions
-(``gzip.open``, ``lzma.open``, ``bz2.open``)
-if none of the other methods can be used.
-
-The file format to use is determined from the file name if the extension is recognized
-(``.gz``, ``.bz2``, ``.xz`` or ``.zst``).
-When reading a file without a recognized file extension, xopen attempts to detect the format
-by reading the first couple of bytes from the file.
+- gzip (``.gz``)
+- bzip2 (``.bz2``)
+- xz (``.xz``)
+- Zstandard (``.zst``) (optional)
 
 ``xopen`` is compatible with Python versions 3.8 and later.
 
 
-Usage
------
+Example usage
+-------------
 
 Open a file for reading::
 
@@ -70,6 +49,100 @@ and avoid using an external process::
 
     with xopen("file.txt.xz", mode="wb", threads=0, compresslevel=3) as f:
         f.write(b"Hello")
+
+
+The ``xopen`` function
+----------------------
+
+The ``xopen`` module offers a single function named ``xopen`` with the following
+signature::
+
+  xopen(
+    filename: str | bytes | os.PathLike,
+    mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
+    compresslevel: Optional[int] = None,
+    threads: Optional[int] = None,
+    *,
+    encoding: str = "utf-8",
+    errors: Optional[str] = None,
+    newline: Optional[str] = None,
+    format: Optional[str] = None,
+  ) -> IO
+
+The function opens the file using a function suitable for the detected
+file format and returns an open file-like object.
+
+When writing, the file format is chosen based on the file name extension:
+``.gz``, ``.bz2``, ``.xz``, ``.zst``. This can be overriden with ``format``.
+If the extension is not recognized, no compression is used.
+
+When reading and a file name extension is available, the format is detected
+from the extension.
+When reading and no file name extension is available,
+the format is detected from the
+`file signature <https://en.wikipedia.org/wiki/File_format#Magic_number>`.
+
+Parameters
+~~~~~~~~~~
+
+**filename** (str, bytes, or `os.PathLike <https://docs.python.org/3/library/os.html#os.PathLike>`_):
+Name of the file to open.
+
+If set to ``"-"``, standard output (in mode ``"w"``) or
+standard input (in mode ``"r"``) is returned.
+
+**mode**, **encoding**, **errors**, **newline**:
+These parameters have the same meaning as in Python’s built-in
+`open function <https://docs.python.org/3/library/functions.html#open>`_
+except that the default encoding is always UTF-8 instead of the
+preferred locale encoding.
+``encoding``, ``errors`` and ``newline`` are only used when opening a file in text mode.
+
+**compresslevel**:
+The compression level for writing to gzip, xz and Zstandard files.
+If set to None, a default depending on the format is used:
+gzip: 1, xz: 6, Zstandard: 3.
+
+This parameter is ignored for other compression formats.
+
+**format**:
+Override the autodetection of the input or output format.
+Possible values are: ``"gz"``, ``"xz"``, ``"bz2"``, ``"zst"``.
+
+**threads**:
+Set the number of additional threads spawned for compression or decompression.
+May be ignored if the backend does not support threads.
+
+If *threads* is None (the default), as many threads as available CPU cores are
+used, but not more than four.
+
+xopen tries to offload the (de)compression to other threads
+to free up the main Python thread for the application.
+This can either be done by using a subprocess to an external application or
+using a library that supports threads.
+
+Set threads to 0 to force xopen to use only the main Python thread.
+
+
+Backends
+--------
+
+Opening of gzip files is delegated to one of these programs or libraries:
+
+* `python-isal <https://github.com/pycompression/python-isal>`_.
+  Supports multiple threads and compression levels up to 3.
+* `python-zlib-ng <https://github.com/pycompression/python-zlib-ng>`_
+* `pigz <https://zlib.net/pigz/>`_ (a parallel version of ``gzip``)
+* `gzip <https://www.gnu.org/software/gzip/>`_
+
+For xz files, a pipe to the ``xz`` program is used because it has
+built-in support for multithreaded compression.
+
+For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is used.
+
+``xopen`` falls back to Python’s built-in functions
+(``gzip.open``, ``lzma.open``, ``bz2.open``)
+if none of the other methods can be used.
 
 
 Reproducibility
@@ -272,7 +345,7 @@ Credits
 -------
 
 The name ``xopen`` was taken from the C function of the same name in the
-`utils.h file which is part of
+`utils.h file that is part of
 BWA <https://github.com/lh3/bwa/blob/83662032a2192d5712996f36069ab02db82acf67/utils.h>`_.
 
 Some ideas were taken from the `canopener project <https://github.com/selassid/canopener>`_.
@@ -286,7 +359,7 @@ Maintainers
 
 * Marcel Martin
 * Ruben Vorderman
-* For a list of contributors, see <https://github.com/pycompression/xopen/graphs/contributors>
+* See also the `full list of contributors <https://github.com/pycompression/xopen/graphs/contributors>`_.
 
 
 Links
