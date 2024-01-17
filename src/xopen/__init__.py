@@ -1098,14 +1098,12 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
         mode=mode,
         mtime=0,
     )
-    gzip_file = None
     if igzip is not None and (compresslevel in (1, 2) or "r" in mode):
         gzip_file = igzip.IGzipFile(**kwargs, compresslevel=compresslevel)
     elif gzip_ng is not None:
         # Compression level should be at least 2 for zlib-ng to prevent very big files.
         gzip_file = gzip_ng.GzipNGFile(**kwargs, compresslevel=max(compresslevel, 2))
-
-    if gzip_file is None:
+    else:
         gzip_file = gzip.GzipFile(**kwargs, compresslevel=compresslevel)  # type: ignore
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
