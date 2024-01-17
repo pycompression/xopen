@@ -1021,26 +1021,24 @@ def _open_gz(  # noqa: C901
         compresslevel = XOPEN_DEFAULT_GZIP_COMPRESSION
 
     if threads != 0:
-        if igzip_threaded:
-            try:
-                return igzip_threaded.open(  # type: ignore
-                    filename,
-                    mode,
-                    compresslevel,
-                    **text_mode_kwargs,
-                    threads=1,
-                )
-            except ValueError:  # Wrong compression level
-                pass
+        # Igzip level 0 does not output uncompressed deflate blocks as zlib does
+        # and level 3 is slower but does not compress better than level 1 and 2.
+        if igzip_threaded and (compresslevel in (1, 2) or "r" in mode):
+            return igzip_threaded.open(  # type: ignore
+                filename,
+                mode,
+                compresslevel,
+                **text_mode_kwargs,
+                threads=1,
+            )
         if gzip_ng_threaded and zlib_ng:
             try:
                 return gzip_ng_threaded.open(
                     filename,
                     mode,
-                    # zlib-ng level 1 is 50% bigger than zlib level 1.
-                    # This will be wildly outside user ballpark expectations, so
-                    # increase the level
-                    max(compresslevel, 2),
+                    # zlib-ng level 1 is 50% bigger than zlib level 1. Level
+                    # 2 gives a size close to expectations.
+                    compresslevel=2 if compresslevel == 1 else compresslevel,
                     **text_mode_kwargs,
                     threads=threads or max(_available_cpu_count(), 4),
                 )
@@ -1098,18 +1096,16 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
         mode=mode,
         mtime=0,
     )
-    gzip_file = None
-    if igzip is not None:
-        try:
-            gzip_file = igzip.IGzipFile(**kwargs, compresslevel=compresslevel)
-        except ValueError:
-            # Compression level not supported, move to built-in gzip.
-            pass
+    # Igzip level 0 does not output uncompressed deflate blocks as zlib does
+    # and level 3 is slower but does not compress better than level 1 and 2.
+    if igzip is not None and (compresslevel in (1, 2) or "r" in mode):
+        gzip_file = igzip.IGzipFile(**kwargs, compresslevel=compresslevel)
     elif gzip_ng is not None:
-        # Compression level should be at least 2 for zlib-ng to prevent very big files.
-        gzip_file = gzip_ng.GzipNGFile(**kwargs, compresslevel=max(compresslevel, 2))
-
-    if gzip_file is None:
+        # Zlib-ng level 1 creates much bigger files than zlib level 1.
+        gzip_file = gzip_ng.GzipNGFile(
+            **kwargs, compresslevel=2 if compresslevel == 1 else compresslevel
+        )
+    else:
         gzip_file = gzip.GzipFile(**kwargs, compresslevel=compresslevel)  # type: ignore
     # When (I)GzipFile is created with a fileobj instead of a filename,
     # the passed file object is not closed when (I)GzipFile.close()
