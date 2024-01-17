@@ -1036,10 +1036,9 @@ def _open_gz(  # noqa: C901
                 return gzip_ng_threaded.open(
                     filename,
                     mode,
-                    # zlib-ng level 1 is 50% bigger than zlib level 1.
-                    # This will be wildly outside user ballpark expectations, so
-                    # increase the level
-                    max(compresslevel, 2),
+                    # zlib-ng level 1 is 50% bigger than zlib level 1. Level
+                    # 2 gives a size close to expectations.
+                    compresslevel=2 if compresslevel == 1 else compresslevel,
                     **text_mode_kwargs,
                     threads=threads or max(_available_cpu_count(), 4),
                 )
@@ -1102,8 +1101,10 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     if igzip is not None and (compresslevel in (1, 2) or "r" in mode):
         gzip_file = igzip.IGzipFile(**kwargs, compresslevel=compresslevel)
     elif gzip_ng is not None:
-        # Compression level should be at least 2 for zlib-ng to prevent very big files.
-        gzip_file = gzip_ng.GzipNGFile(**kwargs, compresslevel=max(compresslevel, 2))
+        # Zlib-ng level 1 creates much bigger files than zlib level 1.
+        gzip_file = gzip_ng.GzipNGFile(
+            **kwargs, compresslevel=2 if compresslevel == 1 else compresslevel
+        )
     else:
         gzip_file = gzip.GzipFile(**kwargs, compresslevel=compresslevel)  # type: ignore
     # When (I)GzipFile is created with a fileobj instead of a filename,
