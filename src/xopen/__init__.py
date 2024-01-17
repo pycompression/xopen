@@ -33,7 +33,6 @@ import pathlib
 import subprocess
 import tempfile
 import time
-from abc import ABC, abstractmethod
 from subprocess import Popen, PIPE, DEVNULL
 from typing import (
     Optional,
@@ -169,30 +168,7 @@ def _can_read_concatenated_gz(program: str) -> bool:
         os.remove(temp_path)
 
 
-class Closing(ABC):
-    """
-    Inherit from this class and implement a close() method to offer context
-    manager functionality.
-    """
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc_info):
-        self.close()
-
-    def __del__(self):
-        try:
-            self.close()
-        except Exception:
-            pass
-
-    @abstractmethod
-    def close(self):
-        """Called when exiting the context manager"""
-
-
-class PipedCompressionWriter(Closing):
+class PipedCompressionWriter(io.IOBase):
     """
     Write Compressed files by running an external process and piping into it.
     """
@@ -226,9 +202,6 @@ class PipedCompressionWriter(Closing):
                 )
             )
 
-        # TODO use a context manager
-        self.outfile = open(path, mode[0] + "b")
-        self.closed: bool = False
         self.name: str = str(os.fspath(path))
         self._mode: str = mode
         self._program_args: List[str] = program_args
@@ -237,6 +210,7 @@ class PipedCompressionWriter(Closing):
         if threads is None:
             threads = min(_available_cpu_count(), 4)
         self._threads = threads
+        self.outfile = open(path, mode[0] + "b")
         try:
             self.process = self._open_process(
                 mode, compresslevel, threads, self.outfile
@@ -295,7 +269,10 @@ class PipedCompressionWriter(Closing):
     def close(self) -> None:
         if self.closed:
             return
-        self.closed = True
+        super().close()
+        if not hasattr(self, "process"):
+            # Exception was raised during __init__
+            return
         self._file.close()
         retcode = self.process.wait()
         self.outfile.close()
@@ -323,7 +300,7 @@ class PipedCompressionWriter(Closing):
         raise io.UnsupportedOperation("not readable")
 
 
-class PipedCompressionReader(Closing):
+class PipedCompressionReader(io.IOBase):
     """
     Open a pipe to a process for reading a compressed file.
     """
@@ -347,7 +324,7 @@ class PipedCompressionReader(Closing):
         newline=None,
     ):
         """
-        Raise an OSError when pigz could not be found.
+        Raise an OSError when the binary could not be found.
         """
         if mode not in ("r", "rt", "rb"):
             raise ValueError(
@@ -370,20 +347,19 @@ class PipedCompressionReader(Closing):
                 threads = 1
             program_args += [f"{threads_flag}{threads}"]
         self._threads = threads
-        self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
         self.name = path
+        self._mode = mode
+        self.process = Popen(program_args, stdout=PIPE, stderr=PIPE)
 
         assert self.process.stdout is not None
         _set_pipe_size_to_max(self.process.stdout.fileno())
 
-        self._mode = mode
         if "b" not in mode:
             self._file: IO = io.TextIOWrapper(
                 self.process.stdout, encoding=encoding, errors=errors, newline=newline
             )
         else:
             self._file = self.process.stdout
-        self.closed = False
         self._wait_for_output_or_process_exit()
         self._raise_if_error()
 
@@ -399,7 +375,10 @@ class PipedCompressionReader(Closing):
     def close(self) -> None:
         if self.closed:
             return
-        self.closed = True
+        super().close()
+        if not hasattr(self, "process"):
+            # Exception was raised during __init__
+            return
         retcode = self.process.poll()
         check_allowed_code_and_message = False
         if retcode is None:
@@ -413,7 +392,7 @@ class PipedCompressionReader(Closing):
     def __iter__(self):
         return self
 
-    def __next__(self) -> Union[str, bytes]:
+    def __next__(self) -> Union[str, bytes]:  # type: ignore # incompatible with type in IOBase
         return self._file.__next__()
 
     def _wait_for_output_or_process_exit(self):
@@ -471,6 +450,8 @@ class PipedCompressionReader(Closing):
 
         assert self.process.stderr is not None
         if not stderr_message:
+            if self.process.stderr.closed:
+                return
             stderr_message = self.process.stderr.read()
 
         self._file.close()
@@ -482,7 +463,7 @@ class PipedCompressionReader(Closing):
     def readinto(self, *args):
         return self._file.readinto(*args)
 
-    def readline(self, *args) -> Union[str, bytes]:
+    def readline(self, *args) -> Union[str, bytes]:  # type: ignore # incompatible w/type in IOBase
         return self._file.readline(*args)
 
     def seekable(self) -> bool:

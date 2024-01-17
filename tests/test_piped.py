@@ -175,6 +175,12 @@ def test_reader_readline_text(reader):
         assert f.readline() == CONTENT_LINES[0]
 
 
+def test_reader_readlines(reader):
+    opener, extension = reader
+    with opener(TEST_DIR / f"file.txt{extension}", "r") as f:
+        assert f.readlines() == CONTENT_LINES
+
+
 @pytest.mark.parametrize("threads", [None, 1, 2])
 def test_piped_reader_iter(threads, threaded_reader):
     opener, extension = threaded_reader
@@ -197,15 +203,17 @@ def test_writer(tmp_path, writer):
 
 def test_writer_has_iter_method(tmp_path, writer):
     opener, extension = writer
-    with opener(tmp_path / f"out.{extension}") as f:
+    with opener(tmp_path / f"out{extension}") as f:
         f.write("hello")
         assert hasattr(f, "__iter__")
 
 
 def test_reader_iter_without_with(reader):
     opener, extension = reader
-    it = iter(opener(TEST_DIR / f"file.txt{extension}"))
+    f = opener(TEST_DIR / f"file.txt{extension}")
+    it = iter(f)
     assert CONTENT_LINES[0] == next(it)
+    f.close()
 
 
 @pytest.mark.parametrize("mode", ["rb", "rt"])
@@ -289,14 +297,16 @@ def test_iter_method_writers(writer, tmp_path):
     opener, extension = writer
     writer = opener(tmp_path / f"test{extension}", "wb")
     assert iter(writer) == writer
+    writer.close()
 
 
 def test_next_method_writers(writer, tmp_path):
     opener, extension = writer
-    writer = opener(tmp_path / f"test.{extension}", "wb")
+    writer = opener(tmp_path / f"test{extension}", "wb")
     with pytest.raises(io.UnsupportedOperation) as error:
         next(writer)
     error.match("not readable")
+    writer.close()
 
 
 def test_pipedcompressionreader_wrong_mode():
