@@ -1021,9 +1021,8 @@ def _open_gz(  # noqa: C901
         compresslevel = XOPEN_DEFAULT_GZIP_COMPRESSION
 
     if threads != 0:
-        # igzip level 0 compresses, while zlib outputs data in uncompressed
-        # deflate format. igzip level 3 is similar in size to 1 and 2 and slower.
-        # Other libraries do a better job at these levels.
+        # Igzip level 0 does not output uncompressed deflate blocks as zlib does
+        # and level 3 is slower but does not compress better than level 1 and 2.
         if igzip_threaded and (compresslevel in (1, 2) or "r" in mode):
             return igzip_threaded.open(  # type: ignore
                 filename,
@@ -1098,6 +1097,8 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
         mode=mode,
         mtime=0,
     )
+    # Igzip level 0 does not output uncompressed deflate blocks as zlib does
+    # and level 3 is slower but does not compress better than level 1 and 2.
     if igzip is not None and (compresslevel in (1, 2) or "r" in mode):
         gzip_file = igzip.IGzipFile(**kwargs, compresslevel=compresslevel)
     elif gzip_ng is not None:
