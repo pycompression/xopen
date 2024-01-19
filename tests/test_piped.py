@@ -194,17 +194,17 @@ def test_writer(tmp_path, writer):
     print(opener, writer)
     print(repr(opener))
     path = tmp_path / f"out{extension}"
-    with opener(path, mode="wt") as f:
+    with opener(path, mode="wb") as f:
         print(f)
-        f.write("hello")
-    with xopen(path, mode="rt") as f:
-        assert f.read() == "hello"
+        f.write(b"hello")
+    with xopen(path, mode="rb") as f:
+        assert f.read() == b"hello"
 
 
 def test_writer_has_iter_method(tmp_path, writer):
     opener, extension = writer
     with opener(tmp_path / f"out{extension}") as f:
-        f.write("hello")
+        f.write(b"hello")
         assert hasattr(f, "__iter__")
 
 
@@ -288,8 +288,8 @@ def test_pipedcompressionwriter_wrong_program(tmp_path):
 def test_compression_level(tmp_path, gzip_writer):
     # Currently only the gzip writers handle compression levels.
     path = tmp_path / "test.gz"
-    with gzip_writer(path, "wt", 2) as test_h:
-        test_h.write("test")
+    with gzip_writer(path, "wb", 2) as test_h:
+        test_h.write(b"test")
     assert gzip.decompress(path.read_bytes()) == b"test"
 
 
@@ -369,17 +369,6 @@ def test_valid_compression_levels(writer, level, tmp_path):
     with writer(path, "wb", level) as handle:
         handle.write(b"test")
     assert gzip.decompress(path.read_bytes()) == b"test"
-
-
-@pytest.mark.skipif(
-    sys.platform.startswith("win"), reason="cat is not available on Windows"
-)
-def test_compression_writer_unusual_encoding(tmp_path):
-    with PipedCompressionWriter(
-        tmp_path / "out.txt", program_args=["cat"], mode="wt", encoding="utf-16-le"
-    ) as f:
-        f.write("Hello")
-    assert (tmp_path / "out.txt").read_bytes() == b"H\0e\0l\0l\0o\0"
 
 
 def test_reproducible_gzip_compression(gzip_writer, tmp_path):
