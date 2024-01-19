@@ -1071,11 +1071,9 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     """
     if mode in ("r", "w", "a"):
         mode += "t"  # type: ignore
-        binary_mode = mode + "b"
-    else:
-        binary_mode = mode
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
+    binary_mode = mode[0] + "b"
     filename = os.fspath(filename)
 
     if format not in (None, "gz", "xz", "bz2", "zst"):
