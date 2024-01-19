@@ -308,12 +308,15 @@ class PipedCompressionReader(io.IOBase):
         self,
         path: FilePath,
         program_args: List[Union[str, bytes]],
+        mode: str = "rb",
         threads_flag: Optional[str] = None,
         threads: Optional[int] = None,
     ):
         """
         Raise an OSError when the binary could not be found.
         """
+        if mode not in ("r", "rb"):
+            raise ValueError("Mode is '{}', but it must be 'r' or 'rb'".format(mode))
         self._program_args = program_args
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
@@ -475,8 +478,9 @@ class PipedGzipReader(PipedCompressionReader):
     def __init__(
         self,
         path,
+        mode: str = "rb",
     ):
-        super().__init__(path, ["gzip"])
+        super().__init__(path, ["gzip"], mode)
 
 
 class PipedGzipWriter(PipedCompressionWriter):
@@ -518,11 +522,13 @@ class PipedPigzReader(PipedCompressionReader):
     def __init__(
         self,
         path,
+        mode: str = "rb",
         threads: Optional[int] = None,
     ):
         super().__init__(
             path,
             ["pigz"],
+            mode,
             "-p",
             threads,
         )
@@ -578,11 +584,13 @@ class PipedPBzip2Reader(PipedCompressionReader):
     def __init__(
         self,
         path,
+        mode: str = "rb",
         threads: Optional[int] = None,
     ):
         super().__init__(
             path,
             ["pbzip2"],
+            mode,
             "-p",
             threads,
         )
@@ -620,8 +628,8 @@ class PipedXzReader(PipedCompressionReader):
     master branch.)
     """
 
-    def __init__(self, path, threads: Optional[int] = None):
-        super().__init__(path, ["xz"], "-T", threads)
+    def __init__(self, path, mode: str = "rb", threads: Optional[int] = None):
+        super().__init__(path, ["xz"], mode, "-T", threads)
 
 
 class PipedXzWriter(PipedCompressionWriter):
@@ -662,7 +670,7 @@ class PipedIGzipReader(PipedCompressionReader):
     architecture-specific optimizations as a result.
     """
 
-    def __init__(self, path):
+    def __init__(self, path, mode: str = "rb"):
         if not _can_read_concatenated_gz("igzip"):
             # Instead of elaborate version string checking once the problem is
             # fixed, it is much easier to use this, "proof in the pudding" type
@@ -672,7 +680,7 @@ class PipedIGzipReader(PipedCompressionReader):
                 "concatenated gzip files and is therefore not "
                 "safe to use. See: https://github.com/intel/isa-l/issues/143"
             )
-        super().__init__(path, ["igzip"])
+        super().__init__(path, ["igzip"], mode)
 
 
 class PipedZstdReader(PipedCompressionReader):
@@ -683,11 +691,9 @@ class PipedZstdReader(PipedCompressionReader):
     def __init__(
         self,
         path,
+        mode: str = "rb",
     ):
-        super().__init__(
-            path,
-            ["zstd"],
-        )
+        super().__init__(path, ["zstd"], mode)
 
 
 class PipedZstdWriter(PipedCompressionWriter):
@@ -762,8 +768,9 @@ class PipedPythonIsalReader(PipedCompressionReader):
     def __init__(
         self,
         path,
+        mode: str = "rb",
     ):
-        super().__init__(path, [sys.executable, "-m", "isal.igzip"])
+        super().__init__(path, [sys.executable, "-m", "isal.igzip"], mode)
 
 
 class PipedPythonIsalWriter(PipedCompressionWriter):
@@ -789,7 +796,7 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
     if threads != 0:
         try:
             if "r" in mode:
-                return PipedPBzip2Reader(filename, threads)
+                return PipedPBzip2Reader(filename, mode, threads)
             else:
                 return PipedPBzip2Writer(filename, mode, threads)
         except OSError:
@@ -804,13 +811,14 @@ def _open_xz(
     compresslevel: Optional[int],
     threads: Optional[int],
 ):
+    assert "b" in mode
     if compresslevel is None:
         compresslevel = 6
 
     if threads != 0:
         try:
             if "r" in mode:
-                return PipedXzReader(filename, threads)
+                return PipedXzReader(filename, mode, threads)
             else:
                 return PipedXzWriter(filename, mode, compresslevel, threads)
         except OSError:
@@ -836,7 +844,7 @@ def _open_zst(  # noqa: C901
     if threads != 0:
         try:
             if "r" in mode:
-                return PipedZstdReader(filename)
+                return PipedZstdReader(filename, mode)
             else:
                 return PipedZstdWriter(filename, mode, compresslevel, threads)
         except OSError:
@@ -892,9 +900,9 @@ def _open_gz(  # noqa: C901
         try:
             if "r" in mode:
                 try:
-                    return PipedPigzReader(filename, threads=threads)
+                    return PipedPigzReader(filename, mode, threads=threads)
                 except OSError:
-                    return PipedGzipReader(filename)
+                    return PipedGzipReader(filename, mode)
             else:
                 try:
                     return PipedPigzWriter(
