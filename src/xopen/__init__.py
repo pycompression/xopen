@@ -27,7 +27,7 @@ import pathlib
 import subprocess
 import tempfile
 import time
-from subprocess import Popen, PIPE, DEVNULL
+from subprocess import Popen, PIPE
 from typing import (
     Optional,
     Union,
@@ -219,11 +219,9 @@ class PipedCompressionProgram(io.IOBase):
         else:
             self.outfile = None
         try:
-            self.process = self._open_process(
-                mode, compresslevel, threads, self.outfile
-            )
+            self.process = self._open_process(mode, compresslevel, threads)
         except OSError:
-            if "r" not in mode:
+            if self.outfile:
                 self.outfile.close()
             raise
         if "r" in mode:
@@ -249,7 +247,6 @@ class PipedCompressionProgram(io.IOBase):
         mode: str,
         compresslevel: Optional[int],
         threads: int,
-        outfile: BinaryIO,
     ) -> Popen:
         program_args: List[str] = self._program_args[:]  # prevent list aliasing
         if threads != 0 and self._threads_flag is not None:
@@ -259,10 +256,10 @@ class PipedCompressionProgram(io.IOBase):
             program_args += ["-" + str(compresslevel)]
 
         if "r" in mode:
-            program_args += ["-c", "-d", self._path]
+            program_args += ["-c", "-d", self._path]  # type: ignore
             kwargs = dict(stdout=PIPE)
         else:
-            kwargs = dict(stdin=PIPE, stdout=outfile)
+            kwargs = dict(stdin=PIPE, stdout=self.outfile)  # type: ignore
 
         # Setting close_fds to True in the Popen arguments is necessary due to
         # <http://bugs.python.org/issue12786>.
@@ -307,8 +304,8 @@ class PipedCompressionProgram(io.IOBase):
             return
         if "r" not in self._mode:
             self._file.close()
-            retcode = self.process.wait()
-            self.outfile.close()
+            self.process.wait()
+            self.outfile.close()  # type: ignore
             check_allowed_code_and_message = True
         else:
             retcode = self.process.poll()
