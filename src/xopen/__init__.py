@@ -317,6 +317,7 @@ class PipedCompressionProgram(io.IOBase):
                 self.process.wait()
             self._file.close()
         stderr_message = self._read_error_message()
+        self._stderr.close()
         self._raise_if_error(check_allowed_code_and_message, stderr_message)
 
     def _wait_for_output_or_process_exit(self):
