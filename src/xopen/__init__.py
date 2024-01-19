@@ -202,6 +202,7 @@ class PipedCompressionProgram(io.IOBase):
         self.name: str = str(path)
         self._path = path
         self._mode: str = mode
+        self._stderr = tempfile.TemporaryFile("w+b")
         self._program_args: List[str] = program_args
         self._threads_flag: Optional[str] = threads_flag
 
@@ -270,7 +271,7 @@ class PipedCompressionProgram(io.IOBase):
         if sys.platform != "win32":
             kwargs["close_fds"] = True
 
-        process = Popen(program_args, stderr=PIPE, **kwargs)  # type: ignore
+        process = Popen(program_args, stderr=self._stderr, **kwargs)  # type: ignore
         return process
 
     def write(self, arg: bytes) -> int:
@@ -306,11 +307,9 @@ class PipedCompressionProgram(io.IOBase):
             return
         if "r" not in self._mode:
             self._file.close()
-            stderr_message = ""
             retcode = self.process.wait()
             self.outfile.close()
-            check_allowed_code_and_message = False
-
+            check_allowed_code_and_message = True
         else:
             retcode = self.process.poll()
             check_allowed_code_and_message = False
@@ -318,8 +317,9 @@ class PipedCompressionProgram(io.IOBase):
                 # still running
                 self.process.terminate()
                 check_allowed_code_and_message = True
-            _, stderr_message = self.process.communicate()
+                self.process.wait()
             self._file.close()
+        stderr_message = self._read_error_message()
         self._raise_if_error(check_allowed_code_and_message, stderr_message)
 
     def _wait_for_output_or_process_exit(self):
@@ -376,14 +376,16 @@ class PipedCompressionProgram(io.IOBase):
                 # terminated with another exit code, but message is allowed
                 return
 
-        assert self.process.stderr is not None
         if not stderr_message:
-            if self.process.stderr.closed:
-                return
-            stderr_message = self.process.stderr.read()
+            stderr_message = self._read_error_message()
 
         self._file.close()
         raise OSError("{!r} (exit code {})".format(stderr_message, retcode))
+
+    def _read_error_message(self):
+        self._stderr.flush()
+        self._stderr.seek(0)
+        return self._stderr.read()
 
     def __iter__(self):
         return self

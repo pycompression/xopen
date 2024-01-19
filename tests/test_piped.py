@@ -356,4 +356,4 @@ def test_piped_tool_fails_on_close(tmp_path):
             ],
         ) as f:
             f.write(b"Hello")
-    assert "terminated with exit code 5" in e.value.args[0]
+    assert "exit code 5" in e.value.args[0]
