@@ -196,8 +196,11 @@ class PipedCompressionProgram(io.IOBase):
                     mode
                 )
             )
-
-        self.name: str = str(os.fspath(path))
+        path = os.fspath(path)
+        if isinstance(path, bytes) and sys.platform == "win32":
+            path = path.decode()
+        self.name: str = str(path)
+        self._path = path
         self._mode: str = mode
         self._program_args: List[str] = program_args
         self._threads_flag: Optional[str] = threads_flag
@@ -254,7 +257,7 @@ class PipedCompressionProgram(io.IOBase):
             program_args += ["-cd"]
 
         if "r" in mode:
-            program_args += [self.name]
+            program_args += [self._path]
             kwargs = dict(stdin=None, stdout=PIPE)
         else:
             kwargs = dict(stdin=PIPE, stdout=fileobj)
