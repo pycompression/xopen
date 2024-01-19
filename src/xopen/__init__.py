@@ -389,7 +389,9 @@ class PipedCompressionProgram(io.IOBase):
         return self
 
     def __next__(self) -> bytes:
-        return self._file.__next__()
+        if "r" in self._mode:
+            return self._file.__next__()
+        raise io.UnsupportedOperation("not readable")
 
     def readable(self):
         return self._file.readable()
@@ -579,7 +581,7 @@ class PipedIGzipProgram(PipedCompressionProgram):
     def __init__(
         self,
         path,
-        mode: str = "wb",
+        mode: str = "rb",
         compresslevel: Optional[int] = None,
     ):
         if "r" in mode and not _can_read_concatenated_gz("igzip"):

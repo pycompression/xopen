@@ -168,7 +168,7 @@ def test_writer(tmp_path, writer):
 
 def test_writer_has_iter_method(tmp_path, writer):
     opener, extension = writer
-    with opener(tmp_path / f"out{extension}") as f:
+    with opener(tmp_path / f"out{extension}", "wb") as f:
         f.write(b"hello")
         assert hasattr(f, "__iter__")
 
