@@ -14,21 +14,21 @@ from itertools import cycle
 from xopen import (
     xopen,
     PipedCompressionReader,
-    PipedCompressionWriter,
+    PipedCompressionProgram,
     PipedGzipReader,
-    PipedGzipWriter,
+    PipedGzipProgram,
     PipedPBzip2Reader,
-    PipedPBzip2Writer,
+    PipedPBzip2Program,
     PipedPigzReader,
-    PipedPigzWriter,
+    PipedPigzProgram,
     PipedIGzipReader,
-    PipedIGzipWriter,
+    PipedIGzipProgram,
     PipedPythonIsalReader,
-    PipedPythonIsalWriter,
+    PipedPythonIsalProgram,
     PipedXzReader,
-    PipedXzWriter,
+    PipedXzProgram,
     PipedZstdReader,
-    PipedZstdWriter,
+    PipedZstdProgram,
     _MAX_PIPE_SIZE,
     _can_read_concatenated_gz,
     igzip,
@@ -67,15 +67,15 @@ def available_gzip_readers_and_writers():
     writers = [
         klass
         for prog, klass in [
-            ("gzip", PipedGzipWriter),
-            ("pigz", PipedPigzWriter),
-            ("igzip", PipedIGzipWriter),
+            ("gzip", PipedGzipProgram),
+            ("pigz", PipedPigzProgram),
+            ("igzip", PipedIGzipProgram),
         ]
         if shutil.which(prog)
     ]
     if igzip is not None:
         readers.append(PipedPythonIsalReader)
-        writers.append(PipedPythonIsalWriter)
+        writers.append(PipedPythonIsalProgram)
     return readers, writers
 
 
@@ -84,21 +84,21 @@ PIPED_GZIP_READERS, PIPED_GZIP_WRITERS = available_gzip_readers_and_writers()
 
 def available_bzip2_readers_and_writers():
     if shutil.which("pbzip2"):
-        return [PipedPBzip2Reader], [PipedPBzip2Writer]
+        return [PipedPBzip2Reader], [PipedPBzip2Program]
     return [], []
 
 
 def available_xz_readers_and_writers():
     result = [], []
     if shutil.which("xz"):
-        result = [PipedXzReader], [PipedXzWriter]
+        result = [PipedXzReader], [PipedXzProgram]
     return result
 
 
 def available_zstd_readers_and_writers():
     result = [], []
     if shutil.which("zstd"):
-        result = [PipedZstdReader], [PipedZstdWriter]
+        result = [PipedZstdReader], [PipedZstdProgram]
     return result
 
 
@@ -228,14 +228,14 @@ def test_invalid_gzip_compression_level(gzip_writer, tmp_path):
 
 def test_invalid_xz_compression_level(tmp_path):
     with pytest.raises(ValueError) as e:
-        with PipedXzWriter(tmp_path / "out.xz", mode="w", compresslevel=10) as f:
+        with PipedXzProgram(tmp_path / "out.xz", mode="w", compresslevel=10) as f:
             f.write("hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
 
 
 def test_invalid_zstd_compression_level(tmp_path):
     with pytest.raises(ValueError) as e:
-        with PipedZstdWriter(tmp_path / "out.zst", mode="w", compresslevel=25) as f:
+        with PipedZstdProgram(tmp_path / "out.zst", mode="w", compresslevel=25) as f:
             f.write("hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
 
@@ -262,20 +262,20 @@ def test_concatenated_gzip_function():
 )
 def test_pipesize_changed(tmp_path, monkeypatch):
     # Higher compression level to avoid opening with threaded opener
-    with PipedGzipWriter(tmp_path / "hello.gz", "wb", compresslevel=5) as f:
-        assert isinstance(f, PipedCompressionWriter)
+    with PipedGzipProgram(tmp_path / "hello.gz", "wb", compresslevel=5) as f:
+        assert isinstance(f, PipedCompressionProgram)
         assert fcntl.fcntl(f._file.fileno(), fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
 
 
 def test_pipedcompressionwriter_wrong_mode(tmp_path):
     with pytest.raises(ValueError) as error:
-        PipedCompressionWriter(tmp_path / "test", ["gzip"], "xb")
+        PipedCompressionProgram(tmp_path / "test", ["gzip"], "xb")
     error.match("Mode is 'xb', but it must be")
 
 
 def test_pipedcompressionwriter_wrong_program(tmp_path):
     with pytest.raises(OSError):
-        PipedCompressionWriter(tmp_path / "test", ["XVXCLSKDLA"], "wb")
+        PipedCompressionProgram(tmp_path / "test", ["XVXCLSKDLA"], "wb")
 
 
 def test_compression_level(tmp_path, gzip_writer):
@@ -340,13 +340,13 @@ def test_piped_compression_reader_peek_text(reader, mode):
 
 def writers_and_levels():
     for writer in PIPED_GZIP_WRITERS:
-        if writer == PipedGzipWriter:
+        if writer == PipedGzipProgram:
             # Levels 1-9 are supported
             yield from ((writer, i) for i in range(1, 10))
-        elif writer == PipedPigzWriter:
+        elif writer == PipedPigzProgram:
             # Levels 0-9 + 11 are supported
             yield from ((writer, i) for i in list(range(10)) + [11])
-        elif writer == PipedIGzipWriter or writer == PipedPythonIsalWriter:
+        elif writer == PipedIGzipProgram or writer == PipedPythonIsalProgram:
             # Levels 0-3 are supported
             yield from ((writer, i) for i in range(4))
         else:
@@ -376,7 +376,7 @@ def test_reproducible_gzip_compression(gzip_writer, tmp_path):
 def test_piped_tool_fails_on_close(tmp_path):
     # This test exercises the retcode != 0 case in PipedCompressionWriter.close()
     with pytest.raises(OSError) as e:
-        with PipedCompressionWriter(
+        with PipedCompressionProgram(
             tmp_path / "out.txt",
             [
                 sys.executable,
