@@ -210,13 +210,13 @@ class PipedCompressionProgram(io.IOBase):
             else:
                 threads = min(_available_cpu_count(), 4)
         self._threads = threads
-        self._fileobj: BinaryIO = open(path, mode[0] + "b")
+        self.outfile: BinaryIO = open(path, mode[0] + "b")
         try:
             self.process = self._open_process(
-                mode, compresslevel, threads, self._fileobj
+                mode, compresslevel, threads, self.outfile
             )
         except OSError:
-            self._fileobj.close()
+            self.outfile.close()
             raise
         if "r" in mode:
             self._file: BinaryIO = self.process.stdout  # type: ignore
@@ -302,16 +302,21 @@ class PipedCompressionProgram(io.IOBase):
             return
         if "r" not in self._mode:
             self._file.close()
-        retcode = self.process.poll()
-        check_allowed_code_and_message = False
-        if retcode is None:
-            # still running
-            self.process.terminate()
-            check_allowed_code_and_message = True
-        _, stderr_message = self.process.communicate()
-        if "r" in self._mode:
+            stderr_message = ""
+            retcode = self.process.wait()
+            self.outfile.close()
+            check_allowed_code_and_message = False
+
+        else:
+            retcode = self.process.poll()
+            check_allowed_code_and_message = False
+            if retcode is None:
+                # still running
+                self.process.terminate()
+                check_allowed_code_and_message = True
+            _, stderr_message = self.process.communicate()
             self._file.close()
-        self._fileobj.close()
+            self.outfile.close()
         self._raise_if_error(check_allowed_code_and_message, stderr_message)
 
     def _wait_for_output_or_process_exit(self):
