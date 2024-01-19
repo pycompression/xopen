@@ -213,13 +213,17 @@ class PipedCompressionProgram(io.IOBase):
             else:
                 threads = min(_available_cpu_count(), 4)
         self._threads = threads
-        self.outfile: BinaryIO = open(path, mode[0] + "b")
+        if "r" not in mode:
+            self.outfile: Optional[BinaryIO] = open(path, mode[0] + "b")
+        else:
+            self.outfile = None
         try:
             self.process = self._open_process(
                 mode, compresslevel, threads, self.outfile
             )
         except OSError:
-            self.outfile.close()
+            if "r" not in mode:
+                self.outfile.close()
             raise
         if "r" in mode:
             self._file: BinaryIO = self.process.stdout  # type: ignore
@@ -244,7 +248,7 @@ class PipedCompressionProgram(io.IOBase):
         mode: str,
         compresslevel: Optional[int],
         threads: int,
-        fileobj: BinaryIO,
+        outfile: BinaryIO,
     ) -> Popen:
         program_args: List[str] = self._program_args[:]  # prevent list aliasing
         if threads != 0 and self._threads_flag is not None:
@@ -254,13 +258,10 @@ class PipedCompressionProgram(io.IOBase):
             program_args += ["-" + str(compresslevel)]
 
         if "r" in mode:
-            program_args += ["-cd"]
-
-        if "r" in mode:
-            program_args += [self._path]
-            kwargs = dict(stdin=None, stdout=PIPE)
+            program_args += ["-c", "-d", self._path]
+            kwargs = dict(stdout=PIPE)
         else:
-            kwargs = dict(stdin=PIPE, stdout=fileobj)
+            kwargs = dict(stdin=PIPE, stdout=outfile)
 
         # Setting close_fds to True in the Popen arguments is necessary due to
         # <http://bugs.python.org/issue12786>.
@@ -319,7 +320,6 @@ class PipedCompressionProgram(io.IOBase):
                 check_allowed_code_and_message = True
             _, stderr_message = self.process.communicate()
             self._file.close()
-            self.outfile.close()
         self._raise_if_error(check_allowed_code_and_message, stderr_message)
 
     def _wait_for_output_or_process_exit(self):
@@ -337,7 +337,8 @@ class PipedCompressionProgram(io.IOBase):
         # stdout is io.BufferedReader if set to PIPE
         while True:
             first_output = self.process.stdout.peek(1)
-            if first_output or self.process.poll() is not None:
+            exit_code = self.process.poll()
+            if first_output or exit_code is not None:
                 break
             time.sleep(0.01)
 
