@@ -301,6 +301,8 @@ class PipedCompressionProgram(io.IOBase):
         super().close()
         if not hasattr(self, "process"):
             # Exception was raised during __init__
+            if hasattr(self, "_stderr"):
+                self._stderr.close()
             return
         if "r" not in self._mode:
             self._file.close()
@@ -381,6 +383,8 @@ class PipedCompressionProgram(io.IOBase):
         raise OSError("{!r} (exit code {})".format(stderr_message, retcode))
 
     def _read_error_message(self):
+        if self._stderr.closed:
+            return b""
         self._stderr.flush()
         self._stderr.seek(0)
         return self._stderr.read()
