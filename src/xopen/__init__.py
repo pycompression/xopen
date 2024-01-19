@@ -286,6 +286,12 @@ class PipedCompressionWriter(io.IOBase):
     def __next__(self):
         raise io.UnsupportedOperation("not readable")
 
+    def readable(self):
+        return self._file.readable()
+
+    def writable(self):
+        return self._file.writable()
+
 
 class PipedCompressionReader(io.IOBase):
     """
