@@ -21,7 +21,6 @@ import subprocess
 import tempfile
 import time
 import typing
-from subprocess import Popen, PIPE
 from typing import (
     Optional,
     Dict,
@@ -227,7 +226,7 @@ class _PipedCompressionProgram(io.IOBase):
             self.process = subprocess.Popen(
                 self._program_args,
                 stderr=self._stderr,
-                stdout=PIPE,
+                stdout=subprocess.PIPE,
                 close_fds=close_fds,
             )  # type: ignore
             self._file: BinaryIO = self.process.stdout  # type: ignore
@@ -238,10 +237,10 @@ class _PipedCompressionProgram(io.IOBase):
                 self._program_args += ["-" + str(compresslevel)]
             self.outfile = open(path, mode[0] + "b")
             try:
-                self.process = Popen(
+                self.process = subprocess.Popen(
                     self._program_args,
                     stderr=self._stderr,
-                    stdin=PIPE,
+                    stdin=subprocess.PIPE,
                     stdout=self.outfile,
                     close_fds=close_fds,
                 )  # type: ignore
