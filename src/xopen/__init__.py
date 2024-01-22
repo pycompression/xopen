@@ -166,12 +166,6 @@ class PipedCompressionProgram(io.IOBase):
     Read and write compressed files by running an external process and piping into it.
     """
 
-    # This exit code is not interpreted as an error when terminating the process
-    _allowed_exit_code: Optional[int] = -signal.SIGTERM
-    # If this message is printed on stderr on terminating the process,
-    # it is not interpreted as an error
-    _allowed_exit_message: Optional[bytes] = None
-
     def __init__(
         self,
         path: FilePath,
@@ -180,6 +174,11 @@ class PipedCompressionProgram(io.IOBase):
         compresslevel: Optional[int] = None,
         threads_flag: Optional[str] = None,
         threads: Optional[int] = None,
+        # This exit code is not interpreted as an error when terminating the process
+        allowed_exit_code: Optional[int] = -signal.SIGTERM,
+        # If this message is printed on stderr on terminating the process,
+        # it is not interpreted as an error
+        allowed_exit_message: Optional[bytes] = None,
     ):
         """
         mode -- one of 'w', 'wb', 'a', 'ab'
@@ -191,6 +190,8 @@ class PipedCompressionProgram(io.IOBase):
             at four to avoid creating too many threads. Use 0 to use all available cores.
         """
         self._program_args = program_args[:]
+        self._allowed_exit_code = allowed_exit_code
+        self._allowed_exit_message = allowed_exit_message
         if mode not in ("r", "rb", "w", "wb", "a", "ab"):
             raise ValueError(
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
@@ -469,9 +470,6 @@ class PipedPBzip2Program(PipedCompressionProgram):
     piping into it. pbzip2 can compress using multiple cores.
     """
 
-    _allowed_exit_code = None
-    _allowed_exit_message = b"\n *Control-C or similar caught [sig=15], quitting..."
-
     def __init__(
         self,
         path,
@@ -486,6 +484,8 @@ class PipedPBzip2Program(PipedCompressionProgram):
             9,
             "-p",
             threads,
+            allowed_exit_code=None,
+            allowed_exit_message=b"\n *Control-C or similar caught [sig=15], quitting...",
         )
 
 
