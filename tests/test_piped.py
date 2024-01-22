@@ -269,7 +269,7 @@ def test_next_method_writers(writer, tmp_path):
     writer = opener(tmp_path / f"test{extension}", "wb")
     with pytest.raises(io.UnsupportedOperation) as error:
         next(writer)
-    error.match("not readable")
+    error.match("read")
     writer.close()
 
 

@@ -382,9 +382,7 @@ class PipedCompressionProgram(io.IOBase):
         return self
 
     def __next__(self) -> bytes:
-        if "r" in self._mode:
-            return self._file.__next__()
-        raise io.UnsupportedOperation("not readable")
+        return self._file.__next__()
 
     def readable(self):
         return self._file.readable()
