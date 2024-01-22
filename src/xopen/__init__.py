@@ -166,7 +166,7 @@ class PipedCompressionProgram(io.IOBase):
     Read and write compressed files by running an external process and piping into it.
     """
 
-    def __init__(
+    def __init__(  # noqa: C901
         self,
         path: FilePath,
         program_args: List[str],
