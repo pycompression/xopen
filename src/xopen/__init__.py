@@ -476,9 +476,7 @@ def _open_zst(  # noqa: C901
     return f
 
 
-def _open_gz(  # noqa: C901
-    filename, mode: str, compresslevel, threads, **text_mode_kwargs
-):
+def _open_gz(filename, mode: str, compresslevel, threads):  # noqa: C901
     assert "b" in mode
     if compresslevel is None:
         # Force the same compression level on every tool regardless of
