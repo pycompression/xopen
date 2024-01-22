@@ -437,7 +437,8 @@ def _open_xz(
     return lzma.open(
         filename,
         mode,
-        preset=compresslevel if "w" in mode else None,
+        # both 'a' and 'w' modes require a level.
+        preset=compresslevel if "r" not in mode else None,
     )
 
 
@@ -470,7 +471,7 @@ def _open_zst(  # noqa: C901
     f = zstandard.open(filename, mode, cctx=cctx)
     if mode == "rb":
         return io.BufferedReader(f)
-    elif mode == "wb":
+    elif mode in ("wb", "ab"):
         return io.BufferedWriter(f)
     return f
 
