@@ -188,7 +188,7 @@ class _PipedCompressionProgram(io.IOBase):
         self,
         program_settings: ProgramSettings,
         path: FilePath,
-        mode="wb",
+        mode="rb",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
     ):
