@@ -4,7 +4,7 @@ Open compressed files transparently.
 
 __all__ = [
     "xopen",
-    "PipedCompressionProgram",
+    "_PipedCompressionProgram",
     "__version__",
 ]
 
@@ -153,7 +153,7 @@ def _can_read_concatenated_gz(program: str) -> bool:
         os.remove(temp_path)
 
 
-class PipedCompressionProgram(io.IOBase):
+class _PipedCompressionProgram(io.IOBase):
     """
     Read and write compressed files by running an external process and piping into it.
     """
@@ -399,7 +399,7 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
     assert "b" in mode
     if threads != 0:
         try:
-            return PipedCompressionProgram(
+            return _PipedCompressionProgram(
                 filename,
                 ["pbzip2"],
                 mode,
@@ -427,7 +427,7 @@ def _open_xz(
 
     if threads != 0:
         try:
-            return PipedCompressionProgram(
+            return _PipedCompressionProgram(
                 filename, ["xz"], mode, compresslevel, "-T", threads
             )
         except OSError:
@@ -452,7 +452,7 @@ def _open_zst(  # noqa: C901
         compresslevel = 3
     if threads != 0:
         try:
-            return PipedCompressionProgram(
+            return _PipedCompressionProgram(
                 filename, ["zstd"], mode, compresslevel, "-T", threads
             )
         except OSError:
@@ -507,11 +507,11 @@ def _open_gz(  # noqa: C901
                 pass
         try:
             try:
-                return PipedCompressionProgram(
+                return _PipedCompressionProgram(
                     filename, ["pigz", "--no-name"], mode, compresslevel, "-p", threads
                 )
             except OSError:
-                return PipedCompressionProgram(
+                return _PipedCompressionProgram(
                     filename, ["gzip", "--no-name"], mode, compresslevel
                 )
         except OSError:

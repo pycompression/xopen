@@ -13,7 +13,7 @@ from itertools import cycle
 
 from xopen import (
     xopen,
-    PipedCompressionProgram,
+    _PipedCompressionProgram,
     PipedGzipProgram,
     PipedPBzip2Program,
     PipedPigzProgram,
@@ -234,19 +234,19 @@ def test_concatenated_gzip_function():
 def test_pipesize_changed(tmp_path, monkeypatch):
     # Higher compression level to avoid opening with threaded opener
     with PipedGzipProgram(tmp_path / "hello.gz", "wb", compresslevel=5) as f:
-        assert isinstance(f, PipedCompressionProgram)
+        assert isinstance(f, _PipedCompressionProgram)
         assert fcntl.fcntl(f._file.fileno(), fcntl.F_GETPIPE_SZ) == _MAX_PIPE_SIZE
 
 
 def test_pipedcompressionwriter_wrong_mode(tmp_path):
     with pytest.raises(ValueError) as error:
-        PipedCompressionProgram(tmp_path / "test", ["gzip"], "xb")
+        _PipedCompressionProgram(tmp_path / "test", ["gzip"], "xb")
     error.match("Mode is 'xb', but it must be")
 
 
 def test_pipedcompressionwriter_wrong_program(tmp_path):
     with pytest.raises(OSError):
-        PipedCompressionProgram(tmp_path / "test", ["XVXCLSKDLA"], "wb")
+        _PipedCompressionProgram(tmp_path / "test", ["XVXCLSKDLA"], "wb")
 
 
 def test_compression_level(tmp_path, gzip_writer):
@@ -275,7 +275,7 @@ def test_next_method_writers(writer, tmp_path):
 
 def test_pipedcompressionprogram_wrong_mode():
     with pytest.raises(ValueError) as error:
-        PipedCompressionProgram("test", ["gzip"], "xb")
+        _PipedCompressionProgram("test", ["gzip"], "xb")
     error.match("Mode is 'xb', but it must be")
 
 
@@ -347,7 +347,7 @@ def test_reproducible_gzip_compression(gzip_writer, tmp_path):
 def test_piped_tool_fails_on_close(tmp_path):
     # This test exercises the retcode != 0 case in PipedCompressionWriter.close()
     with pytest.raises(OSError) as e:
-        with PipedCompressionProgram(
+        with _PipedCompressionProgram(
             tmp_path / "out.txt",
             [
                 sys.executable,
