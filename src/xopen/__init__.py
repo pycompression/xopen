@@ -213,21 +213,24 @@ class PipedCompressionProgram(io.IOBase):
         self._threads = threads
 
         if threads != 0 and self._threads_flag is not None:
-            self._program_args += [f"{self._threads_flag}{threads}"]
+            self._program_args += [f"{self._threads_flag}{self._threads}"]
 
         # Setting close_fds to True in the Popen arguments is necessary due to
         # <http://bugs.python.org/issue12786>.
         # However, close_fds is not supported on Windows. See
         # <https://github.com/marcelm/cutadapt/issues/315>.
-        kwargs = {}
+        close_fds = False
         if sys.platform != "win32":
-            kwargs["close_fds"] = True
+            close_fds = True
 
         if "r" in mode:
             self._program_args += ["-c", "-d", path]  # type: ignore
             self.outfile = None
             self.process = subprocess.Popen(
-                self._program_args, stderr=self._stderr, stdout=PIPE, **kwargs
+                self._program_args,
+                stderr=self._stderr,
+                stdout=PIPE,
+                close_fds=close_fds,
             )  # type: ignore
             self._file: BinaryIO = self.process.stdout  # type: ignore
             self._wait_for_output_or_process_exit()
@@ -242,7 +245,7 @@ class PipedCompressionProgram(io.IOBase):
                     stderr=self._stderr,
                     stdin=PIPE,
                     stdout=self.outfile,
-                    **kwargs,
+                    close_fds=close_fds,
                 )  # type: ignore
             except OSError:
                 self.outfile.close()
@@ -293,14 +296,13 @@ class PipedCompressionProgram(io.IOBase):
             if hasattr(self, "_stderr"):
                 self._stderr.close()
             return
-        if "r" not in self._mode:
+        check_allowed_code_and_message = False
+        if self.outfile:  # Opened for writing.
             self._file.close()
             self.process.wait()
-            self.outfile.close()  # type: ignore
-            check_allowed_code_and_message = True
+            self.outfile.close()
         else:
             retcode = self.process.poll()
-            check_allowed_code_and_message = False
             if retcode is None:
                 # still running
                 self.process.terminate()
