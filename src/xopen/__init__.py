@@ -193,9 +193,7 @@ class PipedCompressionProgram(io.IOBase):
         self._program_args = program_args[:]
         if mode not in ("r", "rb", "w", "wb", "a", "ab"):
             raise ValueError(
-                "Mode is '{}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'".format(
-                    mode
-                )
+                f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
@@ -255,12 +253,11 @@ class PipedCompressionProgram(io.IOBase):
         _set_pipe_size_to_max(self._file.fileno())
 
     def __repr__(self):
-        return "{}('{}', mode='{}', program='{}', threads={})".format(
-            self.__class__.__name__,
-            self.name,
-            self._mode,
-            " ".join(self._program_args),
-            self._threads,
+        return (
+            f"{self.__class__.__name__}"
+            f"('{self.name}', mode='{self._mode}', "
+            f"program='{' '.join(self._program_args)}', "
+            f"threads={self._threads})"
         )
 
     def write(self, arg: bytes) -> int:
@@ -372,7 +369,7 @@ class PipedCompressionProgram(io.IOBase):
             stderr_message = self._read_error_message()
 
         self._file.close()
-        raise OSError("{!r} (exit code {})".format(stderr_message, retcode))
+        raise OSError(f"{stderr_message!r} (exit code {retcode})")
 
     def _read_error_message(self):
         if self._stderr.closed:
