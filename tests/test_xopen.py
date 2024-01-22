@@ -258,10 +258,10 @@ def test_filename_not_a_string():
 def test_invalid_compression_level(tmp_path):
     # Can be any kind of exception depending on backend, OSError, zlib.error,
     # zlib_ng.error, isal_zlib.error, ValueError (etc.)
-    with pytest.raises(Exception) as e:
+    with pytest.raises(ValueError) as e:
         with xopen(tmp_path / "out.gz", mode="w", compresslevel=17) as f:
             f.write("hello")  # pragma: no cover
-    assert "level" in e.value.args[0]
+    assert "compresslevel must be" in e.value.args[0]
 
 
 @pytest.mark.parametrize("ext", extensions)

@@ -95,6 +95,7 @@ FilePath = Union[str, bytes, os.PathLike]
 
 class ProgramSettings(typing.NamedTuple):
     program_args: Tuple[str, ...]
+    acceptable_compression_levels: Tuple[int, ...] = tuple(range(1, 10))
     threads_flag: Optional[str] = None
     # This exit code is not interpreted as an error when terminating the process
     allowed_exit_code: Optional[int] = -signal.SIGTERM
@@ -106,14 +107,15 @@ class ProgramSettings(typing.NamedTuple):
 PROGRAM_SETTINGS: Dict[str, ProgramSettings] = {
     "pbzip2": ProgramSettings(
         ("pbzip2",),
+        tuple(range(1, 10)),
         "-p",
         allowed_exit_code=None,
         allowed_exit_message=b"\n *Control-C or similar caught [sig=15], quitting...",
     ),
-    "xz": ProgramSettings(("xz",), "-T"),
-    "zstd": ProgramSettings(("zstd",), "-T"),
-    "pigz": ProgramSettings(("pigz", "--no-name"), "-p"),
-    "gzip": ProgramSettings(("gzip", "--no-name")),
+    "xz": ProgramSettings(("xz",), tuple(range(0, 10)), "-T"),
+    "zstd": ProgramSettings(("zstd",), tuple(range(1, 20)), "-T"),
+    "pigz": ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
+    "gzip": ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
 }
 
 
@@ -207,6 +209,13 @@ class _PipedCompressionProgram(io.IOBase):
         if mode not in ("r", "rb", "w", "wb", "a", "ab"):
             raise ValueError(
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
+            )
+        if (
+            compresslevel
+            and compresslevel not in program_settings.acceptable_compression_levels
+        ):
+            raise ValueError(
+                f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
