@@ -446,7 +446,7 @@ def _open_xz(
     )
 
 
-def _open_zst(  # noqa: C901
+def _open_zst(
     filename,
     mode: str,
     compresslevel: Optional[int],
