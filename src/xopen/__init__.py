@@ -161,7 +161,7 @@ class _PipedCompressionProgram(io.IOBase):
     Read and write compressed files by running an external process and piping into it.
     """
 
-    def __init__(  # noqa: C901
+    def __init__(
         self,
         program_settings: ProgramSettings,
         path: FilePath,
@@ -192,9 +192,11 @@ class _PipedCompressionProgram(io.IOBase):
             raise ValueError(
                 f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
+        self._compresslevel = compresslevel
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
             path = path.decode()
+        self._path = path
         self.name: str = str(path)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
@@ -211,7 +213,9 @@ class _PipedCompressionProgram(io.IOBase):
 
         if threads != 0 and self._threads_flag is not None:
             self._program_args += [f"{self._threads_flag}{self._threads}"]
+        self._open_process()
 
+    def _open_process(self):
         # Setting close_fds to True in the Popen arguments is necessary due to
         # <http://bugs.python.org/issue12786>.
         # However, close_fds is not supported on Windows. See
@@ -220,8 +224,8 @@ class _PipedCompressionProgram(io.IOBase):
         if sys.platform != "win32":
             close_fds = True
 
-        if "r" in mode:
-            self._program_args += ["-c", "-d", path]  # type: ignore
+        if "r" in self._mode:
+            self._program_args += ["-c", "-d", self._path]  # type: ignore
             self.outfile = None
             self.process = subprocess.Popen(
                 self._program_args,
@@ -233,9 +237,9 @@ class _PipedCompressionProgram(io.IOBase):
             self._wait_for_output_or_process_exit()
             self._raise_if_error()
         else:
-            if compresslevel is not None:
-                self._program_args += ["-" + str(compresslevel)]
-            self.outfile = open(path, mode[0] + "b")
+            if self._compresslevel is not None:
+                self._program_args += ["-" + str(self._compresslevel)]
+            self.outfile = open(self._path, self._mode[0] + "b")
             try:
                 self.process = subprocess.Popen(
                     self._program_args,
