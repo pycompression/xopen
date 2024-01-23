@@ -495,7 +495,7 @@ def _open_gz(filename, mode: str, compresslevel, threads):  # noqa: C901
                 filename,
                 mode,
                 compresslevel,
-                threads=1,
+                threads=threads or 1,
             )
         if gzip_ng_threaded and zlib_ng:
             try:
