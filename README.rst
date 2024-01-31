@@ -184,11 +184,19 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
-in-development
+v1.9.0 (2024-01-31)
 ~~~~~~~~~~~~~~~~~~~
+* #142: The python-isal compression backend is now only used for compression
+  levels 1 and 2. Contrary to other backends, python-isal level 0 gave
+  compressed rather than uncompressed data in gzip format. Level 3 on
+  python-isal did not provide better compression than level 2.
+* #140: PipedCompressionReader/Writer now derive from the `io.IOBase
+  <https://docs.python.org/3/library/io.html#io.IOBase>`_ abstract class.
 * #138: The gzip default compression level is now 1 when no value is provided
   by the calling function. The default used to be determined by the backend.
 * #135: xopen now uses zlib-ng when available and applicable.
+* #133: Piped ``igzip`` is no longer used as a (de)compression backend as
+  python-isal's threaded mode is a better choice in all use cases.
 
 v1.8.0 (2023-11-03)
 ~~~~~~~~~~~~~~~~~~~
