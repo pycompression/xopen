@@ -184,6 +184,11 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
+in-development
+~~~~~~~~~~~~~~~~~~~
+* #146: PipedCompressionReader/Writer are now binary-only. For text reading
+  they are wrapped in an ``io.TextIOWrapper`` in the ``xopen()`` function.
+
 v1.9.0 (2024-01-31)
 ~~~~~~~~~~~~~~~~~~~
 * #142: The python-isal compression backend is now only used for compression
