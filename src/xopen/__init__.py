@@ -189,6 +189,7 @@ class PipedCompressionProgram(io.IOBase):
             used. At the moment, this means that the number of available CPU cores is used, capped
             at four to avoid creating too many threads. Use 0 to use all available cores.
         """
+        self._error_raised = False
         self._program_args = program_args[:]
         self._allowed_exit_code = allowed_exit_code
         self._allowed_exit_message = allowed_exit_message
@@ -312,7 +313,9 @@ class PipedCompressionProgram(io.IOBase):
             self._file.close()
         stderr_message = self._read_error_message()
         self._stderr.close()
-        self._raise_if_error(check_allowed_code_and_message, stderr_message)
+        if not self._error_raised:
+            # Only check for errors if none have been found earlier.
+            self._raise_if_error(check_allowed_code_and_message, stderr_message)
 
     def _wait_for_output_or_process_exit(self):
         """
@@ -372,6 +375,7 @@ class PipedCompressionProgram(io.IOBase):
             stderr_message = self._read_error_message()
 
         self._file.close()
+        self._error_raised = True
         raise OSError(f"{stderr_message!r} (exit code {retcode})")
 
     def _read_error_message(self):
