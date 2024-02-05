@@ -4,14 +4,7 @@ Open compressed files transparently.
 
 __all__ = [
     "xopen",
-    "PipedGzipProgram",
-    "PipedIGzipReader",
-    "PipedIGzipProgram",
-    "PipedPigzProgram",
-    "PipedPBzip2Program",
-    "PipedXzProgram",
-    "PipedZstdProgram",
-    "PipedPythonIsalProgram",
+    "_PipedCompressionProgram",
     "__version__",
 ]
 
@@ -27,17 +20,21 @@ import pathlib
 import subprocess
 import tempfile
 import time
+import typing
 from subprocess import Popen, PIPE
 from typing import (
+    Any,
+    Dict,
     Optional,
     Union,
     TextIO,
     IO,
-    List,
-    Set,
+    Sequence,
+    Container,
     overload,
     BinaryIO,
     Literal,
+    Tuple,
 )
 from types import ModuleType
 
@@ -97,6 +94,38 @@ except (
 
 
 FilePath = Union[str, bytes, os.PathLike]
+
+
+# Rather than using a dict, use a NamedTuple with _asdict to enforce presence
+# of certain members and type checking.
+class _ProgramSettings(typing.NamedTuple):
+    program_args: Tuple[str, ...]
+    acceptable_compression_levels: Tuple[int, ...] = tuple(range(1, 10))
+    threads_flag: Optional[str] = None
+    # This exit code is not interpreted as an error when terminating the process
+    allowed_exit_code: Optional[int] = -signal.SIGTERM
+    # If this message is printed on stderr on terminating the process,
+    # it is not interpreted as an error
+    allowed_exit_message: Optional[bytes] = None
+
+
+PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
+    "pbzip2": _ProgramSettings(
+        ("pbzip2",),
+        tuple(range(1, 10)),
+        "-p",
+        allowed_exit_code=None,
+        allowed_exit_message=b"\n *Control-C or similar caught [sig=15], quitting...",
+    ),
+    "xz": _ProgramSettings(("xz",), tuple(range(0, 10)), "-T"),
+    "zstd": _ProgramSettings(("zstd",), tuple(range(1, 20)), "-T"),
+    "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
+    "gzip": _ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
+}
+
+
+def _program_settings(program: str) -> Dict[str, Any]:
+    return PROGRAM_SETTINGS[program]._asdict()
 
 
 def _available_cpu_count() -> int:
@@ -161,7 +190,7 @@ def _can_read_concatenated_gz(program: str) -> bool:
         os.remove(temp_path)
 
 
-class PipedCompressionProgram(io.IOBase):
+class _PipedCompressionProgram(io.IOBase):
     """
     Read and write compressed files by running an external process and piping into it.
     """
@@ -169,16 +198,17 @@ class PipedCompressionProgram(io.IOBase):
     def __init__(  # noqa: C901
         self,
         path: FilePath,
-        program_args: List[str],
         mode="rb",
         compresslevel: Optional[int] = None,
-        threads_flag: Optional[str] = None,
         threads: Optional[int] = None,
+        program_args: Optional[Sequence[str]] = None,
+        threads_flag: Optional[str] = None,
         # This exit code is not interpreted as an error when terminating the process
         allowed_exit_code: Optional[int] = -signal.SIGTERM,
         # If this message is printed on stderr on terminating the process,
         # it is not interpreted as an error
         allowed_exit_message: Optional[bytes] = None,
+        acceptable_compression_levels: Container[int] = tuple(range(0, 10)),
     ):
         """
         mode -- one of 'w', 'wb', 'a', 'ab'
@@ -189,13 +219,22 @@ class PipedCompressionProgram(io.IOBase):
             used. At the moment, this means that the number of available CPU cores is used, capped
             at four to avoid creating too many threads. Use 0 to use all available cores.
         """
+        if program_args is None:
+            program_args = ("gzip", "--no-name")
         self._error_raised = False
-        self._program_args = program_args[:]
+        self._program_args = list(program_args)
         self._allowed_exit_code = allowed_exit_code
         self._allowed_exit_message = allowed_exit_message
         if mode not in ("r", "rb", "w", "wb", "a", "ab"):
             raise ValueError(
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
+            )
+        if (
+            compresslevel is not None
+            and compresslevel not in acceptable_compression_levels
+        ):
+            raise ValueError(
+                f"compresslevel must be in {acceptable_compression_levels}."
             )
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
@@ -401,217 +440,6 @@ class PipedCompressionProgram(io.IOBase):
         return None
 
 
-class PipedGzipProgram(PipedCompressionProgram):
-    """
-    Write gzip-compressed files by running an external gzip process and
-    piping into it. On Python 3, gzip.GzipFile is on par with gzip itself,
-    but running an external gzip can still reduce wall-clock time because
-    the compression happens in a separate process.
-    """
-
-    def __init__(
-        self,
-        path,
-        mode: str = "rb",
-        compresslevel: Optional[int] = None,
-    ):
-        """
-        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
-        compresslevel -- compression level
-        """
-        if compresslevel is not None and compresslevel not in range(1, 10):
-            raise ValueError("compresslevel must be between 1 and 9")
-        super().__init__(
-            path,
-            ["gzip", "--no-name"],
-            mode,
-            compresslevel,
-        )
-
-
-class PipedPigzProgram(PipedCompressionProgram):
-    """
-    Write gzip-compressed files by running an external pigz process and
-    piping into it. pigz can compress using multiple cores. It is also more
-    efficient than gzip on only one core. (But then igzip is even faster and
-    should be preferred if the compression level allows it.)
-    """
-
-    _accepted_compression_levels: Set[int] = set(list(range(10)) + [11])
-
-    def __init__(
-        self,
-        path,
-        mode: str = "rb",
-        compresslevel: Optional[int] = None,
-        threads: Optional[int] = None,
-    ):
-        """
-        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
-        compresslevel -- compression level
-        threads (int) -- number of pigz threads. If this is set to None, a reasonable default is
-            used. At the moment, this means that the number of available CPU cores is used, capped
-            at four to avoid creating too many threads. Use 0 to let pigz use all available cores.
-        """
-        if (
-            compresslevel is not None
-            and compresslevel not in self._accepted_compression_levels
-        ):
-            raise ValueError("compresslevel must be between 0 and 9 or 11")
-        super().__init__(
-            path,
-            ["pigz", "--no-name"],
-            mode,
-            compresslevel,
-            "-p",
-            threads,
-        )
-
-
-class PipedPBzip2Program(PipedCompressionProgram):
-    """
-    Write bzip2-compressed files by running an external pbzip2 process and
-    piping into it. pbzip2 can compress using multiple cores.
-    """
-
-    def __init__(
-        self,
-        path,
-        mode: str = "rb",
-        threads: Optional[int] = None,
-    ):
-        # Use default compression level for pbzip2: 9
-        super().__init__(
-            path,
-            ["pbzip2"],
-            mode,
-            9,
-            "-p",
-            threads,
-            allowed_exit_code=None,
-            allowed_exit_message=b"\n *Control-C or similar caught [sig=15], quitting...",
-        )
-
-
-class PipedXzProgram(PipedCompressionProgram):
-    """
-    Write xz-compressed files by running an external xz process and
-    piping into it. xz can compress using multiple cores.
-    """
-
-    _accepted_compression_levels: Set[int] = set(range(10))
-
-    def __init__(
-        self,
-        path,
-        mode: str = "rb",
-        compresslevel: Optional[int] = None,
-        threads: Optional[int] = None,
-    ):
-        """
-        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
-        compresslevel -- compression level
-        threads (int) -- number of xz threads. If this is set to None, a reasonable default is
-            used. At the moment, this means that the number of available CPU cores is used, capped
-            at four to avoid creating too many threads. Use 0 to let xz use all available cores.
-        """
-        if (
-            compresslevel is not None
-            and compresslevel not in self._accepted_compression_levels
-        ):
-            raise ValueError("compresslevel must be between 0 and 9")
-        super().__init__(path, ["xz"], mode, compresslevel, "-T", threads)
-
-
-class PipedZstdProgram(PipedCompressionProgram):
-    """
-    Write Zstandard-compressed files by running an external xz process and
-    piping into it. xz can compress using multiple cores.
-    """
-
-    _accepted_compression_levels: Set[int] = set(range(1, 20))
-
-    def __init__(
-        self,
-        path,
-        mode: str = "rb",
-        compresslevel: Optional[int] = None,
-        threads: Optional[int] = None,
-    ):
-        """
-        mode -- one of 'w', 'wt', 'wb', 'a', 'at', 'ab'
-        compresslevel -- compression level
-        threads (int) -- number of zstd threads. If this is set to None, a reasonable default is
-            used. At the moment, this means that the number of available CPU cores is used, capped
-            at four to avoid creating too many threads. Use 0 to let zstd use all available cores.
-        """
-        if (
-            compresslevel is not None
-            and compresslevel not in self._accepted_compression_levels
-        ):
-            raise ValueError("compresslevel must be between 1 and 19")
-        super().__init__(
-            path,
-            ["zstd"],
-            mode,
-            compresslevel,
-            "-T",
-            threads,
-        )
-
-
-class PipedIGzipProgram(PipedCompressionProgram):
-    """
-    Uses igzip for writing a gzipped file. This is much faster than either
-    gzip or pigz which were written to run on a wide array of systems. igzip
-    can only run on x86 and ARM architectures, but is able to use more
-    architecture-specific optimizations as a result.
-
-    Threads are supported by a flag, but do not add any speed. Also on some
-    distro version (isal package in debian buster) the thread flag is not
-    present. For these reason threads are omitted from the interface.
-    Only compresslevel 0-3 are supported and these output slightly different
-    filesizes from their pigz/gzip counterparts.
-    See: https://gist.github.com/rhpvorderman/4f1201c3f39518ff28dde45409eb696b
-    """
-
-    def __init__(
-        self,
-        path,
-        mode: str = "rb",
-        compresslevel: Optional[int] = None,
-    ):
-        if "r" in mode and not _can_read_concatenated_gz("igzip"):
-            # Instead of elaborate version string checking once the problem is
-            # fixed, it is much easier to use this, "proof in the pudding" type
-            # of evaluation.
-            raise ValueError(
-                "This version of igzip does not support reading "
-                "concatenated gzip files and is therefore not "
-                "safe to use. See: https://github.com/intel/isa-l/issues/143"
-            )
-        if compresslevel is not None and compresslevel not in range(0, 4):
-            raise ValueError("compresslevel must be between 0 and 3")
-        super().__init__(
-            path,
-            ["igzip", "--no-name"],
-            mode,
-            compresslevel,
-        )
-
-
-class PipedPythonIsalProgram(PipedCompressionProgram):
-    def __init__(self, path, mode: str = "rb", compresslevel: Optional[int] = None):
-        if compresslevel is not None and compresslevel not in range(0, 4):
-            raise ValueError("compresslevel must be between 0 and 3")
-        super().__init__(
-            path,
-            [sys.executable, "-m", "isal.igzip", "--no-name"],
-            mode,
-            compresslevel,
-        )
-
-
 def _open_stdin_or_out(mode: str):
     assert "b" in mode
     std = sys.stdout if "w" in mode else sys.stdin
@@ -622,7 +450,9 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
     assert "b" in mode
     if threads != 0:
         try:
-            return PipedPBzip2Program(filename, mode, threads)
+            return _PipedCompressionProgram(
+                filename, mode, threads=threads, **_program_settings("pbzip2")
+            )
         except OSError:
             pass  # We try without threads.
 
@@ -641,7 +471,9 @@ def _open_xz(
 
     if threads != 0:
         try:
-            return PipedXzProgram(filename, mode, compresslevel, threads)
+            return _PipedCompressionProgram(
+                filename, mode, compresslevel, threads, **_program_settings("xz")
+            )
         except OSError:
             pass  # We try without threads.
 
@@ -664,7 +496,9 @@ def _open_zst(  # noqa: C901
         compresslevel = 3
     if threads != 0:
         try:
-            return PipedZstdProgram(filename, mode, compresslevel, threads)
+            return _PipedCompressionProgram(
+                filename, mode, compresslevel, threads, **_program_settings("zstd")
+            )
         except OSError:
             if zstandard is None:
                 # No fallback available
@@ -717,9 +551,13 @@ def _open_gz(  # noqa: C901
                 pass
         try:
             try:
-                return PipedPigzProgram(filename, mode, compresslevel, threads=threads)
+                return _PipedCompressionProgram(
+                    filename, mode, compresslevel, threads, **_program_settings("pigz")
+                )
             except OSError:
-                return PipedGzipProgram(filename, mode, compresslevel)
+                return _PipedCompressionProgram(
+                    filename, mode, compresslevel, threads, **_program_settings("gzip")
+                )
         except OSError:
             pass  # We try without threads.
 
