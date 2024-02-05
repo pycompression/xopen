@@ -166,30 +166,6 @@ def _set_pipe_size_to_max(fd: int) -> None:
         pass
 
 
-def _can_read_concatenated_gz(program: str) -> bool:
-    """
-    Check if a concatenated gzip file can be read properly. Not all deflate
-    programs handle this properly.
-    """
-    fd, temp_path = tempfile.mkstemp(suffix=".gz", prefix="xopen.")
-    try:
-        # Create a concatenated gzip file. gzip.compress recreates the contents
-        # of a gzip file including header and trailer.
-        with open(temp_path, "wb") as temp_file:
-            temp_file.write(gzip.compress(b"AB") + gzip.compress(b"CD"))
-        try:
-            result = subprocess.run(
-                [program, "-c", "-d", temp_path], check=True, stderr=PIPE, stdout=PIPE
-            )
-            return result.stdout == b"ABCD"
-        except subprocess.CalledProcessError:
-            # Program can't read zip
-            return False
-    finally:
-        os.close(fd)
-        os.remove(temp_path)
-
-
 class _PipedCompressionProgram(io.IOBase):
     """
     Read and write compressed files by running an external process and piping into it.
