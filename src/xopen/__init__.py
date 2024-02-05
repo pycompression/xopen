@@ -177,7 +177,7 @@ class _PipedCompressionProgram(io.IOBase):
         mode="rb",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
-        program_args: Optional[Sequence[str]] = None,
+        program_args: Sequence[str] = ("gzip", "--no-name"),
         threads_flag: Optional[str] = None,
         # This exit code is not interpreted as an error when terminating the process
         allowed_exit_code: Optional[int] = -signal.SIGTERM,
@@ -195,8 +195,6 @@ class _PipedCompressionProgram(io.IOBase):
             used. At the moment, this means that the number of available CPU cores is used, capped
             at four to avoid creating too many threads. Use 0 to use all available cores.
         """
-        if program_args is None:
-            program_args = ("gzip", "--no-name")
         self._error_raised = False
         self._program_args = list(program_args)
         self._allowed_exit_code = allowed_exit_code
