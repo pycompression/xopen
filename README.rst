@@ -186,8 +186,16 @@ Changelog
 
 in-development
 ~~~~~~~~~~~~~~~~~~~
-* #146: PipedCompressionReader/Writer are now binary-only. For text reading
-  they are wrapped in an ``io.TextIOWrapper`` in the ``xopen()`` function.
+* #146, #147, #148: Various refactors for better code size and readability:
+
+    * PipedCompressionReader/Writer are now combined _PipedCompressionProgram
+      class.
+    * _PipedCompressionProgram is binary-only. For text reading and writing
+      it is wrapped in an ``io.TextIOWrapper`` in the ``xopen()`` function.
+    * Classes that derive from PipedCompressionReader/Writer have been removed.
+* #148: xopen's classes, variables and functions pertaining to piped reading
+  and writing are all made private by prefixing them with an underscore.
+  These are not part of the API and may change between releases.
 
 v1.9.0 (2024-01-31)
 ~~~~~~~~~~~~~~~~~~~
