@@ -109,7 +109,7 @@ class _ProgramSettings(typing.NamedTuple):
     allowed_exit_message: Optional[bytes] = None
 
 
-PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
+_PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
     "pbzip2": _ProgramSettings(
         ("pbzip2",),
         tuple(range(1, 10)),
@@ -125,7 +125,7 @@ PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
 
 
 def _program_settings(program: str) -> Dict[str, Any]:
-    return PROGRAM_SETTINGS[program]._asdict()
+    return _PROGRAM_SETTINGS[program]._asdict()
 
 
 def _available_cpu_count() -> int:
