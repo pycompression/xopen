@@ -551,6 +551,12 @@ def _open_gz(
         # Force the same compression level on every tool regardless of
         # library defaults
         compresslevel = XOPEN_DEFAULT_GZIP_COMPRESSION
+    if compresslevel not in range(10):
+        # Level 0-9 are supported regardless of backend support
+        # (zlib_ng supports -1, pigz supports 11 etc.)
+        raise ValueError(
+            f"gzip compresslevel must be in range 0-9, got {compresslevel}."
+        )
 
     if threads != 0:
         # Igzip level 0 does not output uncompressed deflate blocks as zlib does
@@ -563,17 +569,14 @@ def _open_gz(
                 threads=1,
             )
         if gzip_ng_threaded and zlib_ng:
-            try:
-                return gzip_ng_threaded.open(
-                    filename,
-                    mode,
-                    # zlib-ng level 1 is 50% bigger than zlib level 1. Level
-                    # 2 gives a size close to expectations.
-                    compresslevel=2 if compresslevel == 1 else compresslevel,
-                    threads=threads or max(_available_cpu_count(), 4),
-                )
-            except zlib_ng.error:  # Bad compression level
-                pass
+            return gzip_ng_threaded.open(
+                filename,
+                mode,
+                # zlib-ng level 1 is 50% bigger than zlib level 1. Level
+                # 2 gives a size close to expectations.
+                compresslevel=2 if compresslevel == 1 else compresslevel,
+                threads=threads or max(_available_cpu_count(), 4),
+            )
 
         for program in ("pigz", "gzip"):
             try:
@@ -584,7 +587,8 @@ def _open_gz(
                     threads,
                     _PROGRAM_SETTINGS[program],
                 )
-            except OSError:
+            # ValueError when compresslevel is not supported. i.e. gzip and level 0
+            except (OSError, ValueError):
                 pass  # We try without threads.
     return _open_reproducible_gzip(filename, mode=mode, compresslevel=compresslevel)
 
