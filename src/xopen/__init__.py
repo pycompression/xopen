@@ -25,7 +25,6 @@ from typing import (
     Dict,
     Optional,
     Union,
-    TextIO,
     IO,
     overload,
     BinaryIO,
@@ -721,7 +720,7 @@ def xopen(
     errors: Optional[str] = ...,
     newline: Optional[str] = ...,
     format: Optional[str] = ...,
-) -> TextIO:
+) -> io.TextIOWrapper:
     ...
 
 
