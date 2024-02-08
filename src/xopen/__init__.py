@@ -96,7 +96,7 @@ except (
     _MAX_PIPE_SIZE = None
 
 
-FilePath = Union[str, bytes, os.PathLike]
+FilePath = Union[str, bytes, os.PathLike, IO]
 
 
 def _available_cpu_count() -> int:
@@ -197,6 +197,9 @@ class PipedCompressionProgram(io.IOBase):
             raise ValueError(
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
+        self._infile = path
+        if isinstance(path, io.IOBase):
+            path = path.name
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
             path = path.decode()
@@ -240,7 +243,12 @@ class PipedCompressionProgram(io.IOBase):
         else:
             if compresslevel is not None:
                 self._program_args += ["-" + str(compresslevel)]
-            self.outfile = open(path, mode[0] + "b")
+            self._infile = path
+            # complex file handlers : pass through
+            if isinstance(self._infile, io.IOBase):
+                self.outfile = self._infile
+            else:
+                self.outfile = open(path, mode[0] + "b")
             try:
                 self.process = Popen(
                     self._program_args,
@@ -741,7 +749,11 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     # Neither gzip.open nor igzip.open have an mtime option, and they will
     # always write the file name, so we need to open the file separately
     # and pass it to gzip.GzipFile/igzip.IGzipFile.
-    binary_file = open(filename, mode=mode)
+    try:
+        binary_file = open(filename, mode=mode)
+    except TypeError:
+        # if an advanced filehandle is passed instead of filepath: pass it through
+        binary_file = filename
     kwargs = dict(
         fileobj=binary_file,
         filename="",
@@ -853,7 +865,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
     bzip2, xz and zstandard. If the filename is '-', standard output (mode 'w') or
-    standard input (mode 'r') is returned.
+    standard input (mode 'r') is returned. Filenamem can be a string or a file object
 
     When writing, the file format is chosen based on the file name extension:
     - .gz uses gzip compression
@@ -898,8 +910,11 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
     binary_mode = mode[0] + "b"
+    # if file handle is passed: get name
+    file = filename
+    if isinstance(filename, io.IOBase):
+        filename = filename.name
     filename = os.fspath(filename)
-
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
             f"Format not supported: {format}. "
@@ -912,15 +927,15 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if filename == "-":
         opened_file = _open_stdin_or_out(binary_mode)
     elif detected_format == "gz":
-        opened_file = _open_gz(filename, binary_mode, compresslevel, threads)
+        opened_file = _open_gz(file, binary_mode, compresslevel, threads)
     elif detected_format == "xz":
-        opened_file = _open_xz(filename, binary_mode, compresslevel, threads)
+        opened_file = _open_xz(file, binary_mode, compresslevel, threads)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(filename, binary_mode, threads)
+        opened_file = _open_bz2(file, binary_mode, threads)
     elif detected_format == "zst":
-        opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
+        opened_file = _open_zst(file, binary_mode, compresslevel, threads)
     else:
-        opened_file = open(filename, binary_mode)  # type: ignore
+        opened_file = open(file, binary_mode)  # type: ignore
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
