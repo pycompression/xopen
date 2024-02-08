@@ -566,3 +566,67 @@ def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
     with pytest.raises(ImportError):
         with xopen.xopen(TEST_DIR / "file.txt.zst", mode="rb", threads=0) as f:
             f.read()
+
+
+# tests for passing in filehandles
+def test_passing_in_gz_filehandles_for_reading():
+    first_line = CONTENT_LINES[0].encode("utf-8")
+    with open(TEST_DIR / "file.txt.gz", "rb") as fh:
+        with xopen(fh, "rb") as f:
+            assert f.readline() == first_line
+
+
+def test_passing_in_xz_filehandles_for_reading():
+    first_line = CONTENT_LINES[0].encode("utf-8")
+    with open(TEST_DIR / "file.txt.xz", "rb") as fh:
+        with xopen(fh, "rb") as f:
+            assert f.readline() == first_line
+
+
+def test_passing_in_bz2_filehandles_for_reading():
+    first_line = CONTENT_LINES[0].encode("utf-8")
+    with open(TEST_DIR / "file.txt.bz2", "rb") as fh:
+        with xopen(fh, "rb") as f:
+            assert f.readline() == first_line
+
+
+def test_passing_in_zst_filehandles_for_reading():
+    first_line = CONTENT_LINES[0].encode("utf-8")
+    with open(TEST_DIR / "file.txt.zst", "rb") as fh:
+        with xopen(fh, "rb") as f:
+            assert f.readline() == first_line
+
+
+def test_passing_in_gz_filehandles_for_writing(tmp_path):
+    import isal
+
+    with open(tmp_path / "out.gz", "wb") as fh:
+        with xopen(fh, "wb") as f:
+            assert isinstance(f.raw, isal.igzip_threaded._ThreadedGzipWriter)
+
+
+def test_passing_in_xz_filehandles_for_writing(tmp_path):
+    import xopen
+
+    with open(tmp_path / "out.xz", "wb") as fh:
+        with xopen.xopen(fh, "wb") as f:
+            # for pipedXzProgram, the fh gets passed through
+            assert isinstance(f, xopen.PipedXzProgram)
+
+
+def test_passing_in_bz2_filehandles_for_writing(tmp_path):
+    import xopen
+
+    with open(tmp_path / "out.bz2", "wb") as fh:
+        with xopen.xopen(fh, "wb") as f:
+            # for pipedXzProgram, the fh gets passed through
+            assert isinstance(f, xopen.PipedPBzip2Program)
+
+
+def test_passing_in_zst_filehandles_for_writing(tmp_path):
+    import xopen
+
+    with open(tmp_path / "out.zst", "wb") as fh:
+        with xopen.xopen(fh, "wb") as f:
+            # for pipedXzProgram, the fh gets passed through
+            assert isinstance(f, xopen.PipedZstdProgram)
