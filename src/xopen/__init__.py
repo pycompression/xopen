@@ -8,6 +8,7 @@ __all__ = [
     "__version__",
 ]
 
+import dataclasses
 import gzip
 import sys
 import io
@@ -20,17 +21,13 @@ import pathlib
 import subprocess
 import tempfile
 import time
-import typing
 from subprocess import Popen, PIPE
 from typing import (
-    Any,
     Dict,
     Optional,
     Union,
     TextIO,
     IO,
-    Sequence,
-    Container,
     overload,
     BinaryIO,
     Literal,
@@ -96,9 +93,8 @@ except (
 FilePath = Union[str, bytes, os.PathLike]
 
 
-# Rather than using a dict, use a NamedTuple with _asdict to enforce presence
-# of certain members and type checking.
-class _ProgramSettings(typing.NamedTuple):
+@dataclasses.dataclass
+class _ProgramSettings:
     program_args: Tuple[str, ...]
     acceptable_compression_levels: Tuple[int, ...] = tuple(range(1, 10))
     threads_flag: Optional[str] = None
@@ -122,10 +118,6 @@ _PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
     "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
     "gzip": _ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
 }
-
-
-def _program_settings(program: str) -> Dict[str, Any]:
-    return _PROGRAM_SETTINGS[program]._asdict()
 
 
 def _available_cpu_count() -> int:
@@ -177,14 +169,7 @@ class _PipedCompressionProgram(io.IOBase):
         mode="rb",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
-        program_args: Sequence[str] = ("gzip", "--no-name"),
-        threads_flag: Optional[str] = None,
-        # This exit code is not interpreted as an error when terminating the process
-        allowed_exit_code: Optional[int] = -signal.SIGTERM,
-        # If this message is printed on stderr on terminating the process,
-        # it is not interpreted as an error
-        allowed_exit_message: Optional[bytes] = None,
-        acceptable_compression_levels: Container[int] = tuple(range(0, 10)),
+        program_settings: _ProgramSettings = _ProgramSettings(("gzip", "--no-name")),
     ):
         """
         mode -- one of 'w', 'wb', 'a', 'ab'
@@ -196,19 +181,19 @@ class _PipedCompressionProgram(io.IOBase):
             at four to avoid creating too many threads. Use 0 to use all available cores.
         """
         self._error_raised = False
-        self._program_args = list(program_args)
-        self._allowed_exit_code = allowed_exit_code
-        self._allowed_exit_message = allowed_exit_message
+        self._program_args = list(program_settings.program_args)
+        self._allowed_exit_code = program_settings.allowed_exit_code
+        self._allowed_exit_message = program_settings.allowed_exit_message
         if mode not in ("r", "rb", "w", "wb", "a", "ab"):
             raise ValueError(
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
         if (
             compresslevel is not None
-            and compresslevel not in acceptable_compression_levels
+            and compresslevel not in program_settings.acceptable_compression_levels
         ):
             raise ValueError(
-                f"compresslevel must be in {acceptable_compression_levels}."
+                f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
@@ -216,7 +201,7 @@ class _PipedCompressionProgram(io.IOBase):
         self.name: str = str(path)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
-        self._threads_flag: Optional[str] = threads_flag
+        self._threads_flag: Optional[str] = program_settings.threads_flag
 
         if threads is None:
             if "r" in mode:
@@ -425,7 +410,10 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
     if threads != 0:
         try:
             return _PipedCompressionProgram(
-                filename, mode, threads=threads, **_program_settings("pbzip2")
+                filename,
+                mode,
+                threads=threads,
+                program_settings=_PROGRAM_SETTINGS["pbzip2"],
             )
         except OSError:
             pass  # We try without threads.
@@ -446,7 +434,7 @@ def _open_xz(
     if threads != 0:
         try:
             return _PipedCompressionProgram(
-                filename, mode, compresslevel, threads, **_program_settings("xz")
+                filename, mode, compresslevel, threads, _PROGRAM_SETTINGS["xz"]
             )
         except OSError:
             pass  # We try without threads.
@@ -471,7 +459,7 @@ def _open_zst(  # noqa: C901
     if threads != 0:
         try:
             return _PipedCompressionProgram(
-                filename, mode, compresslevel, threads, **_program_settings("zstd")
+                filename, mode, compresslevel, threads, _PROGRAM_SETTINGS["zstd"]
             )
         except OSError:
             if zstandard is None:
@@ -525,7 +513,7 @@ def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
         for program in ("pigz", "gzip"):
             try:
                 return _PipedCompressionProgram(
-                    filename, mode, compresslevel, threads, **_program_settings(program)
+                    filename, mode, compresslevel, threads, _PROGRAM_SETTINGS[program]
                 )
             except OSError:
                 pass  # We try without threads.

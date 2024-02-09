@@ -15,7 +15,8 @@ from xopen import (
     xopen,
     _PipedCompressionProgram,
     _MAX_PIPE_SIZE,
-    _program_settings,
+    _PROGRAM_SETTINGS,
+    _ProgramSettings,
 )
 
 extensions = ["", ".gz", ".bz2", ".xz", ".zst"]
@@ -36,24 +37,24 @@ CONTENT = b"".join(CONTENT_LINES)
 
 
 def available_gzip_programs():
-    return [_program_settings(prog) for prog in ("gzip", "pigz") if shutil.which(prog)]
+    return [_PROGRAM_SETTINGS[prog] for prog in ("gzip", "pigz") if shutil.which(prog)]
 
 
 def available_bzip2_programs():
     if shutil.which("pbzip2"):
-        return [_program_settings("pbzip2")]
+        return [_PROGRAM_SETTINGS["pbzip2"]]
     return []
 
 
 def available_xz_programs():
     if shutil.which("xz"):
-        return [_program_settings("xz")]
+        return [_PROGRAM_SETTINGS["xz"]]
     return []
 
 
 def available_zstd_programs():
     if shutil.which("zstd"):
-        return [_program_settings("zstd")]
+        return [_PROGRAM_SETTINGS["zstd"]]
     return []
 
 
@@ -73,7 +74,7 @@ ALL_PROGRAMS_WITH_EXTENSION = (
 THREADED_PROGRAMS = [
     settings
     for settings in ALL_PROGRAMS_WITH_EXTENSION
-    if "pbzip2" in settings[0]["program_args"] or "pigz" in settings[0]["program_args"]
+    if "pbzip2" in settings[0].program_args or "pigz" in settings[0].program_args
 ]
 
 
@@ -100,7 +101,7 @@ def writer(request):
 def test_reader_readinto(reader):
     program_settings, extension = reader
     with _PipedCompressionProgram(
-        TEST_DIR / f"file.txt{extension}", "rb", **program_settings
+        TEST_DIR / f"file.txt{extension}", "rb", program_settings=program_settings
     ) as f:
         b = bytearray(len(CONTENT) + 100)
         length = f.readinto(b)
@@ -111,7 +112,7 @@ def test_reader_readinto(reader):
 def test_reader_textiowrapper(reader):
     program_settings, extension = reader
     with _PipedCompressionProgram(
-        TEST_DIR / f"file.txt{extension}", "rb", **program_settings
+        TEST_DIR / f"file.txt{extension}", "rb", program_settings=program_settings
     ) as f:
         wrapped = io.TextIOWrapper(f, encoding="utf-8")
         assert wrapped.read() == CONTENT.decode("utf-8")
@@ -122,7 +123,7 @@ def test_reader_readline(reader):
     with _PipedCompressionProgram(
         TEST_DIR / f"file.txt{extension}",
         "rb",
-        **program_settings,
+        program_settings=program_settings,
     ) as f:
         assert f.readline() == CONTENT_LINES[0]
 
@@ -130,7 +131,7 @@ def test_reader_readline(reader):
 def test_reader_readlines(reader):
     program_settings, extension = reader
     with _PipedCompressionProgram(
-        TEST_DIR / f"file.txt{extension}", "rb", **program_settings
+        TEST_DIR / f"file.txt{extension}", "rb", program_settings=program_settings
     ) as f:
         assert f.readlines() == CONTENT_LINES
 
@@ -141,7 +142,7 @@ def test_piped_reader_iter(threads, threaded_reader):
     with _PipedCompressionProgram(
         TEST_DIR / f"file.txt{extension}",
         "rb",
-        **program_settings,
+        program_settings=program_settings,
     ) as f:
         lines = list(f)
         assert lines[0] == CONTENT_LINES[0]
@@ -150,7 +151,9 @@ def test_piped_reader_iter(threads, threaded_reader):
 def test_writer(tmp_path, writer):
     program_settings, extension = writer
     path = tmp_path / f"out{extension}"
-    with _PipedCompressionProgram(path, mode="wb", **program_settings) as f:
+    with _PipedCompressionProgram(
+        path, mode="wb", program_settings=program_settings
+    ) as f:
         f.write(b"hello")
     with xopen(path, mode="rb") as f:
         assert f.read() == b"hello"
@@ -162,7 +165,7 @@ def test_writer_has_iter_method(tmp_path, writer):
     with _PipedCompressionProgram(
         path,
         mode="wb",
-        **program_settings,
+        program_settings=program_settings,
     ) as f:
         f.write(b"hello")
         assert hasattr(f, "__iter__")
@@ -170,7 +173,9 @@ def test_writer_has_iter_method(tmp_path, writer):
 
 def test_reader_iter_without_with(reader):
     program_settings, extension = reader
-    f = _PipedCompressionProgram(TEST_DIR / f"file.txt{extension}", **program_settings)
+    f = _PipedCompressionProgram(
+        TEST_DIR / f"file.txt{extension}", program_settings=program_settings
+    )
     it = iter(f)
     assert CONTENT_LINES[0] == next(it)
     f.close()
@@ -179,7 +184,9 @@ def test_reader_iter_without_with(reader):
 def test_reader_close(reader, create_large_file):
     program_settings, extension = reader
     large_file = create_large_file(extension)
-    with _PipedCompressionProgram(large_file, "rb", **program_settings) as f:
+    with _PipedCompressionProgram(
+        large_file, "rb", program_settings=program_settings
+    ) as f:
         f.readline()
         time.sleep(0.2)
     # The subprocess should be properly terminated now
@@ -191,7 +198,7 @@ def test_invalid_gzip_compression_level(gzip_writer, tmp_path):
             tmp_path / "out.gz",
             mode="w",
             compresslevel=17,
-            **gzip_writer,
+            program_settings=gzip_writer,
         ) as f:
             f.write(b"hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
@@ -203,7 +210,7 @@ def test_invalid_xz_compression_level(tmp_path):
             tmp_path / "out.xz",
             mode="w",
             compresslevel=17,
-            **_program_settings("xz"),
+            program_settings=_PROGRAM_SETTINGS["xz"],
         ) as f:
             f.write(b"hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
@@ -215,7 +222,7 @@ def test_invalid_zstd_compression_level(tmp_path):
             tmp_path / "out.zst",
             mode="w",
             compresslevel=25,
-            **_program_settings("zstd"),
+            program_settings=_PROGRAM_SETTINGS["zstd"],
         ) as f:
             f.write(b"hello")  # pragma: no cover
     assert "compresslevel must be" in e.value.args[0]
@@ -224,7 +231,7 @@ def test_invalid_zstd_compression_level(tmp_path):
 def test_readers_read(reader):
     program_settings, extension = reader
     with _PipedCompressionProgram(
-        TEST_DIR / f"file.txt{extension}", "rb", **program_settings
+        TEST_DIR / f"file.txt{extension}", "rb", program_settings=program_settings
     ) as f:
         assert f.read() == CONTENT
 
@@ -248,18 +255,16 @@ def test_pipedcompressionwriter_wrong_mode(tmp_path):
 def test_pipedcompressionwriter_wrong_program(tmp_path):
     with pytest.raises(OSError):
         _PipedCompressionProgram(
-            tmp_path / "test",
-            "wb",
-            program_args=[
-                "XVXCLSKDLA",
-            ],
+            tmp_path / "test", "wb", program_settings=_ProgramSettings(("XVXCLSKDLA",))
         )
 
 
 def test_compression_level(tmp_path, gzip_writer):
     # Currently only the gzip writers handle compression levels.
     path = tmp_path / "test.gz"
-    with _PipedCompressionProgram(path, "wb", 2, **gzip_writer) as test_h:
+    with _PipedCompressionProgram(
+        path, "wb", 2, program_settings=gzip_writer
+    ) as test_h:
         test_h.write(b"test")
     assert gzip.decompress(path.read_bytes()) == b"test"
 
@@ -267,7 +272,7 @@ def test_compression_level(tmp_path, gzip_writer):
 def test_iter_method_writers(writer, tmp_path):
     program_settings, extension = writer
     writer = _PipedCompressionProgram(
-        tmp_path / f"test{extension}", "wb", **program_settings
+        tmp_path / f"test{extension}", "wb", program_settings=program_settings
     )
     assert iter(writer) == writer
     writer.close()
@@ -276,7 +281,7 @@ def test_iter_method_writers(writer, tmp_path):
 def test_next_method_writers(writer, tmp_path):
     program_settings, extension = writer
     writer = _PipedCompressionProgram(
-        tmp_path / f"test{extension}", "wb", **program_settings
+        tmp_path / f"test{extension}", "wb", program_settings=program_settings
     )
     with pytest.raises(io.UnsupportedOperation) as error:
         next(writer)
@@ -293,7 +298,9 @@ def test_pipedcompressionprogram_wrong_mode():
 def test_piped_compression_reader_peek_binary(reader):
     program_settings, extension = reader
     filegz = TEST_DIR / f"file.txt{extension}"
-    with _PipedCompressionProgram(filegz, "rb", **program_settings) as read_h:
+    with _PipedCompressionProgram(
+        filegz, "rb", program_settings=program_settings
+    ) as read_h:
         # Peek returns at least the amount of characters but maybe more
         # depending on underlying stream. Hence startswith not ==.
         assert read_h.peek(1).startswith(b"T")
@@ -305,7 +312,7 @@ def test_piped_compression_reader_peek_binary(reader):
 def test_piped_compression_reader_seek_and_tell(reader):
     program_settings, extension = reader
     filegz = TEST_DIR / f"file.txt{extension}"
-    with _PipedCompressionProgram(filegz, "rb", **program_settings) as f:
+    with _PipedCompressionProgram(filegz, "rb", program_settings=program_settings) as f:
         original_position = f.tell()
         assert f.read(4) == b"Test"
         f.seek(original_position)
@@ -316,16 +323,18 @@ def test_piped_compression_reader_seek_and_tell(reader):
 def test_piped_compression_reader_peek_text(reader, mode):
     program_settings, extension = reader
     compressed_file = TEST_DIR / f"file.txt{extension}"
-    with _PipedCompressionProgram(compressed_file, mode, **program_settings) as read_h:
+    with _PipedCompressionProgram(
+        compressed_file, mode, program_settings=program_settings
+    ) as read_h:
         assert read_h.peek(1)[0] == CONTENT[0]
 
 
 def writers_and_levels():
     for writer in PIPED_GZIP_PROGRAMS:
-        if "gzip" in writer["program_args"]:
+        if "gzip" in writer.program_args:
             # Levels 1-9 are supported
             yield from ((writer, i) for i in range(1, 10))
-        elif "pigz" in writer["program_args"]:
+        elif "pigz" in writer.program_args:
             # Levels 0-9 + 11 are supported
             yield from ((writer, i) for i in list(range(10)) + [11])
         else:
@@ -337,14 +346,14 @@ def writers_and_levels():
 @pytest.mark.parametrize(["writer", "level"], writers_and_levels())
 def test_valid_compression_levels(writer, level, tmp_path):
     path = tmp_path / "test.gz"
-    with _PipedCompressionProgram(path, "wb", level, **writer) as handle:
+    with _PipedCompressionProgram(path, "wb", level, program_settings=writer) as handle:
         handle.write(b"test")
     assert gzip.decompress(path.read_bytes()) == b"test"
 
 
 def test_reproducible_gzip_compression(gzip_writer, tmp_path):
     path = tmp_path / "file.gz"
-    with _PipedCompressionProgram(path, mode="wb", **gzip_writer) as f:
+    with _PipedCompressionProgram(path, mode="wb", program_settings=gzip_writer) as f:
         f.write(b"hello")
 
     data = path.read_bytes()
@@ -358,11 +367,13 @@ def test_piped_tool_fails_on_close(tmp_path):
         with _PipedCompressionProgram(
             tmp_path / "out.txt",
             "wb",
-            program_args=[
-                sys.executable,
-                "-c",
-                "import sys\nfor line in sys.stdin: pass\nprint()\nsys.exit(5)",
-            ],
+            program_settings=_ProgramSettings(
+                (
+                    sys.executable,
+                    "-c",
+                    "import sys\nfor line in sys.stdin: pass\nprint()\nsys.exit(5)",
+                ),
+            ),
         ) as f:
             f.write(b"Hello")
     assert "exit code 5" in e.value.args[0]
