@@ -409,6 +409,7 @@ def _open_bz2(filename, mode: str, threads: Optional[int]):
     assert "b" in mode
     if threads != 0:
         try:
+            # pbzip2 can compress using multiple cores.
             return _PipedCompressionProgram(
                 filename,
                 mode,
@@ -433,6 +434,7 @@ def _open_xz(
 
     if threads != 0:
         try:
+            # xz can compress using multiple cores.
             return _PipedCompressionProgram(
                 filename, mode, compresslevel, threads, _PROGRAM_SETTINGS["xz"]
             )
@@ -458,6 +460,7 @@ def _open_zst(  # noqa: C901
         compresslevel = 3
     if threads != 0:
         try:
+            # zstd can compress using multiple cores
             return _PipedCompressionProgram(
                 filename, mode, compresslevel, threads, _PROGRAM_SETTINGS["zstd"]
             )
@@ -481,6 +484,15 @@ def _open_zst(  # noqa: C901
 
 
 def _open_gz(filename, mode: str, compresslevel, threads, **text_mode_kwargs):
+    """
+    Open a gzip file. The ISA-L library is preferred when applicable because
+    it is the fastest. Then zlib-ng which is not as fast, but supports all
+    compression levels. After that comes pigz, which can utilize multiple
+    threads and is more efficient than gzip, even on one core. gzip is chosen
+    when none of the alternatives are available. Despite it being able to use
+    only one core, it still finishes faster than using the builtin gzip library
+    as the (de)compression is moved to another thread.
+    """
     assert "b" in mode
     if compresslevel is None:
         # Force the same compression level on every tool regardless of
