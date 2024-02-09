@@ -100,13 +100,14 @@ def writer(request):
 
 def test_reader_readinto(reader):
     program_settings, extension = reader
+    content = CONTENT
     with _PipedCompressionProgram(
         TEST_DIR / f"file.txt{extension}", "rb", program_settings=program_settings
     ) as f:
-        b = bytearray(len(CONTENT) + 100)
+        b = bytearray(len(content) + 100)
         length = f.readinto(b)
-        assert length == len(CONTENT)
-        assert b[:length] == CONTENT
+        assert length == len(content)
+        assert b[:length] == content
 
 
 def test_reader_textiowrapper(reader):
