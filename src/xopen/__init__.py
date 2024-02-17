@@ -168,7 +168,7 @@ class PipedCompressionProgram(io.IOBase):
 
     def __init__(  # noqa: C901
         self,
-        path: FilePath,
+        path: Union[FilePath, IO],
         program_args: List[str],
         mode="rb",
         compresslevel: Optional[int] = None,
@@ -198,7 +198,7 @@ class PipedCompressionProgram(io.IOBase):
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
         self._infile = path
-        if isinstance(path, io.IOBase):
+        if isinstance(path, io.FileIO):
             path = path.name
         path = os.fspath(path)
         if isinstance(path, bytes) and sys.platform == "win32":
@@ -851,7 +851,7 @@ def xopen(
 
 
 def xopen(  # noqa: C901  # The function is complex, but readable.
-    filename: FilePath,
+    filename: Union[FilePath, IO],
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
@@ -911,31 +911,30 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
         raise ValueError("Mode '{}' not supported".format(mode))
     binary_mode = mode[0] + "b"
     # if file handle is passed: get name
-    file = filename
-    if isinstance(filename, io.IOBase):
-        filename = filename.name
-    filename = os.fspath(filename)
+    filepath: str = str(
+        filename.name if isinstance(filename, io.FileIO) else os.fspath(str(filename))
+    )
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
             f"Format not supported: {format}. "
             f"Choose one of: 'gz', 'xz', 'bz2', 'zst'"
         )
-    detected_format = format or _detect_format_from_extension(filename)
+    detected_format = format or _detect_format_from_extension(filepath)
     if detected_format is None and "w" not in mode:
-        detected_format = _detect_format_from_content(filename)
+        detected_format = _detect_format_from_content(filepath)
 
     if filename == "-":
         opened_file = _open_stdin_or_out(binary_mode)
     elif detected_format == "gz":
-        opened_file = _open_gz(file, binary_mode, compresslevel, threads)
+        opened_file = _open_gz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "xz":
-        opened_file = _open_xz(file, binary_mode, compresslevel, threads)
+        opened_file = _open_xz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(file, binary_mode, threads)
+        opened_file = _open_bz2(filename, binary_mode, threads)
     elif detected_format == "zst":
-        opened_file = _open_zst(file, binary_mode, compresslevel, threads)
+        opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
     else:
-        opened_file = open(file, binary_mode)  # type: ignore
+        opened_file = open(filename, binary_mode)  # type: ignore
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
