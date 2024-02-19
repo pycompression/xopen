@@ -664,7 +664,7 @@ def xopen(
 
 
 def xopen(  # noqa: C901  # The function is complex, but readable.
-    file: FileOrPath = None,
+    filename: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
@@ -673,7 +673,6 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     errors: Optional[str] = None,
     newline: Optional[str] = None,
     format: Optional[str] = None,
-    filename: Optional[FileOrPath] = None,
 ) -> IO:
     """
     A replacement for the "open" function that can also read and write
@@ -724,21 +723,16 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
     binary_mode = mode[0] + "b"
-    # for backward compatibility: remove in next version
-    if filename is not None:
-        print("WARNING: filename argument is deprecated. Use file !", file=sys.stderr)
-        file = filename
-    if not file:
-        raise ValueError("No file provided")
-    if hasattr(file, "name") and isinstance(file, io.IOBase):
-        # If file is an IO object, use its name attribute
-        file_name: str = os.path.realpath(file.name)
-    elif isinstance(file, (str, bytes, os.PathLike)):
-        # If file is a path-like object or string or bytes, use os.fspath
-        file_name: str = os.fspath(file)
+
+    if hasattr(filename, "name") and isinstance(filename, io.IOBase):
+        # If filename is an IO object, use its name attribute
+        file_name: str = os.path.realpath(filename.name)
+    elif isinstance(filename, (str, bytes, os.PathLike)):
+        # If filename is a path-like object or string or bytes, use os.fspath
+        file_name: str = os.fspath(filename)
     else:
         # Handle other cases or raise an error if needed
-        raise TypeError(f"Unsupported type: {type(file)}")
+        raise TypeError(f"Unsupported type: {type(filename)}")
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
             f"Format not supported: {format}. "
@@ -748,20 +742,20 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if detected_format is None and "w" not in mode:
         detected_format = _detect_format_from_content(file_name)
 
-    if file == "-":
+    if filename == "-":
         opened_file = _open_stdin_or_out(binary_mode)
     elif detected_format == "gz":
-        opened_file = _open_gz(file, binary_mode, compresslevel, threads)
+        opened_file = _open_gz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "xz":
-        opened_file = _open_xz(file, binary_mode, compresslevel, threads)
+        opened_file = _open_xz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(file, binary_mode, threads)
+        opened_file = _open_bz2(filename, binary_mode, threads)
     elif detected_format == "zst":
-        opened_file = _open_zst(file, binary_mode, compresslevel, threads)
+        opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
     else:
         # if a file object  passthrough
-        if isinstance(file, io.IOBase):
-            opened_file = file
+        if isinstance(filename, io.IOBase):
+            opened_file = filename
         # if a str/Path : open here
         else:
             opened_file = open(file_name, binary_mode)  # type: ignore
