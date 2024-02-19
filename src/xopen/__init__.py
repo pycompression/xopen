@@ -90,7 +90,7 @@ except (
     _MAX_PIPE_SIZE = None
 
 
-FilePath = Union[str, bytes, os.PathLike, IO]
+FileOrPath = Union[str, bytes, os.PathLike, IO]
 
 
 @dataclasses.dataclass
@@ -165,8 +165,7 @@ class _PipedCompressionProgram(io.IOBase):
 
     def __init__(  # noqa: C901
         self,
-        path: Union[FilePath, IO],
-        program_args: List[str],
+        path: FileOrPath,
         mode="rb",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
@@ -190,7 +189,12 @@ class _PipedCompressionProgram(io.IOBase):
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
         self._infile = path
-        if isinstance(path, io.FileIO):
+        if isinstance(self._infile, io.IOBase):
+            # not supported (yet) for reading.
+            if "r" in mode:
+                raise ValueError(
+                    "File object not supported for reading through Piped Program."
+                )
             path = path.name
         if (
             compresslevel is not None
@@ -585,7 +589,7 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     return gzip_file
 
 
-def _detect_format_from_content(filename: FilePath) -> Optional[str]:
+def _detect_format_from_content(filename: FileOrPath) -> Optional[str]:
     """
     Attempts to detect file format from the content by reading the first
     6 bytes. Returns None if no format could be detected.
@@ -629,7 +633,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
 
 @overload
 def xopen(
-    filename: FilePath,
+    file: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "wt", "at"] = ...,
     compresslevel: Optional[int] = ...,
     threads: Optional[int] = ...,
@@ -638,13 +642,14 @@ def xopen(
     errors: Optional[str] = ...,
     newline: Optional[str] = ...,
     format: Optional[str] = ...,
+    filename: Optional[FileOrPath] = ...,
 ) -> TextIO:
     ...
 
 
 @overload
 def xopen(
-    filename: FilePath,
+    file: FileOrPath,
     mode: Literal["rb", "wb", "ab"],
     compresslevel: Optional[int] = ...,
     threads: Optional[int] = ...,
@@ -653,12 +658,13 @@ def xopen(
     errors: None = ...,
     newline: None = ...,
     format: Optional[str] = ...,
+    filename: Optional[FileOrPath] = ...,
 ) -> BinaryIO:
     ...
 
 
 def xopen(  # noqa: C901  # The function is complex, but readable.
-    filename: Union[FilePath, IO],
+    file: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
@@ -667,12 +673,13 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     errors: Optional[str] = None,
     newline: Optional[str] = None,
     format: Optional[str] = None,
+    filename: Optional[FileOrPath] = None,
 ) -> IO:
     """
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
     bzip2, xz and zstandard. If the filename is '-', standard output (mode 'w') or
-    standard input (mode 'r') is returned. Filenamem can be a string or a file object
+    standard input (mode 'r') is returned. Filen can be a string or a file object
 
     When writing, the file format is chosen based on the file name extension:
     - .gz uses gzip compression
@@ -717,31 +724,45 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
     binary_mode = mode[0] + "b"
-    # if file handle is passed: get name
-    filepath: str = str(
-        filename.name if isinstance(filename, io.FileIO) else os.fspath(str(filename))
-    )
+    # for backward compatibility: remove in next version
+    if filename is not None:
+        print("WARNING: filename argument is deprecated. Use file !", file=sys.stderr)
+        file = filename
+    if hasattr(file, "name") and isinstance(file, io.IOBase):
+        # If file is an IO object, use its name attribute
+        file_name: str = os.path.realpath(file.name)
+    elif isinstance(file, (str, bytes, os.PathLike)):
+        # If file is a path-like object or string or bytes, use os.fspath
+        file_name: str = os.fspath(file)
+    else:
+        # Handle other cases or raise an error if needed
+        raise TypeError(f"Unsupported type: {type(file)}")
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
             f"Format not supported: {format}. "
             f"Choose one of: 'gz', 'xz', 'bz2', 'zst'"
         )
-    detected_format = format or _detect_format_from_extension(filepath)
+    detected_format = format or _detect_format_from_extension(file_name)
     if detected_format is None and "w" not in mode:
-        detected_format = _detect_format_from_content(filepath)
+        detected_format = _detect_format_from_content(file_name)
 
-    if filename == "-":
+    if file == "-":
         opened_file = _open_stdin_or_out(binary_mode)
     elif detected_format == "gz":
-        opened_file = _open_gz(filename, binary_mode, compresslevel, threads)
+        opened_file = _open_gz(file, binary_mode, compresslevel, threads)
     elif detected_format == "xz":
-        opened_file = _open_xz(filename, binary_mode, compresslevel, threads)
+        opened_file = _open_xz(file, binary_mode, compresslevel, threads)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(filename, binary_mode, threads)
+        opened_file = _open_bz2(file, binary_mode, threads)
     elif detected_format == "zst":
-        opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
+        opened_file = _open_zst(file, binary_mode, compresslevel, threads)
     else:
-        opened_file = open(filename, binary_mode)  # type: ignore
+        # if a file object  passthrough
+        if isinstance(file, io.IOBase):
+            opened_file = file
+        # if a str/Path : open here
+        else:
+            opened_file = open(file_name, binary_mode)  # type: ignore
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By

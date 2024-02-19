@@ -249,7 +249,7 @@ def test_invalid_mode(ext):
             pass  # pragma: no cover
 
 
-def test_filename_not_a_string():
+def test_filename_invalid_type():
     with pytest.raises(TypeError):
         with xopen(123, mode="r"):
             pass  # pragma: no cover
@@ -568,65 +568,41 @@ def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
             f.read()
 
 
-# tests for passing in filehandles
-def test_passing_in_gz_filehandles_for_reading():
+@pytest.mark.parametrize("ext", extensions)
+def test_pass_file_object_for_reading_no_threads(ext):
+    if ext == ".zst" and zstandard is None:
+        return
+
+    with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
+        with xopen(fh, mode="rb", threads=0) as f:
+            assert f.readline() == CONTENT_LINES[0].encode("utf-8")
+
+
+@pytest.mark.parametrize("ext", extensions)
+def test_pass_file_object_for_reading(ext):
+    if ext == ".zst" and zstandard is None:
+        return
+    # non-compressed file do not raise error
+    if not ext:
+        return
+    # todo : disable the gz modules to force piped compression.
+    with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
+        with pytest.raises(ValueError) as e:
+            with xopen(fh, mode="rb", threads=1) as f:
+                f.readline()  # pragma: no cover
+        assert (
+            "File object not supported for reading through Piped Program"
+            in e.value.args[0]
+        )
+
+
+@pytest.mark.parametrize("ext", extensions)
+def test_pass_file_object_for_writing(tmp_path, ext):
+    if ext == ".zst" and zstandard is None:
+        return
     first_line = CONTENT_LINES[0].encode("utf-8")
-    with open(TEST_DIR / "file.txt.gz", "rb") as fh:
-        with xopen(fh, "rb") as f:
-            assert f.readline() == first_line
-
-
-def test_passing_in_xz_filehandles_for_reading():
-    first_line = CONTENT_LINES[0].encode("utf-8")
-    with open(TEST_DIR / "file.txt.xz", "rb") as fh:
-        with xopen(fh, "rb") as f:
-            assert f.readline() == first_line
-
-
-def test_passing_in_bz2_filehandles_for_reading():
-    first_line = CONTENT_LINES[0].encode("utf-8")
-    with open(TEST_DIR / "file.txt.bz2", "rb") as fh:
-        with xopen(fh, "rb") as f:
-            assert f.readline() == first_line
-
-
-def test_passing_in_zst_filehandles_for_reading():
-    first_line = CONTENT_LINES[0].encode("utf-8")
-    with open(TEST_DIR / "file.txt.zst", "rb") as fh:
-        with xopen(fh, "rb") as f:
-            assert f.readline() == first_line
-
-
-def test_passing_in_gz_filehandles_for_writing(tmp_path):
-    import isal
-
-    with open(tmp_path / "out.gz", "wb") as fh:
+    with open(tmp_path / "out{ext}", "wb") as fh:
         with xopen(fh, "wb") as f:
-            assert isinstance(f.raw, isal.igzip_threaded._ThreadedGzipWriter)
-
-
-def test_passing_in_xz_filehandles_for_writing(tmp_path):
-    import xopen
-
-    with open(tmp_path / "out.xz", "wb") as fh:
-        with xopen.xopen(fh, "wb") as f:
-            # for pipedXzProgram, the fh gets passed through
-            assert isinstance(f, xopen.PipedXzProgram)
-
-
-def test_passing_in_bz2_filehandles_for_writing(tmp_path):
-    import xopen
-
-    with open(tmp_path / "out.bz2", "wb") as fh:
-        with xopen.xopen(fh, "wb") as f:
-            # for pipedXzProgram, the fh gets passed through
-            assert isinstance(f, xopen.PipedPBzip2Program)
-
-
-def test_passing_in_zst_filehandles_for_writing(tmp_path):
-    import xopen
-
-    with open(tmp_path / "out.zst", "wb") as fh:
-        with xopen.xopen(fh, "wb") as f:
-            # for pipedXzProgram, the fh gets passed through
-            assert isinstance(f, xopen.PipedZstdProgram)
+            f.write(first_line)
+    with xopen(tmp_path / "out{ext}", "rb") as fh:
+        assert fh.readline() == first_line
