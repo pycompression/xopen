@@ -664,7 +664,7 @@ def xopen(
 
 
 def xopen(  # noqa: C901  # The function is complex, but readable.
-    file: FileOrPath,
+    file: FileOrPath = None,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
     threads: Optional[int] = None,
@@ -728,6 +728,8 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if filename is not None:
         print("WARNING: filename argument is deprecated. Use file !", file=sys.stderr)
         file = filename
+    if not file:
+        raise ValueError("No file provided")
     if hasattr(file, "name") and isinstance(file, io.IOBase):
         # If file is an IO object, use its name attribute
         file_name: str = os.path.realpath(file.name)
