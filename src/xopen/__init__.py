@@ -19,6 +19,7 @@ import signal
 import pathlib
 import subprocess
 import tempfile
+import threading
 import time
 from subprocess import Popen, PIPE
 from typing import (
@@ -164,7 +165,7 @@ class _PipedCompressionProgram(io.IOBase):
 
     def __init__(  # noqa: C901
         self,
-        file: Union[str, bytes, os.PathLike[str], os.PathLike[bytes], BinaryIO],
+        file: BinaryIO,
         mode="rb",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
@@ -188,17 +189,8 @@ class _PipedCompressionProgram(io.IOBase):
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
         filepath: Union[str, bytes] = ""
-        if isinstance(file, (str, bytes, os.PathLike)):
-            filepath = os.fspath(file)
-        elif isinstance(file, io.IOBase):
-            # not supported (yet) for reading.
-            if "r" in mode:
-                raise OSError(
-                    f"File object not supported for reading through "
-                    f"{self.__class__.__name__}."
-                )
-            if hasattr(file, "name"):
-                filepath = file.name
+        if hasattr(file, "name"):
+            filepath = file.name
         if (
             compresslevel is not None
             and compresslevel not in program_settings.acceptable_compression_levels
@@ -206,8 +198,6 @@ class _PipedCompressionProgram(io.IOBase):
             raise ValueError(
                 f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
-        if isinstance(filepath, bytes) and sys.platform == "win32":
-            filepath = filepath.decode()
         self.name: str = str(filepath)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
@@ -233,36 +223,39 @@ class _PipedCompressionProgram(io.IOBase):
         if sys.platform != "win32":
             close_fds = True
 
+        self.fileobj = file
+        self.in_pipe = None
+        self.in_thread = None
+        self._feeding = True
         if "r" in mode:
-            self._program_args += ["-c", "-d", file]  # type: ignore
-            self.outfile: Optional[int] = None
+            self._program_args += ["-c", "-d"]  # type: ignore
             self.process = subprocess.Popen(
                 self._program_args,
                 stderr=self._stderr,
                 stdout=PIPE,
+                stdin=PIPE,
                 close_fds=close_fds,
             )  # type: ignore
+            assert self.process.stdin is not None
+            self.in_pipe = self.process.stdin
+            self.in_thread = threading.Thread(target=self._feed_pipe)
+            self.in_thread.start()
             self._file: BinaryIO = self.process.stdout  # type: ignore
             self._wait_for_output_or_process_exit()
             self._raise_if_error()
         else:
             if compresslevel is not None:
                 self._program_args += ["-" + str(compresslevel)]
-            # complex file handlers : pass through
-            if hasattr(file, "fileno"):
-                self.outfile = file.fileno()
-            else:
-                self.outfile = os.open(file, os.O_WRONLY)  # type: ignore
             try:
                 self.process = Popen(
                     self._program_args,
                     stderr=self._stderr,
                     stdin=PIPE,
-                    stdout=self.outfile,
+                    stdout=self.fileobj,
                     close_fds=close_fds,
                 )  # type: ignore
             except OSError:
-                os.close(self.outfile)
+                file.close()
                 raise
             assert self.process.stdin is not None
             self._file = self.process.stdin  # type: ignore
@@ -276,6 +269,14 @@ class _PipedCompressionProgram(io.IOBase):
             f"program='{' '.join(self._program_args)}', "
             f"threads={self._threads})"
         )
+
+    def _feed_pipe(self):
+        while self._feeding:
+            chunk = self.fileobj.read(BUFFER_SIZE)
+            if chunk == b"":
+                self.in_pipe.close()
+                return
+            self.in_pipe.write(chunk)
 
     def write(self, arg: bytes) -> int:
         return self._file.write(arg)
@@ -311,10 +312,10 @@ class _PipedCompressionProgram(io.IOBase):
                 self._stderr.close()
             return
         check_allowed_code_and_message = False
-        if self.outfile:  # Opened for writing.
+        if self.fileobj:
             self._file.close()
             self.process.wait()
-            os.close(self.outfile)
+            self.fileobj.close()
         else:
             retcode = self.process.poll()
             if retcode is None:
@@ -592,7 +593,7 @@ def _detect_format_from_content(fileobj: BinaryIO) -> Optional[str]:
     """
     if hasattr(fileobj, "peek"):
         bs = fileobj.peek(6)
-    elif fileobj.seekable():
+    elif hasattr(fileobj, "seekable") and fileobj.seekable():
         current_pos = fileobj.tell()
         bs = fileobj.read(6)
         fileobj.seek(current_pos)
