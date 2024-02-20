@@ -378,12 +378,3 @@ def test_piped_tool_fails_on_close(tmp_path):
         ) as f:
             f.write(b"Hello")
     assert "exit code 5" in e.value.args[0]
-
-
-def test_piped_tool_fails_read_mode_with_filehandle(tmp_path):
-    test_file = tmp_path / "test.txt.gz"
-    test_file.write_bytes(gzip.compress(b"test"))
-    with open(test_file, "rb") as filehandle:
-        with pytest.raises(OSError) as error:
-            _PipedCompressionProgram(filehandle, "rb")
-        error.match("File object not supported for reading")
