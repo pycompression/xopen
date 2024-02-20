@@ -167,7 +167,8 @@ def test_readinto(fname):
 
 
 def test_detect_format_from_content(ext):
-    detected = _detect_format_from_content(Path(__file__).parent / f"file.txt{ext}")
+    with open(Path(__file__).parent / f"file.txt{ext}", "rb") as f:
+        detected = _detect_format_from_content(f)
     if ext == "":
         assert detected is None
     else:
@@ -594,6 +595,8 @@ def test_pass_file_object_for_writing(tmp_path, ext):
 def test_pass_bytesio_for_writing(ext):
     filelike = io.BytesIO()
     format = ext[1:]
+    if ext == "":
+        format = None
     if ext == ".zst" and zstandard is None:
         return
     first_line = CONTENT_LINES[0].encode("utf-8")

@@ -271,12 +271,15 @@ class _PipedCompressionProgram(io.IOBase):
         )
 
     def _feed_pipe(self):
-        while self._feeding:
-            chunk = self.fileobj.read(BUFFER_SIZE)
-            if chunk == b"":
-                self.in_pipe.close()
-                return
-            self.in_pipe.write(chunk)
+        try:
+            while self._feeding:
+                chunk = self.fileobj.read(BUFFER_SIZE)
+                if chunk == b"":
+                    self.in_pipe.close()
+                    return
+                self.in_pipe.write(chunk)
+        finally:
+            self.in_pipe.close()
 
     def write(self, arg: bytes) -> int:
         return self._file.write(arg)
@@ -312,18 +315,21 @@ class _PipedCompressionProgram(io.IOBase):
                 self._stderr.close()
             return
         check_allowed_code_and_message = False
-        if self.fileobj:
-            self._file.close()
-            self.process.wait()
-            self.fileobj.close()
-        else:
+        if "r" in self._mode:
+            self._feeding = False
+            self._file.read()
             retcode = self.process.poll()
             if retcode is None:
                 # still running
                 self.process.terminate()
                 check_allowed_code_and_message = True
                 self.process.wait()
+            if self.in_thread:
+                self.in_thread.join()
             self._file.close()
+        else:
+            self._file.close()
+            self.process.wait()
         stderr_message = self._read_error_message()
         self._stderr.close()
         if not self._error_raised:
@@ -591,6 +597,8 @@ def _detect_format_from_content(fileobj: BinaryIO) -> Optional[str]:
     Attempts to detect file format from the content by reading the first
     6 bytes. Returns None if no format could be detected.
     """
+    if not fileobj.readable():
+        return None
     if hasattr(fileobj, "peek"):
         bs = fileobj.peek(6)
     elif hasattr(fileobj, "seekable") and fileobj.seekable():
@@ -651,7 +659,7 @@ def _file_or_path_to_name_and_binary_stream(
         return "", file_or_path
     else:
         raise TypeError(
-            f"Unsupported type for {file_or_path:r}, "
+            f"Unsupported type for {file_or_path}, "
             f"{file_or_path.__class__.__name__}."
         )
 
