@@ -90,7 +90,8 @@ except (
     _MAX_PIPE_SIZE = None
 
 
-FileOrPath = Union[str, bytes, os.PathLike[str], os.PathLike[bytes], IO]
+FilePath = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
+FileOrPath = Union[FilePath, IO]
 
 
 @dataclasses.dataclass
@@ -165,7 +166,7 @@ class _PipedCompressionProgram(io.IOBase):
 
     def __init__(  # noqa: C901
         self,
-        file: BinaryIO,
+        filename: Union[FilePath, BinaryIO],
         mode="rb",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
@@ -188,9 +189,15 @@ class _PipedCompressionProgram(io.IOBase):
             raise ValueError(
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
-        filepath: Union[str, bytes] = ""
-        if hasattr(file, "name"):
-            filepath = file.name
+        if hasattr(filename, "read") or hasattr(filename, "write"):
+            file: BinaryIO = filename  # type: ignore
+            filepath: FilePath = ""
+            if hasattr(filename, "name"):
+                filepath = filename.name
+        else:
+            file = open(filename, mode)  # type: ignore
+            filepath = filename
+
         if (
             compresslevel is not None
             and compresslevel not in program_settings.acceptable_compression_levels
