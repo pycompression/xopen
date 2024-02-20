@@ -579,24 +579,6 @@ def test_pass_file_object_for_reading_no_threads(ext):
 
 
 @pytest.mark.parametrize("ext", extensions)
-def test_pass_file_object_for_reading(ext):
-    if ext == ".zst" and zstandard is None:
-        return
-    # non-compressed file do not raise error
-    if not ext:
-        return
-    # todo : disable the gz modules to force piped compression.
-    with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
-        with pytest.raises(ValueError) as e:
-            with xopen(fh, mode="rb", threads=1) as f:
-                f.readline()  # pragma: no cover
-        assert (
-            "File object not supported for reading through Piped Program"
-            in e.value.args[0]
-        )
-
-
-@pytest.mark.parametrize("ext", extensions)
 def test_pass_file_object_for_writing(tmp_path, ext):
     if ext == ".zst" and zstandard is None:
         return

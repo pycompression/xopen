@@ -192,8 +192,9 @@ class _PipedCompressionProgram(io.IOBase):
         if isinstance(self._infile, io.IOBase):
             # not supported (yet) for reading.
             if "r" in mode:
-                raise ValueError(
-                    "File object not supported for reading through Piped Program."
+                raise OSError(
+                    f"File object not supported for reading through "
+                    f"{self.__class__.__name__}."
                 )
             path = path.name
         if (
