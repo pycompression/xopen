@@ -166,7 +166,7 @@ class _PipedCompressionProgram(io.IOBase):
 
     def __init__(  # noqa: C901
         self,
-        filename: Union[FilePath, BinaryIO],
+        filename: FileOrPath,
         mode="rb",
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
@@ -513,7 +513,7 @@ def _open_zst(  # noqa: C901
         cctx = zstandard.ZstdCompressor(level=compresslevel)
     else:
         cctx = None
-    f = zstandard.open(filename, mode, cctx=cctx)
+    f = zstandard.open(filename, mode, cctx=cctx)  # type: ignore
     if mode == "rb":
         return io.BufferedReader(f)
     elif mode == "wb":
@@ -669,12 +669,8 @@ def _file_or_path_to_binary_stream(
         raise AssertionError()
     if file_or_path == "-":
         return _open_stdin_or_out(binary_mode), False
-    try:
-        filepath = os.fspath(file_or_path)
-    except TypeError:
-        pass
-    else:
-        return open(filepath, binary_mode), True  # type: ignore
+    if isinstance(file_or_path, (str, bytes)) or hasattr(file_or_path, "__fspath__"):
+        return open(os.fspath(file_or_path), binary_mode), True  # type: ignore
     if isinstance(file_or_path, (io.BufferedReader, io.BufferedWriter)):
         return file_or_path, False
     if isinstance(file_or_path, io.TextIOWrapper):
@@ -691,7 +687,7 @@ def _file_or_path_to_binary_stream(
 
 def filepath_from_path_or_filelike(fileorpath: FileOrPath):
     try:
-        return os.fspath(fileorpath)
+        return os.fspath(fileorpath)  # type: ignore
     except TypeError:
         pass
     if hasattr(fileorpath, "name"):
