@@ -171,7 +171,6 @@ class _PipedCompressionProgram(io.IOBase):
         compresslevel: Optional[int] = None,
         threads: Optional[int] = None,
         program_settings: _ProgramSettings = _ProgramSettings(("gzip", "--no-name")),
-        closefd: bool = True,
     ):
         """
         mode -- one of 'w', 'wb', 'a', 'ab'
@@ -186,21 +185,14 @@ class _PipedCompressionProgram(io.IOBase):
         self._program_args = list(program_settings.program_args)
         self._allowed_exit_code = program_settings.allowed_exit_code
         self._allowed_exit_message = program_settings.allowed_exit_message
-        self.closefd = closefd
         if mode not in ("r", "rb", "w", "wb", "a", "ab"):
             raise ValueError(
                 f"Mode is '{mode}', but it must be 'r', 'rb', 'w', 'wb', 'a', or 'ab'"
             )
         if "b" not in mode:
             mode += "b"
-        if hasattr(filename, "read") or hasattr(filename, "write"):
-            file: BinaryIO = filename  # type: ignore
-            filepath: FilePath = ""
-            if hasattr(filename, "name"):
-                filepath = filename.name
-        else:
-            file = open(filename, mode)  # type: ignore
-            filepath = filename
+        self.fileobj, self.closefd = _file_or_path_to_binary_stream(filename, mode)
+        filepath = filepath_from_path_or_filelike(filename)
 
         if (
             compresslevel is not None
@@ -234,7 +226,6 @@ class _PipedCompressionProgram(io.IOBase):
         if sys.platform != "win32":
             close_fds = True
 
-        self.fileobj = file
         self.in_pipe = None
         self.in_thread = None
         self._feeding = True
@@ -267,7 +258,7 @@ class _PipedCompressionProgram(io.IOBase):
                 )  # type: ignore
             except OSError:
                 if self.closefd:
-                    file.close()
+                    self.fileobj.close()
                 raise
             assert self.process.stdin is not None
             self._file = self.process.stdin  # type: ignore
@@ -339,11 +330,11 @@ class _PipedCompressionProgram(io.IOBase):
             if self.in_thread:
                 self.in_thread.join()
             self._file.close()
-            if self.closefd:
-                self.fileobj.close()
         else:
             self._file.close()
             self.process.wait()
+        if self.closefd:
+            self.fileobj.close()
         stderr_message = self._read_error_message()
         self._stderr.close()
         if not self._error_raised:
@@ -440,30 +431,28 @@ def _open_stdin_or_out(mode: str) -> BinaryIO:
     return open(std.fileno(), mode=mode, closefd=False)  # type: ignore
 
 
-def _open_bz2(fileobj: BinaryIO, mode: str, threads: Optional[int], closefd: bool):
+def _open_bz2(filename: FileOrPath, mode: str, threads: Optional[int]):
     assert "b" in mode
     if threads != 0:
         try:
             # pbzip2 can compress using multiple cores.
             return _PipedCompressionProgram(
-                fileobj,
+                filename,
                 mode,
                 threads=threads,
                 program_settings=_PROGRAM_SETTINGS["pbzip2"],
-                closefd=closefd,
             )
         except OSError:
             pass  # We try without threads.
 
-    return bz2.open(fileobj, mode)
+    return bz2.open(filename, mode)
 
 
 def _open_xz(
-    fileobj: BinaryIO,
+    filename: FileOrPath,
     mode: str,
     compresslevel: Optional[int],
     threads: Optional[int],
-    closefd: bool,
 ):
     assert "b" in mode
     if compresslevel is None:
@@ -473,24 +462,23 @@ def _open_xz(
         try:
             # xz can compress using multiple cores.
             return _PipedCompressionProgram(
-                fileobj, mode, compresslevel, threads, _PROGRAM_SETTINGS["xz"], closefd
+                filename, mode, compresslevel, threads, _PROGRAM_SETTINGS["xz"],
             )
         except OSError:
             pass  # We try without threads.
 
     return lzma.open(
-        fileobj,
+        filename,
         mode,
         preset=compresslevel if "w" in mode else None,
     )
 
 
 def _open_zst(  # noqa: C901
-    fileobj: BinaryIO,
+    filename: FileOrPath,
     mode: str,
     compresslevel: Optional[int],
     threads: Optional[int],
-    closefd: bool,
 ):
     assert "b" in mode
     assert compresslevel != 0
@@ -500,12 +488,11 @@ def _open_zst(  # noqa: C901
         try:
             # zstd can compress using multiple cores
             return _PipedCompressionProgram(
-                fileobj,
+                filename,
                 mode,
                 compresslevel,
                 threads,
                 _PROGRAM_SETTINGS["zstd"],
-                closefd,
             )
         except OSError:
             if zstandard is None:
@@ -518,7 +505,7 @@ def _open_zst(  # noqa: C901
         cctx = zstandard.ZstdCompressor(level=compresslevel)
     else:
         cctx = None
-    f = zstandard.open(fileobj, mode, cctx=cctx)
+    f = zstandard.open(filename, mode, cctx=cctx)
     if mode == "rb":
         return io.BufferedReader(f)
     elif mode == "wb":
@@ -526,7 +513,7 @@ def _open_zst(  # noqa: C901
     return f
 
 
-def _open_gz(fileobj: BinaryIO, mode: str, compresslevel, threads, closefd):
+def _open_gz(filename: FileOrPath, mode: str, compresslevel, threads):
     """
     Open a gzip file. The ISA-L library is preferred when applicable because
     it is the fastest. Then zlib-ng which is not as fast, but supports all
@@ -547,7 +534,7 @@ def _open_gz(fileobj: BinaryIO, mode: str, compresslevel, threads, closefd):
         # and level 3 is slower but does not compress better than level 1 and 2.
         if igzip_threaded and (compresslevel in (1, 2) or "r" in mode):
             return igzip_threaded.open(  # type: ignore
-                fileobj,
+                filename,
                 mode,
                 compresslevel,
                 threads=1,
@@ -555,7 +542,7 @@ def _open_gz(fileobj: BinaryIO, mode: str, compresslevel, threads, closefd):
         if gzip_ng_threaded and zlib_ng:
             try:
                 return gzip_ng_threaded.open(
-                    fileobj,
+                    filename,
                     mode,
                     # zlib-ng level 1 is 50% bigger than zlib level 1. Level
                     # 2 gives a size close to expectations.
@@ -568,21 +555,20 @@ def _open_gz(fileobj: BinaryIO, mode: str, compresslevel, threads, closefd):
         for program in ("pigz", "gzip"):
             try:
                 return _PipedCompressionProgram(
-                    fileobj,
+                    filename,
                     mode,
                     compresslevel,
                     threads,
                     _PROGRAM_SETTINGS[program],
-                    closefd,
                 )
             except OSError:
                 pass  # We try without threads.
     return _open_reproducible_gzip(
-        fileobj, mode=mode, compresslevel=compresslevel, closefd=closefd
+        filename, mode=mode, compresslevel=compresslevel
     )
 
 
-def _open_reproducible_gzip(fileobj, mode: str, compresslevel: int, closefd):
+def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     """
     Open a gzip file for writing (without external processes)
     that has neither mtime nor the file name in the header
@@ -590,6 +576,7 @@ def _open_reproducible_gzip(fileobj, mode: str, compresslevel: int, closefd):
     """
     assert mode in ("rb", "wb", "ab")
     assert compresslevel is not None
+    fileobj, closefd = _file_or_path_to_binary_stream(filename, mode)
     # Neither gzip.open nor igzip.open have an mtime option, and they will
     # always write the file name, so we need to open the file separately
     # and pass it to gzip.GzipFile/igzip.IGzipFile.
@@ -618,35 +605,40 @@ def _open_reproducible_gzip(fileobj, mode: str, compresslevel: int, closefd):
     return gzip_file
 
 
-def _detect_format_from_content(fileobj: BinaryIO) -> Optional[str]:
+def _detect_format_from_content(filename: FileOrPath) -> Optional[str]:
     """
     Attempts to detect file format from the content by reading the first
     6 bytes. Returns None if no format could be detected.
     """
-    if not fileobj.readable():
-        return None
-    if hasattr(fileobj, "peek"):
-        bs = fileobj.peek(6)
-    elif hasattr(fileobj, "seekable") and fileobj.seekable():
-        current_pos = fileobj.tell()
-        bs = fileobj.read(6)
-        fileobj.seek(current_pos)
-    else:
-        return None
+    fileobj, closefd = _file_or_path_to_binary_stream(filename, "rb")
+    try:
+        if not fileobj.readable():
+            return None
+        if hasattr(fileobj, "peek"):
+            bs = fileobj.peek(6)
+        elif hasattr(fileobj, "seekable") and fileobj.seekable():
+            current_pos = fileobj.tell()
+            bs = fileobj.read(6)
+            fileobj.seek(current_pos)
+        else:
+            return None
 
-    if bs[:2] == b"\x1f\x8b":
-        # https://tools.ietf.org/html/rfc1952#page-6
-        return "gz"
-    elif bs[:3] == b"\x42\x5a\x68":
-        # https://en.wikipedia.org/wiki/List_of_file_signatures
-        return "bz2"
-    elif bs[:6] == b"\xfd\x37\x7a\x58\x5a\x00":
-        # https://tukaani.org/xz/xz-file-format.txt
-        return "xz"
-    elif bs[:4] == b"\x28\xb5\x2f\xfd":
-        # https://datatracker.ietf.org/doc/html/rfc8478#section-3.1.1
-        return "zst"
-    return None
+        if bs[:2] == b"\x1f\x8b":
+            # https://tools.ietf.org/html/rfc1952#page-6
+            return "gz"
+        elif bs[:3] == b"\x42\x5a\x68":
+            # https://en.wikipedia.org/wiki/List_of_file_signatures
+            return "bz2"
+        elif bs[:6] == b"\xfd\x37\x7a\x58\x5a\x00":
+            # https://tukaani.org/xz/xz-file-format.txt
+            return "xz"
+        elif bs[:4] == b"\x28\xb5\x2f\xfd":
+            # https://datatracker.ietf.org/doc/html/rfc8478#section-3.1.1
+            return "zst"
+        return None
+    finally:
+        if closefd:
+            fileobj.close()
 
 
 def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
@@ -664,30 +656,41 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
     return None
 
 
-def _file_or_path_to_name_and_binary_stream(
+def _file_or_path_to_binary_stream(
     file_or_path: FileOrPath, binary_mode: str
-) -> Tuple[str, BinaryIO, bool]:
+) -> Tuple[BinaryIO, bool]:
     if binary_mode not in ("rb", "wb", "ab"):
         raise AssertionError()
     if file_or_path == "-":
-        return "", _open_stdin_or_out(binary_mode), False
-    if isinstance(file_or_path, (str, bytes, os.PathLike)):
+        return _open_stdin_or_out(binary_mode), False
+    try:
         filepath = os.fspath(file_or_path)
-        if isinstance(filepath, bytes):
-            filepath = filepath.decode()
-        return filepath, open(os.fspath(file_or_path), binary_mode), True  # type: ignore
+    except TypeError:
+        pass
+    else:
+        return open(filepath, binary_mode), True  # type: ignore
     if isinstance(file_or_path, (io.BufferedReader, io.BufferedWriter)):
-        return file_or_path.name, file_or_path, False
+        return file_or_path, False
     if isinstance(file_or_path, io.TextIOWrapper):
-        return file_or_path.name, file_or_path.buffer, False
+        return file_or_path.buffer, False
     if isinstance(file_or_path, io.IOBase) and not hasattr(file_or_path, "encoding"):
         # Text files have encoding attributes. This file is binary:
-        return "", file_or_path, False
+        return file_or_path, False
     else:
         raise TypeError(
             f"Unsupported type for {file_or_path}, "
             f"{file_or_path.__class__.__name__}."
         )
+
+
+def filepath_from_path_or_filelike(fileorpath: FileOrPath):
+    try:
+        return os.fspath(fileorpath)
+    except TypeError:
+        pass
+    if hasattr(fileorpath, "name"):
+        return fileorpath.name
+    return ""
 
 
 @overload
@@ -780,9 +783,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
     binary_mode = mode[0] + "b"
-    filepath, fileobj, closefd = _file_or_path_to_name_and_binary_stream(
-        filename, binary_mode
-    )
+    filepath = filepath_from_path_or_filelike(filename)
 
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
@@ -790,19 +791,19 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
             f"Choose one of: 'gz', 'xz', 'bz2', 'zst'"
         )
     detected_format = format or _detect_format_from_extension(filepath)
-    if detected_format is None and "w" not in mode:
-        detected_format = _detect_format_from_content(fileobj)
+    if detected_format is None and "r" in mode:
+        detected_format = _detect_format_from_content(filename)
 
     if detected_format == "gz":
-        opened_file = _open_gz(fileobj, binary_mode, compresslevel, threads, closefd)
+        opened_file = _open_gz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "xz":
-        opened_file = _open_xz(fileobj, binary_mode, compresslevel, threads, closefd)
+        opened_file = _open_xz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(fileobj, binary_mode, threads, closefd)
+        opened_file = _open_bz2(filename, binary_mode, threads)
     elif detected_format == "zst":
-        opened_file = _open_zst(fileobj, binary_mode, compresslevel, threads, closefd)
+        opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
     else:
-        opened_file = fileobj
+        opened_file, _ = _file_or_path_to_binary_stream(filename, binary_mode)
 
     # The "write" method for GzipFile is very costly. Lots of python calls are
     # made. To a lesser extent this is true for LzmaFile and BZ2File. By
