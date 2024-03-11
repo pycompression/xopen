@@ -569,25 +569,25 @@ def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
             f.read()
 
 
-@pytest.mark.parametrize("ext", extensions)
-def test_pass_file_object_for_reading_no_threads(ext):
+@pytest.mark.parametrize(["threads", "ext"], itertools.product((0, 1), extensions))
+def test_pass_file_object_for_reading(ext, threads):
     if ext == ".zst" and zstandard is None:
         return
 
     with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
-        with xopen(fh, mode="rb", threads=0) as f:
+        with xopen(fh, mode="rb", threads=threads) as f:
             assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-@pytest.mark.parametrize("ext", extensions)
-def test_pass_file_object_for_writing(tmp_path, ext):
+@pytest.mark.parametrize(["threads", "ext"], itertools.product((0, 1), extensions))
+def test_pass_file_object_for_writing(tmp_path, ext, threads):
     if ext == ".zst" and zstandard is None:
         return
     first_line = CONTENT_LINES[0].encode("utf-8")
     with open(tmp_path / "out{ext}", "wb") as fh:
-        with xopen(fh, "wb") as f:
+        with xopen(fh, "wb", threads=threads) as f:
             f.write(first_line)
-    with xopen(tmp_path / "out{ext}", "rb") as fh:
+    with xopen(tmp_path / "out{ext}", "rb", threads=threads) as fh:
         assert fh.readline() == first_line
 
 
