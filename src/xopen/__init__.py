@@ -89,7 +89,7 @@ except (
     _MAX_PIPE_SIZE = None
 
 
-FilePath = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
+FilePath = Union[str, bytes, os.PathLike]
 FileOrPath = Union[FilePath, IO]
 
 
