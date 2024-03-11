@@ -191,9 +191,6 @@ class _PipedCompressionProgram(io.IOBase):
             )
         if "b" not in mode:
             mode += "b"
-        self.fileobj, self.closefd = _file_or_path_to_binary_stream(filename, mode)
-        filepath = filepath_from_path_or_filelike(filename)
-
         if (
             compresslevel is not None
             and compresslevel not in program_settings.acceptable_compression_levels
@@ -201,6 +198,8 @@ class _PipedCompressionProgram(io.IOBase):
             raise ValueError(
                 f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
+        self.fileobj, self.closefd = _file_or_path_to_binary_stream(filename, mode)
+        filepath = filepath_from_path_or_filelike(filename)
         self.name: str = str(filepath)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
@@ -231,13 +230,18 @@ class _PipedCompressionProgram(io.IOBase):
         self._feeding = True
         if "r" in mode:
             self._program_args += ["-c", "-d"]  # type: ignore
-            self.process = subprocess.Popen(
-                self._program_args,
-                stderr=self._stderr,
-                stdout=PIPE,
-                stdin=PIPE,
-                close_fds=close_fds,
-            )  # type: ignore
+            try:
+                self.process = subprocess.Popen(
+                    self._program_args,
+                    stderr=self._stderr,
+                    stdout=PIPE,
+                    stdin=PIPE,
+                    close_fds=close_fds,
+                )  # type: ignore
+            except OSError:
+                if self.closefd:
+                    self.fileobj.close()
+                raise
             assert self.process.stdin is not None
             self.in_pipe = self.process.stdin
             self.in_thread = threading.Thread(target=self._feed_pipe)
@@ -462,7 +466,11 @@ def _open_xz(
         try:
             # xz can compress using multiple cores.
             return _PipedCompressionProgram(
-                filename, mode, compresslevel, threads, _PROGRAM_SETTINGS["xz"],
+                filename,
+                mode,
+                compresslevel,
+                threads,
+                _PROGRAM_SETTINGS["xz"],
             )
         except OSError:
             pass  # We try without threads.
@@ -563,9 +571,7 @@ def _open_gz(filename: FileOrPath, mode: str, compresslevel, threads):
                 )
             except OSError:
                 pass  # We try without threads.
-    return _open_reproducible_gzip(
-        filename, mode=mode, compresslevel=compresslevel
-    )
+    return _open_reproducible_gzip(filename, mode=mode, compresslevel=compresslevel)
 
 
 def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
