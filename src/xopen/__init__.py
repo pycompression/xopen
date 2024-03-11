@@ -21,7 +21,6 @@ import subprocess
 import tempfile
 import threading
 import time
-from subprocess import Popen, PIPE
 from typing import (
     Dict,
     Optional,
@@ -230,19 +229,25 @@ class _PipedCompressionProgram(io.IOBase):
         self._feeding = True
         if "r" in mode:
             self._program_args += ["-c", "-d"]  # type: ignore
-            try:
-                self.process = subprocess.Popen(
-                    self._program_args,
-                    stderr=self._stderr,
-                    stdout=PIPE,
-                    stdin=PIPE,
-                    close_fds=close_fds,
-                )  # type: ignore
-            except OSError:
-                if self.closefd:
-                    self.fileobj.close()
-                raise
-            assert self.process.stdin is not None
+            stdout = subprocess.PIPE
+        else:
+            if compresslevel is not None:
+                self._program_args += ["-" + str(compresslevel)]
+            stdout = self.fileobj  # type: ignore
+        try:
+            self.process = subprocess.Popen(
+                self._program_args,
+                stderr=self._stderr,
+                stdout=stdout,
+                stdin=subprocess.PIPE,
+                close_fds=close_fds,
+            )  # type: ignore
+        except OSError:
+            if self.closefd:
+                self.fileobj.close()
+            raise
+        assert self.process.stdin is not None
+        if "r" in mode:
             self.in_pipe = self.process.stdin
             self.in_thread = threading.Thread(target=self._feed_pipe)
             self.in_thread.start()
@@ -250,21 +255,6 @@ class _PipedCompressionProgram(io.IOBase):
             self._wait_for_output_or_process_exit()
             self._raise_if_error()
         else:
-            if compresslevel is not None:
-                self._program_args += ["-" + str(compresslevel)]
-            try:
-                self.process = Popen(
-                    self._program_args,
-                    stderr=self._stderr,
-                    stdin=PIPE,
-                    stdout=self.fileobj,
-                    close_fds=close_fds,
-                )  # type: ignore
-            except OSError:
-                if self.closefd:
-                    self.fileobj.close()
-                raise
-            assert self.process.stdin is not None
             self._file = self.process.stdin  # type: ignore
 
         _set_pipe_size_to_max(self._file.fileno())
