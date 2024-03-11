@@ -730,7 +730,8 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     A replacement for the "open" function that can also read and write
     compressed files transparently. The supported compression formats are gzip,
     bzip2, xz and zstandard. If the filename is '-', standard output (mode 'w') or
-    standard input (mode 'r') is returned. Filen can be a string or a file object
+    standard input (mode 'r') is returned. Filename can be a string or a
+    file object. (See https://docs.python.org/3/glossary.html#term-file-object.)
 
     When writing, the file format is chosen based on the file name extension:
     - .gz uses gzip compression
