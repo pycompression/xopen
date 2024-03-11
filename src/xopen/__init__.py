@@ -199,7 +199,7 @@ class _PipedCompressionProgram(io.IOBase):
                 f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
         self.fileobj, self.closefd = _file_or_path_to_binary_stream(filename, mode)
-        filepath = filepath_from_path_or_filelike(filename)
+        filepath = _filepath_from_path_or_filelike(filename)
         self.name: str = str(filepath)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
@@ -685,7 +685,7 @@ def _file_or_path_to_binary_stream(
         )
 
 
-def filepath_from_path_or_filelike(fileorpath: FileOrPath):
+def _filepath_from_path_or_filelike(fileorpath: FileOrPath):
     try:
         return os.fspath(fileorpath)  # type: ignore
     except TypeError:
@@ -785,7 +785,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
         raise ValueError("Mode '{}' not supported".format(mode))
     binary_mode = mode[0] + "b"
-    filepath = filepath_from_path_or_filelike(filename)
+    filepath = _filepath_from_path_or_filelike(filename)
 
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
