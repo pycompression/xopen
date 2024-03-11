@@ -186,6 +186,10 @@ Changelog
 
 in-development
 ~~~~~~~~~~~~~~~~~~~
+
+* #152: ``xopen()`` now accepts `file-like objects
+  <https://docs.python.org/3/glossary.html#term-file-object>`_ for its filename
+  argument.
 * #146, #147, #148: Various refactors for better code size and readability:
 
     * PipedCompressionReader/Writer are now combined _PipedCompressionProgram
