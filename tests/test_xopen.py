@@ -591,8 +591,8 @@ def test_pass_file_object_for_writing(tmp_path, ext):
         assert fh.readline() == first_line
 
 
-@pytest.mark.parametrize("ext", extensions)
-def test_pass_bytesio_for_writing(ext):
+@pytest.mark.parametrize(["threads", "ext"], itertools.product((0, 1), extensions))
+def test_pass_bytesio_for_reading_and_writing(ext, threads):
     filelike = io.BytesIO()
     format = ext[1:]
     if ext == "":
@@ -600,8 +600,11 @@ def test_pass_bytesio_for_writing(ext):
     if ext == ".zst" and zstandard is None:
         return
     first_line = CONTENT_LINES[0].encode("utf-8")
-    with xopen(filelike, "wb", format=format) as f:
-        f.write(first_line)
+    writer = xopen(filelike, "wb", format=format, threads=threads)
+    writer.write(first_line)
+    if writer is not filelike:
+        writer.close()
+    assert not filelike.closed
     filelike.seek(0)
-    with xopen(filelike, "rb", format=format) as fh:
+    with xopen(filelike, "rb", format=format, threads=threads) as fh:
         assert fh.readline() == first_line
