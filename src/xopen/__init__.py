@@ -667,11 +667,9 @@ def _file_or_path_to_binary_stream(
     if isinstance(file_or_path, io.IOBase) and not hasattr(file_or_path, "encoding"):
         # Text files have encoding attributes. This file is binary:
         return file_or_path, False
-    else:
-        raise TypeError(
-            f"Unsupported type for {file_or_path}, "
-            f"{file_or_path.__class__.__name__}."
-        )
+    raise TypeError(
+        f"Unsupported type for {file_or_path}, " f"{file_or_path.__class__.__name__}."
+    )
 
 
 def _filepath_from_path_or_filelike(fileorpath: FileOrPath) -> str:
