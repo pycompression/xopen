@@ -6,7 +6,6 @@ from contextlib import contextmanager
 import functools
 import gzip
 import io
-import itertools
 import lzma
 import os
 from pathlib import Path
@@ -512,9 +511,8 @@ def test_override_output_format_wrong_format(tmp_path):
 OPENERS = (xopen, functools.partial(xopen, threads=0))
 
 
-@pytest.mark.parametrize(
-    ["opener", "extension"], itertools.product(OPENERS, extensions)
-)
+@pytest.mark.parametrize("opener", OPENERS)
+@pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
     if extension == ".zst" and zstandard is None:
         return
@@ -528,9 +526,8 @@ def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
     assert result == "Eén ree\rTwee reeën\r"
 
 
-@pytest.mark.parametrize(
-    ["opener", "extension"], itertools.product(OPENERS, extensions)
-)
+@pytest.mark.parametrize("opener", OPENERS)
+@pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_errors(opener, extension, tmp_path):
     if extension == ".zst" and zstandard is None:
         return
@@ -569,7 +566,8 @@ def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
             f.read()
 
 
-@pytest.mark.parametrize(["threads", "ext"], itertools.product((0, 1), extensions))
+@pytest.mark.parametrize("threads", (0, 1))
+@pytest.mark.parametrize("ext", extensions)
 def test_pass_file_object_for_reading(ext, threads):
     if ext == ".zst" and zstandard is None:
         return
@@ -579,7 +577,8 @@ def test_pass_file_object_for_reading(ext, threads):
             assert f.readline() == CONTENT_LINES[0].encode("utf-8")
 
 
-@pytest.mark.parametrize(["threads", "ext"], itertools.product((0, 1), extensions))
+@pytest.mark.parametrize("threads", (0, 1))
+@pytest.mark.parametrize("ext", extensions)
 def test_pass_file_object_for_writing(tmp_path, ext, threads):
     if ext == ".zst" and zstandard is None:
         return
@@ -591,7 +590,8 @@ def test_pass_file_object_for_writing(tmp_path, ext, threads):
         assert fh.readline() == first_line
 
 
-@pytest.mark.parametrize(["threads", "ext"], itertools.product((0, 1), extensions))
+@pytest.mark.parametrize("threads", (0, 1))
+@pytest.mark.parametrize("ext", extensions)
 def test_pass_bytesio_for_reading_and_writing(ext, threads):
     filelike = io.BytesIO()
     format = ext[1:]
