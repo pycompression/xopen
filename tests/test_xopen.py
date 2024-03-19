@@ -6,7 +6,6 @@ from contextlib import contextmanager
 import functools
 import gzip
 import io
-import itertools
 import lzma
 import os
 from pathlib import Path
@@ -167,7 +166,8 @@ def test_readinto(fname):
 
 
 def test_detect_format_from_content(ext):
-    detected = _detect_format_from_content(Path(__file__).parent / f"file.txt{ext}")
+    with open(Path(__file__).parent / f"file.txt{ext}", "rb") as f:
+        detected = _detect_format_from_content(f)
     if ext == "":
         assert detected is None
     else:
@@ -249,7 +249,7 @@ def test_invalid_mode(ext):
             pass  # pragma: no cover
 
 
-def test_filename_not_a_string():
+def test_filename_invalid_type():
     with pytest.raises(TypeError):
         with xopen(123, mode="r"):
             pass  # pragma: no cover
@@ -511,9 +511,8 @@ def test_override_output_format_wrong_format(tmp_path):
 OPENERS = (xopen, functools.partial(xopen, threads=0))
 
 
-@pytest.mark.parametrize(
-    ["opener", "extension"], itertools.product(OPENERS, extensions)
-)
+@pytest.mark.parametrize("opener", OPENERS)
+@pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
     if extension == ".zst" and zstandard is None:
         return
@@ -527,9 +526,8 @@ def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
     assert result == "Eén ree\rTwee reeën\r"
 
 
-@pytest.mark.parametrize(
-    ["opener", "extension"], itertools.product(OPENERS, extensions)
-)
+@pytest.mark.parametrize("opener", OPENERS)
+@pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_errors(opener, extension, tmp_path):
     if extension == ".zst" and zstandard is None:
         return
@@ -566,3 +564,47 @@ def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
     with pytest.raises(ImportError):
         with xopen.xopen(TEST_DIR / "file.txt.zst", mode="rb", threads=0) as f:
             f.read()
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+@pytest.mark.parametrize("ext", extensions)
+def test_pass_file_object_for_reading(ext, threads):
+    if ext == ".zst" and zstandard is None:
+        return
+
+    with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
+        with xopen(fh, mode="rb", threads=threads) as f:
+            assert f.readline() == CONTENT_LINES[0].encode("utf-8")
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+@pytest.mark.parametrize("ext", extensions)
+def test_pass_file_object_for_writing(tmp_path, ext, threads):
+    if ext == ".zst" and zstandard is None:
+        return
+    first_line = CONTENT_LINES[0].encode("utf-8")
+    with open(tmp_path / "out{ext}", "wb") as fh:
+        with xopen(fh, "wb", threads=threads) as f:
+            f.write(first_line)
+    with xopen(tmp_path / "out{ext}", "rb", threads=threads) as fh:
+        assert fh.readline() == first_line
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+@pytest.mark.parametrize("ext", extensions)
+def test_pass_bytesio_for_reading_and_writing(ext, threads):
+    filelike = io.BytesIO()
+    format = ext[1:]
+    if ext == "":
+        format = None
+    if ext == ".zst" and zstandard is None:
+        return
+    first_line = CONTENT_LINES[0].encode("utf-8")
+    writer = xopen(filelike, "wb", format=format, threads=threads)
+    writer.write(first_line)
+    if writer is not filelike:
+        writer.close()
+    assert not filelike.closed
+    filelike.seek(0)
+    with xopen(filelike, "rb", format=format, threads=threads) as fh:
+        assert fh.readline() == first_line
