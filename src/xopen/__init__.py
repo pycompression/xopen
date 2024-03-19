@@ -674,7 +674,7 @@ def _file_or_path_to_binary_stream(
         )
 
 
-def _filepath_from_path_or_filelike(fileorpath: FileOrPath):
+def _filepath_from_path_or_filelike(fileorpath: FileOrPath) -> str:
     try:
         return os.fspath(fileorpath)  # type: ignore
     except TypeError:
