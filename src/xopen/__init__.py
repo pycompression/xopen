@@ -655,8 +655,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
 def _file_or_path_to_binary_stream(
     file_or_path: FileOrPath, binary_mode: str
 ) -> Tuple[BinaryIO, bool]:
-    if binary_mode not in ("rb", "wb", "ab"):
-        raise AssertionError()
+    assert binary_mode in ("rb", "wb", "ab")
     if file_or_path == "-":
         return _open_stdin_or_out(binary_mode), False
     if isinstance(file_or_path, (str, bytes)) or hasattr(file_or_path, "__fspath__"):
