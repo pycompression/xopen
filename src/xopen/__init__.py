@@ -660,13 +660,12 @@ def _file_or_path_to_binary_stream(
         return _open_stdin_or_out(binary_mode), False
     if isinstance(file_or_path, (str, bytes)) or hasattr(file_or_path, "__fspath__"):
         return open(os.fspath(file_or_path), binary_mode), True  # type: ignore
-    if isinstance(file_or_path, (io.BufferedReader, io.BufferedWriter)):
-        return file_or_path, False
     if isinstance(file_or_path, io.TextIOWrapper):
         return file_or_path.buffer, False
-    if isinstance(file_or_path, io.IOBase) and not hasattr(file_or_path, "encoding"):
-        # Text files have encoding attributes. This file is binary:
-        return file_or_path, False
+    if hasattr(file_or_path, "readinto") or hasattr(file_or_path, "write"):
+        # Very lenient fallback for all filelike objects. If the filelike
+        # object is not binary, this will crash at a later point.
+        return file_or_path, False  # type: ignore
     raise TypeError(
         f"Unsupported type for {file_or_path}, " f"{file_or_path.__class__.__name__}."
     )
