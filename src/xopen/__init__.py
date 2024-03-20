@@ -433,7 +433,7 @@ class _PipedCompressionProgram(io.IOBase):
 
 def _open_stdin_or_out(mode: str) -> BinaryIO:
     assert "b" in mode
-    std = sys.stdout if "w" in mode else sys.stdin
+    std = sys.stdin if mode == "rb" else sys.stdout
     return open(std.fileno(), mode=mode, closefd=False)  # type: ignore
 
 
