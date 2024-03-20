@@ -165,7 +165,7 @@ class _PipedCompressionProgram(io.IOBase):
     Read and write compressed files by running an external process and piping into it.
     """
 
-    def __init__(  # noqa: C901
+    def __init__(
         self,
         filename: FileOrPath,
         mode="rb",
@@ -199,9 +199,10 @@ class _PipedCompressionProgram(io.IOBase):
             raise ValueError(
                 f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
+        self._compresslevel = compresslevel
         self.fileobj, self.closefd = _file_or_path_to_binary_stream(filename, mode)
-        filepath = _filepath_from_path_or_filelike(filename)
-        self.name: str = str(filepath)
+        self._path = _filepath_from_path_or_filelike(filename)
+        self.name: str = str(self._path)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
         self._threads_flag: Optional[str] = program_settings.threads_flag
@@ -215,7 +216,10 @@ class _PipedCompressionProgram(io.IOBase):
                 threads = min(_available_cpu_count(), 4)
         self._threads = threads
 
-        if threads != 0 and self._threads_flag is not None:
+        self._open_process()
+
+    def _open_process(self):
+        if self._threads != 0 and self._threads_flag is not None:
             self._program_args += [f"{self._threads_flag}{self._threads}"]
 
         # Setting close_fds to True in the Popen arguments is necessary due to
@@ -229,12 +233,12 @@ class _PipedCompressionProgram(io.IOBase):
         self.in_pipe = None
         self.in_thread = None
         self._feeding = True
-        if "r" in mode:
+        if "r" in self._mode:
             self._program_args += ["-c", "-d"]  # type: ignore
             stdout = subprocess.PIPE
         else:
-            if compresslevel is not None:
-                self._program_args += ["-" + str(compresslevel)]
+            if self._compresslevel is not None:
+                self._program_args += ["-" + str(self._compresslevel)]
             stdout = self.fileobj  # type: ignore
         try:
             self.process = subprocess.Popen(
@@ -249,7 +253,7 @@ class _PipedCompressionProgram(io.IOBase):
                 self.fileobj.close()
             raise
         assert self.process.stdin is not None
-        if "r" in mode:
+        if "r" in self._mode:
             self.in_pipe = self.process.stdin
             # A python subprocess can read and write from pipes, but not from
             # Python in-memory objects. In order for a program to read from an
