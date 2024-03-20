@@ -432,7 +432,7 @@ class _PipedCompressionProgram(io.IOBase):
 
 
 def _open_stdin_or_out(mode: str) -> BinaryIO:
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     std = sys.stdin if mode == "rb" else sys.stdout
     return open(std.fileno(), mode=mode, closefd=False)  # type: ignore
 
@@ -443,7 +443,7 @@ def _open_bz2(
     compresslevel: Optional[int],
     threads: Optional[int],
 ):
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_BZ2_COMPRESSION
     if threads != 0:
@@ -468,7 +468,7 @@ def _open_xz(
     compresslevel: Optional[int],
     threads: Optional[int],
 ):
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_XZ_COMPRESSION
 
@@ -498,7 +498,7 @@ def _open_zst(
     compresslevel: Optional[int],
     threads: Optional[int],
 ):
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     assert compresslevel != 0
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_ZST_COMPRESSION
@@ -546,7 +546,7 @@ def _open_gz(
     only one core, it still finishes faster than using the builtin gzip library
     as the (de)compression is moved to another thread.
     """
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
         # Force the same compression level on every tool regardless of
         # library defaults
