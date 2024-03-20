@@ -40,6 +40,9 @@ from ._version import version as __version__
 BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
 XOPEN_DEFAULT_GZIP_COMPRESSION = 1
+XOPEN_DEFAULT_BZ2_COMPRESSION = 9
+XOPEN_DEFAULT_XZ_COMPRESSION = 6
+XOPEN_DEFAULT_ZST_COMPRESSION = 3
 
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
@@ -434,21 +437,29 @@ def _open_stdin_or_out(mode: str) -> BinaryIO:
     return open(std.fileno(), mode=mode, closefd=False)  # type: ignore
 
 
-def _open_bz2(filename: FileOrPath, mode: str, threads: Optional[int]):
+def _open_bz2(
+    filename: FileOrPath,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+):
     assert "b" in mode
+    if compresslevel is None:
+        compresslevel = XOPEN_DEFAULT_BZ2_COMPRESSION
     if threads != 0:
         try:
             # pbzip2 can compress using multiple cores.
             return _PipedCompressionProgram(
                 filename,
                 mode,
+                compresslevel,
                 threads=threads,
                 program_settings=_PROGRAM_SETTINGS["pbzip2"],
             )
         except OSError:
             pass  # We try without threads.
 
-    return bz2.open(filename, mode)
+    return bz2.open(filename, mode, compresslevel)
 
 
 def _open_xz(
@@ -459,7 +470,7 @@ def _open_xz(
 ):
     assert "b" in mode
     if compresslevel is None:
-        compresslevel = 6
+        compresslevel = XOPEN_DEFAULT_XZ_COMPRESSION
 
     if threads != 0:
         try:
@@ -481,7 +492,7 @@ def _open_xz(
     )
 
 
-def _open_zst(  # noqa: C901
+def _open_zst(
     filename: FileOrPath,
     mode: str,
     compresslevel: Optional[int],
@@ -490,7 +501,7 @@ def _open_zst(  # noqa: C901
     assert "b" in mode
     assert compresslevel != 0
     if compresslevel is None:
-        compresslevel = 3
+        compresslevel = XOPEN_DEFAULT_ZST_COMPRESSION
     if threads != 0:
         try:
             # zstd can compress using multiple cores
@@ -520,7 +531,12 @@ def _open_zst(  # noqa: C901
     return f
 
 
-def _open_gz(filename: FileOrPath, mode: str, compresslevel, threads):
+def _open_gz(
+    filename: FileOrPath,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+):
     """
     Open a gzip file. The ISA-L library is preferred when applicable because
     it is the fastest. Then zlib-ng which is not as fast, but supports all
@@ -797,7 +813,7 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     elif detected_format == "xz":
         opened_file = _open_xz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(filename, binary_mode, threads)
+        opened_file = _open_bz2(filename, binary_mode, compresslevel, threads)
     elif detected_format == "zst":
         opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
     else:
