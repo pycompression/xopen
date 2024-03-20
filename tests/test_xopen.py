@@ -263,13 +263,16 @@ def test_invalid_compression_level(tmp_path):
 
 
 @pytest.mark.parametrize("ext", extensions)
-def test_append(ext, tmp_path):
+@pytest.mark.parametrize("threads", (0, 1))
+def test_append(ext, threads, tmp_path):
+    if ext == ".zst" and zstandard is None and threads == 0:
+        pytest.skip("No zstandard installed")
     text = b"AB"
     reference = text + text
     path = tmp_path / f"the-file{ext}"
-    with xopen(path, "ab") as f:
+    with xopen(path, "ab", threads=threads) as f:
         f.write(text)
-    with xopen(path, "ab") as f:
+    with xopen(path, "ab", threads=threads) as f:
         f.write(text)
     with xopen(path, "r") as f:
         for appended in f:
