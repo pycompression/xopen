@@ -518,16 +518,14 @@ def _open_zst(
 
     if zstandard is None:
         raise ImportError("zstandard module (python-zstandard) not available")
-    if compresslevel is not None and "w" in mode:
+    if compresslevel is not None and "r" not in mode:
         cctx = zstandard.ZstdCompressor(level=compresslevel)
     else:
         cctx = None
     f = zstandard.open(filename, mode, cctx=cctx)  # type: ignore
     if mode == "rb":
         return io.BufferedReader(f)
-    elif mode == "wb":
-        return io.BufferedWriter(f)
-    return f
+    return io.BufferedWriter(f)  # mode "ab" and "wb"
 
 
 def _open_gz(
