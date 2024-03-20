@@ -488,7 +488,7 @@ def _open_xz(
     return lzma.open(
         filename,
         mode,
-        preset=compresslevel if "w" in mode else None,
+        preset=compresslevel if "r" not in mode else None,
     )
 
 
