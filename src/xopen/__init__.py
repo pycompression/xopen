@@ -462,7 +462,11 @@ def _open_bz2(
         except OSError:
             pass  # We try without threads.
 
-    return bz2.open(filename, mode, compresslevel)
+    bz2_file = bz2.open(filename, mode, compresslevel)
+    if "r" in mode:
+        return bz2_file
+    # Buffer writes on bz2.open to mitigate overhead of small writes
+    return io.BufferedWriter(bz2_file)  # type: ignore
 
 
 def _open_xz(
@@ -488,11 +492,10 @@ def _open_xz(
         except OSError:
             pass  # We try without threads.
 
-    return lzma.open(
-        filename,
-        mode,
-        preset=compresslevel if "r" not in mode else None,
-    )
+    if "r" in mode:
+        return lzma.open(filename, mode)
+    # Buffer writes on lzma.open to mitigate overhead of small writes
+    return io.BufferedWriter(lzma.open(filename, mode, preset=compresslevel))  # type: ignore
 
 
 def _open_zst(
@@ -628,6 +631,9 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     # is called. This forces it to be closed.
     if closefd:
         gzip_file.myfileobj = fileobj
+    if sys.version_info.major == 3 and sys.version_info.minor < 12 and "r" not in mode:
+        # From version 3.12 onwards, gzip is properly internally buffered for writing.
+        return io.BufferedWriter(gzip_file)  # type: ignore
     return gzip_file
 
 
@@ -741,7 +747,7 @@ def xopen(
     ...
 
 
-def xopen(  # noqa: C901  # The function is complex, but readable.
+def xopen(
     filename: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
@@ -824,18 +830,6 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     else:
         opened_file, _ = _file_or_path_to_binary_stream(filename, binary_mode)
 
-    # The "write" method for GzipFile is very costly. Lots of python calls are
-    # made. To a lesser extent this is true for LzmaFile and BZ2File. By
-    # putting a buffer in between, the expensive write method is called much
-    # less. The effect is very noticeable when writing small units such as
-    # lines or FASTQ records.
-    if (
-        isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))  # FIXME
-        and "w" in mode
-    ):
-        opened_file = io.BufferedWriter(
-            opened_file, buffer_size=BUFFER_SIZE  # type: ignore
-        )
     if "t" in mode:
         return io.TextIOWrapper(opened_file, encoding, errors, newline)
     return opened_file

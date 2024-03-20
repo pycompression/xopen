@@ -2,6 +2,7 @@
 Tests for the xopen.xopen function
 """
 import bz2
+import sys
 from contextlib import contextmanager
 import functools
 import gzip
@@ -386,16 +387,22 @@ def test_write_no_threads(tmp_path, ext):
         return
     klass = klasses[ext]
     with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
-        assert isinstance(f, io.BufferedWriter)
-        if ext:
-            assert isinstance(f.raw, klass), f
+        if isinstance(f, io.BufferedWriter):
+            if ext:
+                assert isinstance(f.raw, klass), f
+        else:
+            if ext:
+                assert isinstance(f, klass)
 
 
 def test_write_gzip_no_threads_no_isal(tmp_path, xopen_without_igzip):
     import gzip
 
     with xopen_without_igzip(tmp_path / "out.gz", "wb", threads=0) as f:
-        assert isinstance(f.raw, gzip.GzipFile), f
+        if sys.version_info.major == 3 and sys.version_info.minor >= 12:
+            assert isinstance(f, gzip.GzipFile), f
+        else:
+            assert isinstance(f.raw, gzip.GzipFile)
 
 
 def test_write_stdout():
