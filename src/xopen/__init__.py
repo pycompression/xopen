@@ -631,7 +631,7 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     # is called. This forces it to be closed.
     if closefd:
         gzip_file.myfileobj = fileobj
-    if sys.version_info.major == 3 and sys.version_info.minor < 12 and "r" not in mode:
+    if sys.version_info < (3, 12) and "r" not in mode:
         # From version 3.12 onwards, gzip is properly internally buffered for writing.
         return io.BufferedWriter(gzip_file)  # type: ignore
     return gzip_file
