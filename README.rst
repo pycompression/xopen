@@ -187,6 +187,11 @@ Changelog
 in-development
 ~~~~~~~~~~~~~~~~~~~
 
+* #154: Support for gzip levels has been made more consistent. Levels 0-9
+  are supported. Level 11 which was only available when the ``pigz`` backend was
+  present is not supported anymore. Level 0, gzip format without compression,
+  lead to crashes when the ``gzip`` application backend was used as this does
+  not have a ``-0`` flag. ``xopen()`` now defers to other backends in that case.
 * #152: ``xopen()`` now accepts `file-like objects
   <https://docs.python.org/3/glossary.html#term-file-object>`_ for its filename
   argument.
