@@ -184,7 +184,7 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
-in-development
+v2.0.0 (2024-03-26)
 ~~~~~~~~~~~~~~~~~~~
 
 * #154: Support for gzip levels has been made more consistent. Levels 0-9
