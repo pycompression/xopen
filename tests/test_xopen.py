@@ -2,6 +2,7 @@
 Tests for the xopen.xopen function
 """
 import bz2
+import sys
 from contextlib import contextmanager
 import functools
 import gzip
@@ -263,13 +264,16 @@ def test_invalid_compression_level(tmp_path):
 
 
 @pytest.mark.parametrize("ext", extensions)
-def test_append(ext, tmp_path):
+@pytest.mark.parametrize("threads", (0, 1))
+def test_append(ext, threads, tmp_path):
+    if ext == ".zst" and zstandard is None and threads == 0:
+        pytest.skip("No zstandard installed")
     text = b"AB"
     reference = text + text
     path = tmp_path / f"the-file{ext}"
-    with xopen(path, "ab") as f:
+    with xopen(path, "ab", threads=threads) as f:
         f.write(text)
-    with xopen(path, "ab") as f:
+    with xopen(path, "ab", threads=threads) as f:
         f.write(text)
     with xopen(path, "r") as f:
         for appended in f:
@@ -383,16 +387,22 @@ def test_write_no_threads(tmp_path, ext):
         return
     klass = klasses[ext]
     with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
-        assert isinstance(f, io.BufferedWriter)
-        if ext:
-            assert isinstance(f.raw, klass), f
+        if isinstance(f, io.BufferedWriter):
+            if ext:
+                assert isinstance(f.raw, klass), f
+        else:
+            if ext:
+                assert isinstance(f, klass)
 
 
 def test_write_gzip_no_threads_no_isal(tmp_path, xopen_without_igzip):
     import gzip
 
     with xopen_without_igzip(tmp_path / "out.gz", "wb", threads=0) as f:
-        assert isinstance(f.raw, gzip.GzipFile), f
+        if sys.version_info.major == 3 and sys.version_info.minor >= 12:
+            assert isinstance(f, gzip.GzipFile), f
+        else:
+            assert isinstance(f.raw, gzip.GzipFile)
 
 
 def test_write_stdout():

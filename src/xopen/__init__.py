@@ -25,7 +25,6 @@ from typing import (
     Dict,
     Optional,
     Union,
-    TextIO,
     IO,
     overload,
     BinaryIO,
@@ -40,6 +39,9 @@ from ._version import version as __version__
 BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
 XOPEN_DEFAULT_GZIP_COMPRESSION = 1
+XOPEN_DEFAULT_BZ2_COMPRESSION = 9
+XOPEN_DEFAULT_XZ_COMPRESSION = 6
+XOPEN_DEFAULT_ZST_COMPRESSION = 3
 
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
@@ -163,7 +165,7 @@ class _PipedCompressionProgram(io.IOBase):
     Read and write compressed files by running an external process and piping into it.
     """
 
-    def __init__(  # noqa: C901
+    def __init__(
         self,
         filename: FileOrPath,
         mode="rb",
@@ -197,9 +199,10 @@ class _PipedCompressionProgram(io.IOBase):
             raise ValueError(
                 f"compresslevel must be in {program_settings.acceptable_compression_levels}."
             )
+        self._compresslevel = compresslevel
         self.fileobj, self.closefd = _file_or_path_to_binary_stream(filename, mode)
-        filepath = _filepath_from_path_or_filelike(filename)
-        self.name: str = str(filepath)
+        self._path = _filepath_from_path_or_filelike(filename)
+        self.name: str = str(self._path)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
         self._threads_flag: Optional[str] = program_settings.threads_flag
@@ -213,7 +216,10 @@ class _PipedCompressionProgram(io.IOBase):
                 threads = min(_available_cpu_count(), 4)
         self._threads = threads
 
-        if threads != 0 and self._threads_flag is not None:
+        self._open_process()
+
+    def _open_process(self):
+        if self._threads != 0 and self._threads_flag is not None:
             self._program_args += [f"{self._threads_flag}{self._threads}"]
 
         # Setting close_fds to True in the Popen arguments is necessary due to
@@ -227,12 +233,12 @@ class _PipedCompressionProgram(io.IOBase):
         self.in_pipe = None
         self.in_thread = None
         self._feeding = True
-        if "r" in mode:
+        if "r" in self._mode:
             self._program_args += ["-c", "-d"]  # type: ignore
             stdout = subprocess.PIPE
         else:
-            if compresslevel is not None:
-                self._program_args += ["-" + str(compresslevel)]
+            if self._compresslevel is not None:
+                self._program_args += ["-" + str(self._compresslevel)]
             stdout = self.fileobj  # type: ignore
         try:
             self.process = subprocess.Popen(
@@ -247,7 +253,7 @@ class _PipedCompressionProgram(io.IOBase):
                 self.fileobj.close()
             raise
         assert self.process.stdin is not None
-        if "r" in mode:
+        if "r" in self._mode:
             self.in_pipe = self.process.stdin
             # A python subprocess can read and write from pipes, but not from
             # Python in-memory objects. In order for a program to read from an
@@ -429,26 +435,38 @@ class _PipedCompressionProgram(io.IOBase):
 
 
 def _open_stdin_or_out(mode: str) -> BinaryIO:
-    assert "b" in mode
-    std = sys.stdout if "w" in mode else sys.stdin
+    assert mode in ("rb", "ab", "wb")
+    std = sys.stdin if mode == "rb" else sys.stdout
     return open(std.fileno(), mode=mode, closefd=False)  # type: ignore
 
 
-def _open_bz2(filename: FileOrPath, mode: str, threads: Optional[int]):
-    assert "b" in mode
+def _open_bz2(
+    filename: FileOrPath,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+):
+    assert mode in ("rb", "ab", "wb")
+    if compresslevel is None:
+        compresslevel = XOPEN_DEFAULT_BZ2_COMPRESSION
     if threads != 0:
         try:
             # pbzip2 can compress using multiple cores.
             return _PipedCompressionProgram(
                 filename,
                 mode,
+                compresslevel,
                 threads=threads,
                 program_settings=_PROGRAM_SETTINGS["pbzip2"],
             )
         except OSError:
             pass  # We try without threads.
 
-    return bz2.open(filename, mode)
+    bz2_file = bz2.open(filename, mode, compresslevel)
+    if "r" in mode:
+        return bz2_file
+    # Buffer writes on bz2.open to mitigate overhead of small writes
+    return io.BufferedWriter(bz2_file)  # type: ignore
 
 
 def _open_xz(
@@ -457,9 +475,9 @@ def _open_xz(
     compresslevel: Optional[int],
     threads: Optional[int],
 ):
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
-        compresslevel = 6
+        compresslevel = XOPEN_DEFAULT_XZ_COMPRESSION
 
     if threads != 0:
         try:
@@ -474,23 +492,22 @@ def _open_xz(
         except OSError:
             pass  # We try without threads.
 
-    return lzma.open(
-        filename,
-        mode,
-        preset=compresslevel if "w" in mode else None,
-    )
+    if "r" in mode:
+        return lzma.open(filename, mode)
+    # Buffer writes on lzma.open to mitigate overhead of small writes
+    return io.BufferedWriter(lzma.open(filename, mode, preset=compresslevel))  # type: ignore
 
 
-def _open_zst(  # noqa: C901
+def _open_zst(
     filename: FileOrPath,
     mode: str,
     compresslevel: Optional[int],
     threads: Optional[int],
 ):
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     assert compresslevel != 0
     if compresslevel is None:
-        compresslevel = 3
+        compresslevel = XOPEN_DEFAULT_ZST_COMPRESSION
     if threads != 0:
         try:
             # zstd can compress using multiple cores
@@ -508,19 +525,22 @@ def _open_zst(  # noqa: C901
 
     if zstandard is None:
         raise ImportError("zstandard module (python-zstandard) not available")
-    if compresslevel is not None and "w" in mode:
+    if compresslevel is not None and "r" not in mode:
         cctx = zstandard.ZstdCompressor(level=compresslevel)
     else:
         cctx = None
     f = zstandard.open(filename, mode, cctx=cctx)  # type: ignore
     if mode == "rb":
         return io.BufferedReader(f)
-    elif mode == "wb":
-        return io.BufferedWriter(f)
-    return f
+    return io.BufferedWriter(f)  # mode "ab" and "wb"
 
 
-def _open_gz(filename: FileOrPath, mode: str, compresslevel, threads):
+def _open_gz(
+    filename: FileOrPath,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+):
     """
     Open a gzip file. The ISA-L library is preferred when applicable because
     it is the fastest. Then zlib-ng which is not as fast, but supports all
@@ -530,11 +550,17 @@ def _open_gz(filename: FileOrPath, mode: str, compresslevel, threads):
     only one core, it still finishes faster than using the builtin gzip library
     as the (de)compression is moved to another thread.
     """
-    assert "b" in mode
+    assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
         # Force the same compression level on every tool regardless of
         # library defaults
         compresslevel = XOPEN_DEFAULT_GZIP_COMPRESSION
+    if compresslevel not in range(10):
+        # Level 0-9 are supported regardless of backend support
+        # (zlib_ng supports -1, pigz supports 11 etc.)
+        raise ValueError(
+            f"gzip compresslevel must be in range 0-9, got {compresslevel}."
+        )
 
     if threads != 0:
         # Igzip level 0 does not output uncompressed deflate blocks as zlib does
@@ -547,17 +573,14 @@ def _open_gz(filename: FileOrPath, mode: str, compresslevel, threads):
                 threads=1,
             )
         if gzip_ng_threaded and zlib_ng:
-            try:
-                return gzip_ng_threaded.open(
-                    filename,
-                    mode,
-                    # zlib-ng level 1 is 50% bigger than zlib level 1. Level
-                    # 2 gives a size close to expectations.
-                    compresslevel=2 if compresslevel == 1 else compresslevel,
-                    threads=threads or max(_available_cpu_count(), 4),
-                )
-            except zlib_ng.error:  # Bad compression level
-                pass
+            return gzip_ng_threaded.open(
+                filename,
+                mode,
+                # zlib-ng level 1 is 50% bigger than zlib level 1. Level
+                # 2 gives a size close to expectations.
+                compresslevel=2 if compresslevel == 1 else compresslevel,
+                threads=threads or max(_available_cpu_count(), 4),
+            )
 
         for program in ("pigz", "gzip"):
             try:
@@ -568,7 +591,8 @@ def _open_gz(filename: FileOrPath, mode: str, compresslevel, threads):
                     threads,
                     _PROGRAM_SETTINGS[program],
                 )
-            except OSError:
+            # ValueError when compresslevel is not supported. i.e. gzip and level 0
+            except (OSError, ValueError):
                 pass  # We try without threads.
     return _open_reproducible_gzip(filename, mode=mode, compresslevel=compresslevel)
 
@@ -607,6 +631,9 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     # is called. This forces it to be closed.
     if closefd:
         gzip_file.myfileobj = fileobj
+    if sys.version_info < (3, 12) and "r" not in mode:
+        # From version 3.12 onwards, gzip is properly internally buffered for writing.
+        return io.BufferedWriter(gzip_file)  # type: ignore
     return gzip_file
 
 
@@ -701,7 +728,7 @@ def xopen(
     errors: Optional[str] = ...,
     newline: Optional[str] = ...,
     format: Optional[str] = ...,
-) -> TextIO:
+) -> io.TextIOWrapper:
     ...
 
 
@@ -720,7 +747,7 @@ def xopen(
     ...
 
 
-def xopen(  # noqa: C901  # The function is complex, but readable.
+def xopen(
     filename: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
@@ -797,24 +824,12 @@ def xopen(  # noqa: C901  # The function is complex, but readable.
     elif detected_format == "xz":
         opened_file = _open_xz(filename, binary_mode, compresslevel, threads)
     elif detected_format == "bz2":
-        opened_file = _open_bz2(filename, binary_mode, threads)
+        opened_file = _open_bz2(filename, binary_mode, compresslevel, threads)
     elif detected_format == "zst":
         opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
     else:
         opened_file, _ = _file_or_path_to_binary_stream(filename, binary_mode)
 
-    # The "write" method for GzipFile is very costly. Lots of python calls are
-    # made. To a lesser extent this is true for LzmaFile and BZ2File. By
-    # putting a buffer in between, the expensive write method is called much
-    # less. The effect is very noticeable when writing small units such as
-    # lines or FASTQ records.
-    if (
-        isinstance(opened_file, (gzip.GzipFile, bz2.BZ2File, lzma.LZMAFile))  # FIXME
-        and "w" in mode
-    ):
-        opened_file = io.BufferedWriter(
-            opened_file, buffer_size=BUFFER_SIZE  # type: ignore
-        )
     if "t" in mode:
         return io.TextIOWrapper(opened_file, encoding, errors, newline)
     return opened_file
