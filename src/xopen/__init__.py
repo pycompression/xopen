@@ -508,15 +508,26 @@ def _open_zst(
     assert compresslevel != 0
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_ZST_COMPRESSION
+    if zstandard:
+        max_window_bits = zstandard.WINDOWLOG_MAX
+    else:
+        max_window_bits = 31
     if threads != 0:
         try:
             # zstd can compress using multiple cores
+            program_args: Tuple[str, ...] = ("zstd",)
+            if "r" in mode:
+                # Only use --long=31 for decompression. Otherwise compression
+                # will always use a very long window size, which will result
+                # in very long compute times and the resulting archive not
+                # openable by other tools without extra settings.
+                program_args += (f"--long={max_window_bits}",)
             return _PipedCompressionProgram(
                 filename,
                 mode,
                 compresslevel,
                 threads,
-                _PROGRAM_SETTINGS["zstd"],
+                _ProgramSettings(program_args, tuple(range(1, 20)), "-T"),
             )
         except OSError:
             if zstandard is None:
@@ -525,11 +536,9 @@ def _open_zst(
 
     if zstandard is None:
         raise ImportError("zstandard module (python-zstandard) not available")
-    if compresslevel is not None and "r" not in mode:
-        cctx = zstandard.ZstdCompressor(level=compresslevel)
-    else:
-        cctx = None
-    f = zstandard.open(filename, mode, cctx=cctx)  # type: ignore
+    dctx = zstandard.ZstdDecompressor(max_window_size=2**max_window_bits)
+    cctx = zstandard.ZstdCompressor(level=compresslevel)
+    f = zstandard.open(filename, mode, cctx=cctx, dctx=dctx)  # type: ignore
     if mode == "rb":
         return io.BufferedReader(f)
     return io.BufferedWriter(f)  # mode "ab" and "wb"
