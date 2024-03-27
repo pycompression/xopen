@@ -184,6 +184,13 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
+in-development
+~~~~~~~~~~~~~~~~~~~
++ #158: Fixed a bug where reading from stdin and other pipes would discard the
+  first bytes from the input.
++ #156: Zstd files compressed with the ``--long=31`` files can now be opened
+  without throwing errors.
+
 v2.0.0 (2024-03-26)
 ~~~~~~~~~~~~~~~~~~~
 
