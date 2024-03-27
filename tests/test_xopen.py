@@ -3,6 +3,7 @@ Tests for the xopen.xopen function
 """
 import bz2
 import sys
+import tempfile
 from contextlib import contextmanager
 import functools
 import gzip
@@ -634,3 +635,21 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
     filelike.seek(0)
     with xopen(filelike, "rb", format=format, threads=threads) as fh:
         assert fh.readline() == first_line
+
+
+def test_xopen_stdin(monkeypatch):
+    with open(TEST_DIR / "file.txt") as in_file:
+        monkeypatch.setattr("sys.stdin", in_file)
+        with xopen("-", "rt") as f:
+            data = f.read()
+        assert data == CONTENT
+
+
+def test_xopen_stdout(monkeypatch):
+    with tempfile.TemporaryFile(mode="w+t") as raw:
+        monkeypatch.setattr("sys.stdout", raw)
+        with xopen("-", "wt") as f:
+            f.write("Hello world!")
+        raw.seek(0)
+        data = raw.read()
+    assert data == "Hello world!"
