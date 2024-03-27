@@ -576,6 +576,18 @@ def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
             f.read()
 
 
+@pytest.mark.parametrize("threads", (None, 0, 1))
+def test_xopen_zst_long_window_size(threads):
+    if threads == 0 and zstandard is None:
+        return
+    elif threads == 1 and not shutil.which("zstd"):
+        return
+    test_zst = Path(__file__).parent / "only_zeroes.zst"
+    with xopen(test_zst, "rb", threads=threads) as f:
+        data = f.read()
+    assert len(data) == 2**31
+
+
 @pytest.mark.parametrize("threads", (0, 1))
 @pytest.mark.parametrize("ext", extensions)
 def test_pass_file_object_for_reading(ext, threads):
