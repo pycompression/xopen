@@ -637,10 +637,13 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
         assert fh.readline() == first_line
 
 
-def test_xopen_stdin(monkeypatch):
-    with open(TEST_DIR / "file.txt") as in_file:
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_stdin(monkeypatch, ext, threads):
+    if ext == ".zst" and zstandard is None:
+        return
+    with open(TEST_DIR / f"file.txt{ext}") as in_file:
         monkeypatch.setattr("sys.stdin", in_file)
-        with xopen("-", "rt") as f:
+        with xopen("-", "rt", threads=threads) as f:
             data = f.read()
         assert data == CONTENT
 
