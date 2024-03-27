@@ -517,10 +517,10 @@ def _open_zst(
             # zstd can compress using multiple cores
             program_args: Tuple[str, ...] = ("zstd",)
             if "r" in mode:
-                # Only use --long=31 for decompression. Otherwise compression
-                # will always use a very long window size, which will result
-                # in very long compute times and the resulting archive not
-                # openable by other tools without extra settings.
+                # Only use --long=31 for decompression. Using it for
+                # compression overrides level settings for window size and
+                # forces other zstd users to use `--long=31` to decompress any
+                # archive that has been compressed by xopen.
                 program_args += (f"--long={max_window_bits}",)
             return _PipedCompressionProgram(
                 filename,
