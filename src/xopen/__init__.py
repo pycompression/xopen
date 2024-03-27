@@ -721,7 +721,11 @@ def _filepath_from_path_or_filelike(fileorpath: FileOrPath) -> str:
     except TypeError:
         pass
     if hasattr(fileorpath, "name"):
-        return fileorpath.name
+        name = fileorpath.name
+        if isinstance(name, str):
+            return name
+        elif isinstance(name, bytes):
+            return name.decode()
     return ""
 
 
@@ -831,7 +835,7 @@ def xopen(  # noqa: C901
     if filename == "-":
         filename = _open_stdin_or_out(binary_mode)
     elif _file_is_a_socket_or_pipe(filename):
-        filename = open(filename, binary_mode)
+        filename = open(filename, binary_mode)  # type: ignore
 
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(

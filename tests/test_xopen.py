@@ -2,6 +2,7 @@
 Tests for the xopen.xopen function
 """
 import bz2
+import subprocess
 import sys
 import tempfile
 from contextlib import contextmanager
@@ -656,3 +657,32 @@ def test_xopen_stdout(monkeypatch):
         raw.seek(0)
         data = raw.read()
     assert data == "Hello world!"
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_read_from_pipe(ext, threads):
+    if ext == ".zst" and zstandard is None:
+        return
+    in_file = TEST_DIR / f"file.txt{ext}"
+    process = subprocess.Popen(("cat", str(in_file)), stdout=subprocess.PIPE)
+    with xopen(process.stdout, "rt", threads=threads) as f:
+        data = f.read()
+    process.wait()
+    assert data == CONTENT
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_write_to_pipe(threads, ext):
+    if ext == ".zst" and zstandard is None:
+        return
+    format = ext.lstrip(".")
+    if format == "":
+        format = None
+    process = subprocess.Popen(("cat",), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+    with xopen(process.stdin, "wt", threads=threads, format=format) as f:
+        f.write(CONTENT)
+    process.stdin.close()
+    with xopen(process.stdout, "rt", threads=threads) as f:
+        data = f.read()
+    process.wait()
+    assert data == CONTENT
