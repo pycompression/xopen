@@ -642,7 +642,7 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
 def test_xopen_stdin(monkeypatch, ext, threads):
     if ext == ".zst" and zstandard is None:
         return
-    with open(TEST_DIR / f"file.txt{ext}") as in_file:
+    with open(TEST_DIR / f"file.txt{ext}", "rt") as in_file:
         monkeypatch.setattr("sys.stdin", in_file)
         with xopen("-", "rt", threads=threads) as f:
             data = f.read()

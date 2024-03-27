@@ -732,7 +732,7 @@ def _filepath_from_path_or_filelike(fileorpath: FileOrPath) -> str:
 def _file_is_a_socket_or_pipe(filepath):
     try:
         mode = os.stat(filepath).st_mode
-        return not (stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode) or stat.S_ISPORT(mode))
+        return stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode) or stat.S_ISPORT(mode)
     except (OSError, TypeError):  # Type error for unexpected types in stat.
         return False
 
