@@ -642,7 +642,8 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
 def test_xopen_stdin(monkeypatch, ext, threads):
     if ext == ".zst" and zstandard is None:
         return
-    with open(TEST_DIR / f"file.txt{ext}", "rt") as in_file:
+    # Add encoding to suppress encoding warnings
+    with open(TEST_DIR / f"file.txt{ext}", "rt", encoding="latin-1") as in_file:
         monkeypatch.setattr("sys.stdin", in_file)
         with xopen("-", "rt", threads=threads) as f:
             data = f.read()
@@ -650,7 +651,8 @@ def test_xopen_stdin(monkeypatch, ext, threads):
 
 
 def test_xopen_stdout(monkeypatch):
-    with tempfile.TemporaryFile(mode="w+t") as raw:
+    # Add encoding to suppress encoding warnings
+    with tempfile.TemporaryFile(mode="w+t", encoding="latin-1") as raw:
         monkeypatch.setattr("sys.stdout", raw)
         with xopen("-", "wt") as f:
             f.write("Hello world!")
@@ -668,6 +670,7 @@ def test_xopen_read_from_pipe(ext, threads):
     with xopen(process.stdout, "rt", threads=threads) as f:
         data = f.read()
     process.wait()
+    process.stdout.close()
     assert data == CONTENT
 
 
@@ -685,4 +688,5 @@ def test_xopen_write_to_pipe(threads, ext):
     with xopen(process.stdout, "rt", threads=threads) as f:
         data = f.read()
     process.wait()
+    process.stdout.close()
     assert data == CONTENT
