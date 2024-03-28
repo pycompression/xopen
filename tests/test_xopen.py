@@ -2,7 +2,9 @@
 Tests for the xopen.xopen function
 """
 import bz2
+import subprocess
 import sys
+import tempfile
 from contextlib import contextmanager
 import functools
 import gzip
@@ -634,3 +636,75 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
     filelike.seek(0)
     with xopen(filelike, "rb", format=format, threads=threads) as fh:
         assert fh.readline() == first_line
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_stdin(monkeypatch, ext, threads):
+    if ext == ".zst" and zstandard is None:
+        return
+    # Add encoding to suppress encoding warnings
+    with open(TEST_DIR / f"file.txt{ext}", "rt", encoding="latin-1") as in_file:
+        monkeypatch.setattr("sys.stdin", in_file)
+        with xopen("-", "rt", threads=threads) as f:
+            data = f.read()
+        assert data == CONTENT
+
+
+def test_xopen_stdout(monkeypatch):
+    # Add encoding to suppress encoding warnings
+    with tempfile.TemporaryFile(mode="w+t", encoding="latin-1") as raw:
+        monkeypatch.setattr("sys.stdout", raw)
+        with xopen("-", "wt") as f:
+            f.write("Hello world!")
+        raw.seek(0)
+        data = raw.read()
+    assert data == "Hello world!"
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_read_from_pipe(ext, threads):
+    if ext == ".zst" and zstandard is None:
+        return
+    in_file = TEST_DIR / f"file.txt{ext}"
+    process = subprocess.Popen(("cat", str(in_file)), stdout=subprocess.PIPE)
+    with xopen(process.stdout, "rt", threads=threads) as f:
+        data = f.read()
+    process.wait()
+    process.stdout.close()
+    assert data == CONTENT
+
+
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_write_to_pipe(threads, ext):
+    if ext == ".zst" and zstandard is None:
+        return
+    format = ext.lstrip(".")
+    if format == "":
+        format = None
+    process = subprocess.Popen(("cat",), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+    with xopen(process.stdin, "wt", threads=threads, format=format) as f:
+        f.write(CONTENT)
+    process.stdin.close()
+    with xopen(process.stdout, "rt", threads=threads) as f:
+        data = f.read()
+    process.wait()
+    process.stdout.close()
+    assert data == CONTENT
+
+
+@pytest.mark.skipif(
+    not os.path.exists("/dev/stdin"), reason="/dev/stdin does not exist"
+)
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_dev_stdin_read(threads, ext):
+    if ext == ".zst" and zstandard is None:
+        return
+    file = str(Path(__file__).parent / f"file.txt{ext}")
+    result = subprocess.run(
+        f"cat {file} | python -c 'import xopen; "
+        f'f=xopen.xopen("/dev/stdin", "rt", threads={threads});print(f.read())\'',
+        shell=True,
+        stdout=subprocess.PIPE,
+        encoding="ascii",
+    )
+    assert result.stdout == CONTENT + "\n"

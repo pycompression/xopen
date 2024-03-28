@@ -10,6 +10,7 @@ __all__ = [
 
 import dataclasses
 import gzip
+import stat
 import sys
 import io
 import os
@@ -701,8 +702,6 @@ def _file_or_path_to_binary_stream(
     file_or_path: FileOrPath, binary_mode: str
 ) -> Tuple[BinaryIO, bool]:
     assert binary_mode in ("rb", "wb", "ab")
-    if file_or_path == "-":
-        return _open_stdin_or_out(binary_mode), False
     if isinstance(file_or_path, (str, bytes)) or hasattr(file_or_path, "__fspath__"):
         return open(os.fspath(file_or_path), binary_mode), True  # type: ignore
     if isinstance(file_or_path, io.TextIOWrapper):
@@ -722,8 +721,21 @@ def _filepath_from_path_or_filelike(fileorpath: FileOrPath) -> str:
     except TypeError:
         pass
     if hasattr(fileorpath, "name"):
-        return fileorpath.name
+        name = fileorpath.name
+        if isinstance(name, str):
+            return name
+        elif isinstance(name, bytes):
+            return name.decode()
     return ""
+
+
+def _file_is_a_socket_or_pipe(filepath):
+    try:
+        mode = os.stat(filepath).st_mode
+        # Treat anything that is not a regular file as special
+        return not stat.S_ISREG(mode)
+    except (OSError, TypeError):  # Type error for unexpected types in stat.
+        return False
 
 
 @overload
@@ -756,7 +768,7 @@ def xopen(
     ...
 
 
-def xopen(
+def xopen(  # noqa: C901
     filename: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
     compresslevel: Optional[int] = None,
@@ -818,6 +830,13 @@ def xopen(
         raise ValueError("Mode '{}' not supported".format(mode))
     binary_mode = mode[0] + "b"
     filepath = _filepath_from_path_or_filelike(filename)
+
+    # Open non-regular files such as pipes and sockets here to force opening
+    # them once.
+    if filename == "-":
+        filename = _open_stdin_or_out(binary_mode)
+    elif _file_is_a_socket_or_pipe(filename):
+        filename = open(filename, binary_mode)  # type: ignore
 
     if format not in (None, "gz", "xz", "bz2", "zst"):
         raise ValueError(
