@@ -690,3 +690,21 @@ def test_xopen_write_to_pipe(threads, ext):
     process.wait()
     process.stdout.close()
     assert data == CONTENT
+
+
+@pytest.mark.skipif(
+    not os.path.exists("/dev/stdin"), reason="/dev/stdin does not exist"
+)
+@pytest.mark.parametrize("threads", (0, 1))
+def test_xopen_dev_stdin_read(threads, ext):
+    if ext == ".zst" and zstandard is None:
+        return
+    file = str(Path(__file__).parent / f"file.txt{ext}")
+    result = subprocess.run(
+        f"cat {file} | python -c 'import xopen; "
+        f'f=xopen.xopen("/dev/stdin", "rt", threads={threads});print(f.read())\'',
+        shell=True,
+        stdout=subprocess.PIPE,
+        encoding="ascii",
+    )
+    assert result.stdout == CONTENT + "\n"
