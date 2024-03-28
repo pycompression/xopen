@@ -184,7 +184,7 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
-in-development
+v2.0.1 (2024-03-28)
 ~~~~~~~~~~~~~~~~~~~
 + #158: Fixed a bug where reading from stdin and other pipes would discard the
   first bytes from the input.
