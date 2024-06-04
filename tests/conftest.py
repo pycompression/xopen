@@ -10,10 +10,12 @@ from xopen import xopen
 def create_large_file(tmp_path):
     def _create_large_file(extension):
         path = tmp_path / f"large{extension}"
-        random_text = "".join(random.choices(string.ascii_lowercase, k=1024))
-        # Make the text a lot bigger in order to ensure that it is larger than the
-        # pipe buffer size.
-        random_text *= 2048
+        random.seed(0)
+        chars = string.ascii_lowercase + "\n"
+        # Do not decrease this length. The generated file needs to have
+        # a certain length after compression to trigger some bugs
+        # (in particular, 512 kB is not sufficient).
+        random_text = "".join(random.choices(chars, k=1024 * 1024))
         with xopen(path, "w") as f:
             f.write(random_text)
         return path
