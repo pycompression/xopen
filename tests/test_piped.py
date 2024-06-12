@@ -6,7 +6,6 @@ import io
 import os
 import shutil
 import sys
-import time
 import pytest
 from pathlib import Path
 from itertools import cycle
@@ -189,8 +188,6 @@ def test_reader_close(reader, create_large_file):
         large_file, "rb", program_settings=program_settings
     ) as f:
         f.readline()
-        time.sleep(0.2)
-    # The subprocess should be properly terminated now
 
 
 def test_invalid_gzip_compression_level(gzip_writer, tmp_path):

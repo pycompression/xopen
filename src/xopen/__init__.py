@@ -267,6 +267,7 @@ class _PipedCompressionProgram(io.IOBase):
             # data continuously to the process stdin on another thread.
             self.in_thread = threading.Thread(target=self._feed_pipe)
             self.in_thread.start()
+            self._process_explicitly_terminated = False
             self._file: BinaryIO = self.process.stdout  # type: ignore
             self._wait_for_output_or_process_exit()
             self._raise_if_error()
@@ -290,7 +291,11 @@ class _PipedCompressionProgram(io.IOBase):
                 if chunk == b"":
                     self.in_pipe.close()
                     return
-                self.in_pipe.write(chunk)
+                try:
+                    self.in_pipe.write(chunk)
+                except BrokenPipeError:
+                    if not self._process_explicitly_terminated:
+                        raise
         finally:
             self.in_pipe.close()
 
@@ -329,14 +334,15 @@ class _PipedCompressionProgram(io.IOBase):
             return
         check_allowed_code_and_message = False
         if "r" in self._mode:
-            self._feeding = False
-            self._file.read()
             retcode = self.process.poll()
             if retcode is None:
                 # still running
+                self._process_explicitly_terminated = True
                 self.process.terminate()
                 check_allowed_code_and_message = True
                 self.process.wait()
+            self._feeding = False
+            self._file.read()
             if self.in_thread:
                 self.in_thread.join()
             self._file.close()
