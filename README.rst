@@ -184,6 +184,11 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 Changelog
 ---------
 
+v2.0.2 (2024-06-12)
+~~~~~~~~~~~~~~~~~~~
+* #161: Fix a bug that was triggered when reading large compressed files with
+  an external program.
+
 v2.0.1 (2024-03-28)
 ~~~~~~~~~~~~~~~~~~~
 + #158: Fixed a bug where reading from stdin and other pipes would discard the
