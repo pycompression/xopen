@@ -138,7 +138,7 @@ Opening of gzip files is delegated to one of these programs or libraries:
 For xz files, a pipe to the ``xz`` program is used because it has
 built-in support for multithreaded compression.
 
-For bz2 files, `pbzip2 (parallel bzip2) <http://compression.ca/pbzip2/>`_ is used.
+For bz2 files, `pbzip2 (parallel bzip2) <http://compression.great-site.net/pbzip2/>`_ is used.
 
 ``xopen`` falls back to Python’s built-in functions
 (``gzip.open``, ``lzma.open``, ``bz2.open``)
@@ -281,7 +281,7 @@ v1.3.0 (2022-01-10)
 v1.2.0 (2021-09-21)
 ~~~~~~~~~~~~~~~~~~~
 
-* `pbzip2 <http://compression.ca/pbzip2/>`_ is now used to open ``.bz2`` files if
+* `pbzip2 <http://compression.great-site.net/pbzip2/>`_ is now used to open ``.bz2`` files if
   ``threads`` is greater than zero (contributed by @DriesSchaumont).
 
 v1.1.0 (2021-01-20)
