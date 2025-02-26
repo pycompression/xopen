@@ -41,15 +41,15 @@ jobs:
         - os: macos-latest
           python-version: "3.10"
           optional-deps: true
-        - os: ubuntu-20.04
+        - os: ubuntu-latest
           python-version: "3.10"
           with-libs: false
           optional-deps: false
-        - os: ubuntu-20.04
+        - os: ubuntu-latest
           python-version: "3.10"
           with-libs: false
           optional-deps: true
-        - os: ubuntu-20.04
+        - os: ubuntu-latest
           python-version: "3.10"
           optional-deps: false
           with-libs: false
