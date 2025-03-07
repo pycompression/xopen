@@ -27,8 +27,9 @@ dependencies = [
 homepage = "https://github.com/pycompression/xopen/"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pytest-timeout"]
 zstd = ["zstandard<1"]
+lz4 = ["lz4>=4.3.2"]
 
 [tool.setuptools_scm]
 write_to = "src/xopen/_version.py"

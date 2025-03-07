@@ -43,6 +43,7 @@ XOPEN_DEFAULT_GZIP_COMPRESSION = 1
 XOPEN_DEFAULT_BZ2_COMPRESSION = 9
 XOPEN_DEFAULT_XZ_COMPRESSION = 6
 XOPEN_DEFAULT_ZST_COMPRESSION = 3
+XOPEN_DEFAULT_LZ4_COMPRESSION = 1
 
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
@@ -69,6 +70,11 @@ try:
     import zstandard  # type: ignore
 except ImportError:
     zstandard = None  # type: ignore
+
+try:
+    import lz4.frame  # type: ignore
+except ImportError:
+    lz4 = None
 
 try:
     import fcntl
@@ -120,6 +126,7 @@ _PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
     "zstd": _ProgramSettings(("zstd",), tuple(range(1, 20)), "-T"),
     "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
     "gzip": _ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
+    "lz4": _ProgramSettings(("lz4",), tuple(range(1, 13)), "-T"),
 }
 
 
@@ -551,6 +558,41 @@ def _open_zst(
     return io.BufferedWriter(f)  # mode "ab" and "wb"
 
 
+def _open_lz4(
+    filename: FileOrPath,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+):
+    assert mode in ("rb", "ab", "wb")
+    if compresslevel is None:
+        compresslevel = XOPEN_DEFAULT_LZ4_COMPRESSION
+
+    if threads != 0:
+        try:
+            # zstd can compress using multiple cores
+            program_args: Tuple[str, ...] = ("lz4",)
+            return _PipedCompressionProgram(
+                filename,
+                mode,
+                compresslevel,
+                threads,
+                program_settings=_PROGRAM_SETTINGS["lz4"],
+            )
+        except OSError:
+            if lz4 is None:
+                # No fallback available
+                raise
+
+    if lz4 is None:
+        raise ImportError("lz4 module not available")
+    f = lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
+    if "r" in mode:
+        return f
+    # Buffer writes on lz4.open to mitigate overhead of small writes
+    return io.BufferedWriter(f)
+
+
 def _open_gz(
     filename: FileOrPath,
     mode: str,
@@ -683,6 +725,10 @@ def _detect_format_from_content(filename: FileOrPath) -> Optional[str]:
         elif bs[:4] == b"\x28\xb5\x2f\xfd":
             # https://datatracker.ietf.org/doc/html/rfc8478#section-3.1.1
             return "zst"
+        elif bs[:4] == b"\x04\x22\x4d\x18":
+            # https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)
+            return "lz4"
+
         return None
     finally:
         if closefd:
@@ -694,7 +740,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
     Attempt to detect file format from the filename extension.
     Return None if no format could be detected.
     """
-    for ext in ("bz2", "xz", "gz", "zst"):
+    for ext in ("bz2", "xz", "gz", "zst", "lz4"):
         if isinstance(filename, bytes):
             if filename.endswith(b"." + ext.encode()):
                 return ext
@@ -797,6 +843,7 @@ def xopen(  # noqa: C901
     - .bz2 uses bzip2 compression
     - .xz uses xz/lzma compression
     - .zst uses zstandard compression
+    - .lz4 uses lz4 compression
     - otherwise, no compression is used
 
     When reading, if a file name extension is available, the format is detected
@@ -808,7 +855,7 @@ def xopen(  # noqa: C901
     compresslevel is the compression level for writing to gzip, xz and zst files.
     This parameter is ignored for the other compression formats.
     If set to None, a default depending on the format is used:
-    gzip: 6, xz: 6, zstd: 3.
+    gzip: 6, xz: 6, zstd: 3, lz4: 1.
 
     When threads is None (the default), compressed file formats are read or written
     using a pipe to a subprocess running an external tool such as,
@@ -828,7 +875,7 @@ def xopen(  # noqa: C901
 
     format overrides the autodetection of input and output formats. This can be
     useful when compressed output needs to be written to a file without an
-    extension. Possible values are "gz", "xz", "bz2", "zst".
+    extension. Possible values are "gz", "xz", "bz2", "zst", "lz4".
     """
     if mode in ("r", "w", "a"):
         mode += "t"  # type: ignore
@@ -844,10 +891,10 @@ def xopen(  # noqa: C901
     elif _file_is_a_socket_or_pipe(filename):
         filename = open(filename, binary_mode)  # type: ignore
 
-    if format not in (None, "gz", "xz", "bz2", "zst"):
+    if format not in (None, "gz", "xz", "bz2", "zst", "lz4"):
         raise ValueError(
             f"Format not supported: {format}. "
-            f"Choose one of: 'gz', 'xz', 'bz2', 'zst'"
+            f"Choose one of: 'gz', 'xz', 'bz2', 'zst', 'lz4'."
         )
     detected_format = format or _detect_format_from_extension(filepath)
     if detected_format is None and "r" in mode:
@@ -861,6 +908,8 @@ def xopen(  # noqa: C901
         opened_file = _open_bz2(filename, binary_mode, compresslevel, threads)
     elif detected_format == "zst":
         opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
+    elif detected_format == "lz4":
+        opened_file = _open_lz4(filename, binary_mode, compresslevel, threads)
     else:
         opened_file, _ = _file_or_path_to_binary_stream(filename, binary_mode)
 

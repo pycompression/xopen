@@ -23,6 +23,10 @@ try:
 except ImportError:
     zstandard = None
 
+try:
+    import lz4.frame
+except ImportError:
+    lz4 = None
 
 # TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
@@ -31,6 +35,8 @@ CONTENT = "".join(CONTENT_LINES)
 extensions = ["", ".gz", ".bz2", ".xz"]
 if shutil.which("zstd") or zstandard:
     extensions += [".zst"]
+if shutil.which("lz4") or lz4:
+    extensions += [".lz4"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
 
