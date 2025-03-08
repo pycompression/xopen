@@ -5,29 +5,38 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "xopen"
 authors = [
-    {name = "Marcel Martin", email = "marcel.martin@scilifelab.se"},
-    {name = "Ruben Vorderman", email = "r.h.p.vorderman@lumc.nl"}
+    { name = "Marcel Martin", email = "marcel.martin@scilifelab.se" },
+    { name = "Ruben Vorderman", email = "r.h.p.vorderman@lumc.nl" },
 ]
 description = "Open compressed files transparently"
 readme = "README.rst"
-license = {text = "MIT"}
+license = { text = "MIT" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3"
+    "Programming Language :: Python :: 3",
 ]
 requires-python = ">=3.8"
 dynamic = ["version"]
 dependencies = [
     'isal>=1.6.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
-    'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"'
+    'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
 ]
 
 [project.urls]
 homepage = "https://github.com/pycompression/xopen/"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-timeout"]
+dev = [
+    "pytest",
+    "pytest-timeout",
+    "tox",
+    "black",
+    "flake8",
+    "mypy",
+    "twine",
+    "setuptools_scm[toml]",
+]
 zstd = ["zstandard<1"]
 lz4 = ["lz4>=4.3.2"]
 

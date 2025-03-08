@@ -570,8 +570,6 @@ def _open_lz4(
 
     if threads != 0:
         try:
-            # zstd can compress using multiple cores
-            program_args: Tuple[str, ...] = ("lz4",)
             return _PipedCompressionProgram(
                 filename,
                 mode,
