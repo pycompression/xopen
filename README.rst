@@ -27,6 +27,7 @@ Supported compression formats are:
 - bzip2 (``.bz2``)
 - xz (``.xz``)
 - Zstandard (``.zst``) (optional)
+- lz4 (``.lz4``) (optional)
 
 ``xopen`` is compatible with Python versions 3.8 and later.
 
@@ -73,7 +74,7 @@ The function opens the file using a function suitable for the detected
 file format and returns an open file-like object.
 
 When writing, the file format is chosen based on the file name extension:
-``.gz``, ``.bz2``, ``.xz``, ``.zst``. This can be overriden with ``format``.
+``.gz``, ``.bz2``, ``.xz``, ``.zst``, ``.lz4``. This can be overriden with ``format``.
 If the extension is not recognized, no compression is used.
 
 When reading and a file name extension is available, the format is detected
@@ -101,13 +102,13 @@ preferred locale encoding.
 **compresslevel**:
 The compression level for writing to gzip, xz and Zstandard files.
 If set to None, a default depending on the format is used:
-gzip: 1, xz: 6, Zstandard: 3.
+gzip: 1, xz: 6, Zstandard: 3, lz4: 1.
 
 This parameter is ignored for other compression formats.
 
 **format**:
 Override the autodetection of the input or output format.
-Possible values are: ``"gz"``, ``"xz"``, ``"bz2"``, ``"zst"``.
+Possible values are: ``"gz"``, ``"xz"``, ``"bz2"``, ``"zst"``, ``"lz4"``.
 
 **threads**:
 Set the number of additional threads spawned for compression or decompression.
@@ -179,6 +180,20 @@ program or the Python ``zstandard`` package needs to be installed.
 
 To ensure that you get the correct ``zstandard`` version, you can specify the ``zstd`` extra for
 ``xopen``, that is, install it using ``pip install xopen[zstd]``.
+
+Optional lz4 support
+--------------------------
+
+For reading and writing lz4 (``.lz4``) files, either the ``lz4`` command-line
+program or the Python ``lz4`` package needs to be installed.
+
+* If the ``threads`` parameter to ``xopen()`` is ``None`` (the default) or any value greater than 0,
+  ``xopen`` uses an external ``lz4`` process.
+* If the above fails (because no ``lz4`` program is available) or if ``threads`` is 0,
+  the ``lz4`` package is used.
+
+To ensure that ``lz4`` is installed, you can specify the ``lz4`` extra for
+``xopen``, that is, install it using ``pip install xopen[lz4]``.
 
 
 Changelog
