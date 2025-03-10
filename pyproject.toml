@@ -21,6 +21,7 @@ dynamic = ["version"]
 dependencies = [
     'isal>=1.6.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
     'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
+    'lz4>=4.3.2; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
 ]
 
 [project.urls]
@@ -38,7 +39,6 @@ dev = [
     "setuptools_scm[toml]",
 ]
 zstd = ["zstandard<1"]
-lz4 = ["lz4>=4.3.2"]
 
 [tool.setuptools_scm]
 write_to = "src/xopen/_version.py"
