@@ -585,10 +585,7 @@ def _open_lz4(
     if lz4 is None:
         raise ImportError("lz4 module not available")
     f = lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
-    if "r" in mode:
-        return f
-    # Buffer writes on lz4.open to mitigate overhead of small writes
-    return io.BufferedWriter(f)
+    return f
 
 
 def _open_gz(
@@ -761,7 +758,7 @@ def _file_or_path_to_binary_stream(
         # object is not binary, this will crash at a later point.
         return file_or_path, False  # type: ignore
     raise TypeError(
-        f"Unsupported type for {file_or_path}, " f"{file_or_path.__class__.__name__}."
+        f"Unsupported type for {file_or_path}, {file_or_path.__class__.__name__}."
     )
 
 
