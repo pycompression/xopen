@@ -111,8 +111,6 @@ def test_binary(fname):
 def test_roundtrip(ext, tmp_path, threads, mode):
     if ext == ".zst" and threads == 0 and zstandard is None:
         return
-    if ext == ".lz4" and threads == 0 and lz4 is None:
-        pytest.skip("lz4 not installed")
     path = tmp_path / f"file{ext}"
     data = b"Hello" if mode == "b" else "Hello"
     with xopen(path, "w" + mode, threads=threads) as f:
@@ -124,8 +122,6 @@ def test_roundtrip(ext, tmp_path, threads, mode):
 def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
     if fname.endswith(".zst") and zstandard is None:
         return
-    if fname.endswith(".lz4") and lz4 is None:
-        pytest.skip("lz4 not installed")
     with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
         assert len(lines) == 2
@@ -276,8 +272,6 @@ def test_invalid_compression_level(tmp_path):
 def test_append(ext, threads, tmp_path):
     if ext == ".zst" and zstandard is None and threads == 0:
         pytest.skip("No zstandard installed")
-    if ext == ".lz4" and lz4 is None and threads == 0:
-        pytest.skip("No lz4 installed")
     text = b"AB"
     reference = text + text
     path = tmp_path / f"the-file{ext}"
@@ -359,14 +353,11 @@ def test_read_no_threads(ext):
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
         ".zst": io.BufferedReader,
+        ".lz4": lz4.frame.LZ4FrameFile,
         "": io.BufferedReader,
     }
     if ext == ".zst" and zstandard is None:
         return
-    if ext == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
-    elif ext == ".lz4" and lz4:
-        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
         assert isinstance(f, klass), f
@@ -393,18 +384,13 @@ def test_write_no_threads(tmp_path, ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
+        ".lz4": lz4.frame.LZ4FrameFile,
         "": io.BufferedWriter,
     }
     if ext == ".zst":
         # Skip zst because if python-zstandard is not installed,
         # we fall back to an external process even when threads=0
         return
-    if ext == ".lz4" and lz4 is None:
-        # if lz4 is not installed, we skip this test
-        pytest.skip("lz4 not installed")
-    elif ext == ".lz4" and lz4:
-        # test if lz4 is installed
-        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
         if isinstance(f, io.BufferedWriter):
@@ -546,8 +532,6 @@ OPENERS = (xopen, functools.partial(xopen, threads=0))
 def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
     if extension == ".zst" and zstandard is None:
         return
-    if extension == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
     # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
     encoded_text = b"E\xe9n ree\rTwee ree\xebn\r"
     path = tmp_path / f"test.txt{extension}"
@@ -563,8 +547,6 @@ def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
 def test_text_encoding_errors(opener, extension, tmp_path):
     if extension == ".zst" and zstandard is None:
         return
-    if extension == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
     # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
     encoded_text = b"E\xe9n ree\nTwee ree\xebn\n"
     path = tmp_path / f"test.txt{extension}"
@@ -621,9 +603,6 @@ def test_xopen_zst_long_window_size(threads):
 def test_pass_file_object_for_reading(ext, threads):
     if ext == ".zst" and zstandard is None:
         return
-    if ext == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
-
     with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
         with xopen(fh, mode="rb", threads=threads) as f:
             assert f.readline() == CONTENT_LINES[0].encode("utf-8")
@@ -651,8 +630,6 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
         format = None
     if ext == ".zst" and zstandard is None:
         return
-    if ext == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
     first_line = CONTENT_LINES[0].encode("utf-8")
     writer = xopen(filelike, "wb", format=format, threads=threads)
     writer.write(first_line)
@@ -668,8 +645,6 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
 def test_xopen_stdin(monkeypatch, ext, threads):
     if ext == ".zst" and zstandard is None:
         return
-    if ext == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
     # Add encoding to suppress encoding warnings
     with open(TEST_DIR / f"file.txt{ext}", "rt", encoding="latin-1") as in_file:
         monkeypatch.setattr("sys.stdin", in_file)
@@ -693,8 +668,6 @@ def test_xopen_stdout(monkeypatch):
 def test_xopen_read_from_pipe(ext, threads):
     if ext == ".zst" and zstandard is None:
         return
-    if ext == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
     in_file = TEST_DIR / f"file.txt{ext}"
     process = subprocess.Popen(("cat", str(in_file)), stdout=subprocess.PIPE)
     with xopen(process.stdout, "rt", threads=threads) as f:
@@ -708,8 +681,6 @@ def test_xopen_read_from_pipe(ext, threads):
 def test_xopen_write_to_pipe(threads, ext):
     if ext == ".zst" and zstandard is None:
         return
-    if ext == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
     format = ext.lstrip(".")
     if format == "":
         format = None
@@ -731,8 +702,6 @@ def test_xopen_write_to_pipe(threads, ext):
 def test_xopen_dev_stdin_read(threads, ext):
     if ext == ".zst" and zstandard is None:
         return
-    if ext == ".lz4" and lz4 is None:
-        pytest.skip("lz4 not installed")
     file = str(Path(__file__).parent / f"file.txt{ext}")
     result = subprocess.run(
         f"cat {file} | python -c 'import xopen; "
