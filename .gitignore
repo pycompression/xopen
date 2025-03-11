@@ -10,3 +10,5 @@ settings.json
 coverage.xml
 .vscode/*
 .DS_Store
+build/*
+dist/*

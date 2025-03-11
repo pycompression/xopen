@@ -2,31 +2,27 @@
 Tests for the xopen.xopen function
 """
 import bz2
-import subprocess
-import sys
-import tempfile
-from contextlib import contextmanager
 import functools
 import gzip
 import io
 import lzma
 import os
-from pathlib import Path
 import shutil
+import subprocess
+import sys
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
 
+import lz4.frame
 import pytest
 
-from xopen import xopen, _detect_format_from_content
+from xopen import _detect_format_from_content, xopen
 
 try:
     import zstandard
 except ImportError:
     zstandard = None
-
-try:
-    import lz4.frame
-except ImportError:
-    lz4 = None
 
 # TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
