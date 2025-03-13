@@ -43,7 +43,7 @@ XOPEN_DEFAULT_GZIP_COMPRESSION = 1
 XOPEN_DEFAULT_BZ2_COMPRESSION = 9
 XOPEN_DEFAULT_XZ_COMPRESSION = 6
 XOPEN_DEFAULT_ZST_COMPRESSION = 3
-XOPEN_DEFAULT_LZ4_COMPRESSION = 1
+XOPEN_DEFAULT_LZ4_COMPRESSION = 0
 
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
@@ -126,7 +126,7 @@ _PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
     "zstd": _ProgramSettings(("zstd",), tuple(range(1, 20)), "-T"),
     "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
     "gzip": _ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
-    "lz4": _ProgramSettings(("lz4",), tuple(range(1, 13)), "-T"),
+    "lz4": _ProgramSettings(("lz4",), tuple(range(0, 17)), "-T"),
 }
 
 
