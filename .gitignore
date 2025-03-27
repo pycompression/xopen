@@ -5,10 +5,3 @@ __pycache__/
 .tox
 venv/
 src/xopen/_version.py
-settings.json
-.coverage
-coverage.xml
-.vscode/*
-.DS_Store
-build/*
-dist/*

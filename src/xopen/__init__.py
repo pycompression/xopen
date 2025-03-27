@@ -126,7 +126,7 @@ _PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
     "zstd": _ProgramSettings(("zstd",), tuple(range(1, 20)), "-T"),
     "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
     "gzip": _ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
-    "lz4": _ProgramSettings(("lz4",), tuple(range(0, 17)), "-T"),
+    "lz4": _ProgramSettings(("lz4",), tuple(range(0, 17))),
 }
 
 
@@ -850,7 +850,7 @@ def xopen(  # noqa: C901
     compresslevel is the compression level for writing to gzip, xz and zst files.
     This parameter is ignored for the other compression formats.
     If set to None, a default depending on the format is used:
-    gzip: 6, xz: 6, zstd: 3, lz4: 1.
+    gzip: 6, xz: 6, zstd: 3, lz4: 0.
 
     When threads is None (the default), compressed file formats are read or written
     using a pipe to a subprocess running an external tool such as,

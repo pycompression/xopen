@@ -28,11 +28,9 @@ except ImportError:
 TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
 CONTENT = "".join(CONTENT_LINES)
-extensions = ["", ".gz", ".bz2", ".xz"]
+extensions = ["", ".gz", ".bz2", ".xz", ".lz4"]
 if shutil.which("zstd") or zstandard:
     extensions += [".zst"]
-if shutil.which("lz4") or lz4:
-    extensions += [".lz4"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
 

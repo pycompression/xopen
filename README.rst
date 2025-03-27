@@ -26,8 +26,8 @@ Supported compression formats are:
 - gzip (``.gz``)
 - bzip2 (``.bz2``)
 - xz (``.xz``)
+- lz4 (``.lz4``)
 - Zstandard (``.zst``) (optional)
-- lz4 (``.lz4``) (optional)
 
 ``xopen`` is compatible with Python versions 3.8 and later.
 
@@ -141,6 +141,9 @@ built-in support for multithreaded compression.
 
 For bz2 files, `pbzip2 (parallel bzip2) <http://compression.great-site.net/pbzip2/>`_ is used.
 
+For lz4 files, [python lz4](https://python-lz4.readthedocs.io/en/stable/index.html)
+package is used.
+
 ``xopen`` falls back to Python’s built-in functions
 (``gzip.open``, ``lzma.open``, ``bz2.open``)
 if none of the other methods can be used.
@@ -180,20 +183,6 @@ program or the Python ``zstandard`` package needs to be installed.
 
 To ensure that you get the correct ``zstandard`` version, you can specify the ``zstd`` extra for
 ``xopen``, that is, install it using ``pip install xopen[zstd]``.
-
-Optional lz4 support
---------------------------
-
-For reading and writing lz4 (``.lz4``) files, either the ``lz4`` command-line
-program or the Python ``lz4`` package needs to be installed.
-
-* If the ``threads`` parameter to ``xopen()`` is ``None`` (the default) or any value greater than 0,
-  ``xopen`` uses an external ``lz4`` process.
-* If the above fails (because no ``lz4`` program is available) or if ``threads`` is 0,
-  the ``lz4`` package is used.
-
-To ensure that ``lz4`` is installed, you can specify the ``lz4`` extra for
-``xopen``, that is, install it using ``pip install xopen[lz4]``.
 
 
 Changelog
