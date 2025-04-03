@@ -28,8 +28,6 @@ Supported compression formats are:
 - xz (``.xz``)
 - Zstandard (``.zst``) (optional)
 
-``xopen`` is compatible with Python versions 3.8 and later.
-
 
 Example usage
 -------------
@@ -183,6 +181,11 @@ To ensure that you get the correct ``zstandard`` version, you can specify the ``
 
 Changelog
 ---------
+
+development version
+~~~~~~~~~~~~~~~~~~~
+
+* Dropped support for Python 3.8
 
 v2.0.2 (2024-06-12)
 ~~~~~~~~~~~~~~~~~~~
