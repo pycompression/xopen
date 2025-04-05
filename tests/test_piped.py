@@ -18,7 +18,7 @@ from xopen import (
     _ProgramSettings,
 )
 
-extensions = ["", ".gz", ".bz2", ".xz", ".zst"]
+extensions = ["", ".gz", ".bz2", ".xz", ".zst", ".lz4"]
 
 try:
     import fcntl
@@ -57,16 +57,24 @@ def available_zstd_programs():
     return []
 
 
+def available_lz4_programs():
+    if shutil.which("lz4"):
+        return [_PROGRAM_SETTINGS["lz4"]]
+    return []
+
+
 PIPED_GZIP_PROGRAMS = available_gzip_programs()
 PIPED_BZIP2_PROGRAMS = available_bzip2_programs()
 PIPED_XZ_PROGRAMS = available_xz_programs()
 PIPED_ZST_PROGRAMS = available_zstd_programs()
+PIPED_LZ4_PROGRAMS = available_lz4_programs()
 
 ALL_PROGRAMS_WITH_EXTENSION = (
     list(zip(PIPED_GZIP_PROGRAMS, cycle([".gz"])))
     + list(zip(PIPED_BZIP2_PROGRAMS, cycle([".bz2"])))
     + list(zip(PIPED_XZ_PROGRAMS, cycle([".xz"])))
     + list(zip(PIPED_ZST_PROGRAMS, cycle([".zst"])))
+    + list(zip(PIPED_LZ4_PROGRAMS, cycle([".lz4"])))
 )
 
 

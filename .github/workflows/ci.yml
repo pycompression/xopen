@@ -59,10 +59,10 @@ jobs:
     steps:
     - name: Install optional tools macOS
       if: runner.os == 'macOS' && matrix.optional-deps
-      run: brew install pigz pbzip2 isa-l zstd
+      run: brew install pigz pbzip2 isa-l zstd lz4
     - name: Install optional tools Linux
       if: runner.os == 'Linux' && matrix.optional-deps
-      run: sudo apt-get install pigz pbzip2 isal zstd
+      run: sudo apt-get install pigz pbzip2 isal zstd lz4
     - name: Remove xz
       if: runner.os == 'Linux' && !matrix.optional-deps
       run: while which xz; do sudo rm $(which xz); done
