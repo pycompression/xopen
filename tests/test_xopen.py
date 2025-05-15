@@ -345,6 +345,20 @@ def test_bare_read_from_gz():
         assert f.read() == "hello"
 
 
+@pytest.mark.parametrize("threads", [None, 0, 2])
+def test_concatenated_gzip(tmp_path, threads):
+    path = tmp_path / "hello.gz"
+    with gzip.open(path, mode="wt") as f:
+        print("Hello", file=f)
+    with gzip.open(path, mode="at") as f:
+        print("world", file=f)
+
+    with xopen(path, threads=threads) as f:
+        lines = list(f)
+
+    assert lines == ["Hello\n", "world\n"]
+
+
 def test_read_no_threads(ext):
     klasses = {
         ".bz2": bz2.BZ2File,
