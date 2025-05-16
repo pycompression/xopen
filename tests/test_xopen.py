@@ -2,33 +2,33 @@
 Tests for the xopen.xopen function
 """
 import bz2
-import subprocess
-import sys
-import tempfile
-from contextlib import contextmanager
 import functools
 import gzip
 import io
 import lzma
 import os
-from pathlib import Path
 import shutil
+import subprocess
+import sys
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
 
+import lz4.frame
 import pytest
 
-from xopen import xopen, _detect_format_from_content
+from xopen import _detect_format_from_content, xopen
 
 try:
     import zstandard
 except ImportError:
     zstandard = None
 
-
 # TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
 CONTENT = "".join(CONTENT_LINES)
-extensions = ["", ".gz", ".bz2", ".xz"]
+extensions = ["", ".gz", ".bz2", ".xz", ".lz4"]
 if shutil.which("zstd") or zstandard:
     extensions += [".zst"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
@@ -365,6 +365,7 @@ def test_read_no_threads(ext):
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
         ".zst": io.BufferedReader,
+        ".lz4": lz4.frame.LZ4FrameFile,
         "": io.BufferedReader,
     }
     if ext == ".zst" and zstandard is None:
@@ -395,6 +396,7 @@ def test_write_no_threads(tmp_path, ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
+        ".lz4": lz4.frame.LZ4FrameFile,
         "": io.BufferedWriter,
     }
     if ext == ".zst":
@@ -613,7 +615,6 @@ def test_xopen_zst_long_window_size(threads):
 def test_pass_file_object_for_reading(ext, threads):
     if ext == ".zst" and zstandard is None:
         return
-
     with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
         with xopen(fh, mode="rb", threads=threads) as f:
             assert f.readline() == CONTENT_LINES[0].encode("utf-8")

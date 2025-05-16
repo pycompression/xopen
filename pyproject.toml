@@ -19,7 +19,8 @@ requires-python = ">=3.9"
 dynamic = ["version"]
 dependencies = [
     'isal>=1.6.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
-    'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"'
+    'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
+    'lz4>4.3.1'
 ]
 
 [project.urls]
