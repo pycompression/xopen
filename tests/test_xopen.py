@@ -14,11 +14,15 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-import lz4.frame
+
 import pytest
 
 from xopen import _detect_format_from_content, xopen
 
+try:
+    import lz4.frame
+except ImportError:
+    lz4 = None
 try:
     import zstandard
 except ImportError:
@@ -351,11 +355,14 @@ def test_read_no_threads(ext):
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
         ".zst": io.BufferedReader,
-        ".lz4": lz4.frame.LZ4FrameFile,
         "": io.BufferedReader,
     }
     if ext == ".zst" and zstandard is None:
         return
+    if ext == ".lz4" and lz4 is None:
+        return
+    if ext == ".lz4" and lz4.frame is not None:
+        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
         assert isinstance(f, klass), f
@@ -382,13 +389,17 @@ def test_write_no_threads(tmp_path, ext):
         ".bz2": bz2.BZ2File,
         ".gz": gzip.GzipFile,
         ".xz": lzma.LZMAFile,
-        ".lz4": lz4.frame.LZ4FrameFile,
         "": io.BufferedWriter,
     }
     if ext == ".zst":
         # Skip zst because if python-zstandard is not installed,
         # we fall back to an external process even when threads=0
         return
+    if ext == ".lz4" and lz4 is None:
+        # Skip lz4 if lz4 is not installed
+        return
+    if ext == ".lz4" and lz4.frame is not None:
+        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
         if isinstance(f, io.BufferedWriter):

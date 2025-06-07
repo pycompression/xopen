@@ -568,7 +568,12 @@ def _open_lz4(
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_LZ4_COMPRESSION
 
-    if threads != 0:
+    if lz4 is not None and (mode == "rb" or (mode in ("ab", "wb") and threads == 0)):
+        # use Python bindings
+        f = lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
+        return f
+    else:
+        # use CLI program
         try:
             return _PipedCompressionProgram(
                 filename,
@@ -578,14 +583,15 @@ def _open_lz4(
                 program_settings=_PROGRAM_SETTINGS["lz4"],
             )
         except OSError:
-            if lz4 is None:
-                # No fallback available
-                raise
-
-    if lz4 is None:
-        raise ImportError("lz4 module not available")
-    f = lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
-    return f
+            _program_settings = _PROGRAM_SETTINGS["lz4"]
+            _program_settings.threads_flag = None
+            return _PipedCompressionProgram(
+                filename,
+                mode,
+                compresslevel,
+                threads,
+                program_settings=_program_settings,
+            )
 
 
 def _open_gz(
