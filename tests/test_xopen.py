@@ -639,6 +639,8 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
         format = None
     if ext == ".zst" and zstandard is None:
         return
+    if ext == ".lz4" and lz4 is None and threads == 0:
+        return
     first_line = CONTENT_LINES[0].encode("utf-8")
     writer = xopen(filelike, "wb", format=format, threads=threads)
     writer.write(first_line)
