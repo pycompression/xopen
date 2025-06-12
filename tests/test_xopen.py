@@ -113,9 +113,9 @@ def test_binary(fname):
 def test_roundtrip(ext, tmp_path, threads, mode):
     if ext == ".zst" and threads == 0 and zstandard is None:
         return
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        return
     path = tmp_path / f"file{ext}"
-    if not path.parent.exists():
-        path.mkdir()
     data = b"Hello" if mode == "b" else "Hello"
     with xopen(path, "w" + mode, threads=threads) as f:
         f.write(data)
