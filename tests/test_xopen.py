@@ -674,10 +674,10 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
     if ext == ".zst" and zstandard is None:
         return
     if ext == ".lz4" and lz4 is None and threads == 0:
-        return
+        pytest.skip("lz4 not working for BytesIO in piped write mode")
     if ext == ".lz4" and threads != 0:
         # _PipedCompressionProgram not working on write mode
-        return
+        pytest.skip("lz4 not working for BytesIO in piped write mode")
     first_line = CONTENT_LINES[0].encode("utf-8")
     writer = xopen(filelike, "wb", format=format, threads=threads)
     writer.write(first_line)
