@@ -114,7 +114,7 @@ def test_roundtrip(ext, tmp_path, threads, mode):
     if ext == ".zst" and threads == 0 and zstandard is None:
         return
     if ext == ".lz4" and shutil.which("lz4") is None:
-        return
+        pytest.skip("lz4 not installed")
     path = tmp_path / f"file{ext}"
     data = b"Hello" if mode == "b" else "Hello"
     with xopen(path, "w" + mode, threads=threads) as f:
@@ -209,6 +209,8 @@ def test_next(fname):
 
 
 def test_has_iter_method(ext, tmp_path):
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     path = tmp_path / f"out{ext}"
     with xopen(path, mode="w") as f:
         # Writing anything isn’t strictly necessary, but if we don’t, then
@@ -276,6 +278,8 @@ def test_invalid_compression_level(tmp_path):
 def test_append(ext, threads, tmp_path):
     if ext == ".zst" and zstandard is None and threads == 0:
         pytest.skip("No zstandard installed")
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     text = b"AB"
     reference = text + text
     path = tmp_path / f"the-file{ext}"
@@ -292,6 +296,8 @@ def test_append(ext, threads, tmp_path):
 
 @pytest.mark.parametrize("ext", extensions)
 def test_append_text(ext, tmp_path):
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     text = "AB"
     reference = text + text
     path = tmp_path / f"the-file{ext}"
@@ -385,6 +391,8 @@ def test_read_no_threads(ext):
 
 
 def test_write_threads(tmp_path, ext):
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     path = tmp_path / f"out.{ext}"
     with xopen(path, mode="w", threads=3) as f:
         f.write("hello")
@@ -465,6 +473,8 @@ def test_read_pathlib_binary(fname):
 
 
 def test_write_pathlib(ext, tmp_path):
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     path = tmp_path / f"hello.txt{ext}"
     with xopen(path, mode="wt") as f:
         f.write("hello")
@@ -473,6 +483,8 @@ def test_write_pathlib(ext, tmp_path):
 
 
 def test_write_pathlib_binary(ext, tmp_path):
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     path = tmp_path / f"hello.txt{ext}"
     with xopen(path, mode="wb") as f:
         f.write(b"hello")
@@ -510,6 +522,8 @@ def test_falls_back_to_lzma_open(lacking_xz_permissions):
 
 
 def test_open_many_writers(tmp_path, ext):
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     files = []
     # Because lzma.open allocates a lot of memory,
     # open fewer files to avoid MemoryError on 32-bit architectures
@@ -555,6 +569,8 @@ OPENERS = (xopen, functools.partial(xopen, threads=0))
 @pytest.mark.parametrize("opener", OPENERS)
 @pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
+    if extension == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     if extension == ".zst" and zstandard is None:
         return
     # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
@@ -570,6 +586,8 @@ def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
 @pytest.mark.parametrize("opener", OPENERS)
 @pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_errors(opener, extension, tmp_path):
+    if extension == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     if extension == ".zst" and zstandard is None:
         return
     # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
@@ -709,6 +727,8 @@ def test_xopen_read_from_pipe(ext, threads):
 
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_write_to_pipe(threads, ext):
+    if ext == ".lz4" and shutil.which("lz4") is None:
+        pytest.skip("lz4 not installed")
     if ext == ".zst" and zstandard is None:
         return
     format = ext.lstrip(".")
