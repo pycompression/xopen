@@ -572,26 +572,25 @@ def _open_lz4(
         # use Python bindings
         f = lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
         return f
-    else:
-        # use CLI program
-        try:
-            return _PipedCompressionProgram(
-                filename,
-                mode,
-                compresslevel,
-                threads,
-                program_settings=_PROGRAM_SETTINGS["lz4"],
-            )
-        except OSError:
-            _program_settings = _PROGRAM_SETTINGS["lz4"]
-            _program_settings.threads_flag = None
-            return _PipedCompressionProgram(
-                filename,
-                mode,
-                compresslevel,
-                threads,
-                program_settings=_program_settings,
-            )
+    # use CLI program
+    try:
+        return _PipedCompressionProgram(
+            filename,
+            mode,
+            compresslevel,
+            threads,
+            program_settings=_PROGRAM_SETTINGS["lz4"],
+        )
+    except OSError:
+        _program_settings = _PROGRAM_SETTINGS["lz4"]
+        _program_settings.threads_flag = None
+        return _PipedCompressionProgram(
+            filename,
+            mode,
+            compresslevel,
+            threads,
+            program_settings=_program_settings,
+        )
 
 
 def _open_gz(
@@ -727,7 +726,7 @@ def _detect_format_from_content(filename: FileOrPath) -> Optional[str]:
             # https://datatracker.ietf.org/doc/html/rfc8478#section-3.1.1
             return "zst"
         elif bs[:4] == b"\x04\x22\x4d\x18":
-            # https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)
+            # https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md
             return "lz4"
 
         return None
