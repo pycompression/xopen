@@ -185,7 +185,7 @@ Changelog
 development version
 ~~~~~~~~~~~~~~~~~~~
 
-* Dropped support for Python 3.8
+* Dropped support for Python 3.8 and 3.9
 * Started supporting Python 3.13
 
 v2.0.2 (2024-06-12)
