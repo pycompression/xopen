@@ -568,28 +568,44 @@ def _open_lz4(
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_LZ4_COMPRESSION
 
-    if lz4 is not None and (mode == "rb" or (mode in ("ab", "wb") and threads == 0)):
-        # use Python bindings
-        f = lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
-        return f
-    # use CLI program
+    if lz4 is not None and (mode == "rb" or threads == 0):
+        # Use Python bindings
+        return lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
+
+    # Attempt to use the CLI program.
+    #
+    # Notes:
+    #
+    # - Multithreading in lz4 is only supported for compression, not for decompression.
+    # - Older versions of lz4 (such as v1.94, which comes with Ubuntu 24.04) do not support
+    #   multithreading. They fail if one tries to pass the -T option.
+    # - The newer versions use a default of -T0, which chooses the number of threads
+    #   automatically (presumably the number of available cores).
     try:
+        # Try with the -T option first
+        import copy
+
+        program_settings = copy.copy(_PROGRAM_SETTINGS["lz4"])
+        program_settings.threads_flag = "-T"
+        return _PipedCompressionProgram(
+            filename, mode, compresslevel, threads, program_settings=program_settings
+        )
+    except FileNotFoundError:
+        # Binary not found, use Python bindings if available
+        if lz4 is not None:
+            return lz4.frame.LZ4FrameFile(
+                filename, mode, compression_level=compresslevel
+            )
+        else:
+            raise
+    except OSError:
+        # Assume the problem is that the -T option is not supported and re-try without it:
         return _PipedCompressionProgram(
             filename,
             mode,
             compresslevel,
             threads,
             program_settings=_PROGRAM_SETTINGS["lz4"],
-        )
-    except OSError:
-        _program_settings = _PROGRAM_SETTINGS["lz4"]
-        _program_settings.threads_flag = None
-        return _PipedCompressionProgram(
-            filename,
-            mode,
-            compresslevel,
-            threads,
-            program_settings=_program_settings,
         )
 
 
