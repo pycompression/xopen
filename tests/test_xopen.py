@@ -2,27 +2,31 @@
 Tests for the xopen.xopen function
 """
 import bz2
-import subprocess
-import sys
-import tempfile
-from contextlib import contextmanager
 import functools
 import gzip
 import io
 import lzma
 import os
-from pathlib import Path
 import shutil
+import subprocess
+import sys
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+
 
 import pytest
 
-from xopen import xopen, _detect_format_from_content
+from xopen import _detect_format_from_content, xopen
 
+try:
+    import lz4.frame
+except ImportError:
+    lz4 = None
 try:
     import zstandard
 except ImportError:
     zstandard = None
-
 
 # TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
@@ -31,6 +35,8 @@ CONTENT = "".join(CONTENT_LINES)
 extensions = ["", ".gz", ".bz2", ".xz"]
 if shutil.which("zstd") or zstandard:
     extensions += [".zst"]
+if shutil.which("lz4") or lz4:
+    extensions += [".lz4"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
 
@@ -369,6 +375,10 @@ def test_read_no_threads(ext):
     }
     if ext == ".zst" and zstandard is None:
         return
+    if ext == ".lz4" and lz4 is None:
+        return
+    if ext == ".lz4" and lz4.frame is not None:
+        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
         assert isinstance(f, klass), f
@@ -401,6 +411,10 @@ def test_write_no_threads(tmp_path, ext):
         # Skip zst because if python-zstandard is not installed,
         # we fall back to an external process even when threads=0
         return
+    if ext == ".lz4" and lz4 is None:
+        return
+    if ext == ".lz4" and lz4.frame is not None:
+        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
         if isinstance(f, io.BufferedWriter):
@@ -613,7 +627,6 @@ def test_xopen_zst_long_window_size(threads):
 def test_pass_file_object_for_reading(ext, threads):
     if ext == ".zst" and zstandard is None:
         return
-
     with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
         with xopen(fh, mode="rb", threads=threads) as f:
             assert f.readline() == CONTENT_LINES[0].encode("utf-8")
@@ -641,6 +654,11 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
         format = None
     if ext == ".zst" and zstandard is None:
         return
+    if ext == ".lz4" and lz4 is None and threads == 0:
+        pytest.skip("lz4 not working for BytesIO in piped write mode")
+    if ext == ".lz4" and threads != 0:
+        # _PipedCompressionProgram not working on write mode
+        pytest.skip("lz4 not working for BytesIO in piped write mode")
     first_line = CONTENT_LINES[0].encode("utf-8")
     writer = xopen(filelike, "wb", format=format, threads=threads)
     writer.write(first_line)

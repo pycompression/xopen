@@ -43,6 +43,7 @@ XOPEN_DEFAULT_GZIP_COMPRESSION = 1
 XOPEN_DEFAULT_BZ2_COMPRESSION = 9
 XOPEN_DEFAULT_XZ_COMPRESSION = 6
 XOPEN_DEFAULT_ZST_COMPRESSION = 3
+XOPEN_DEFAULT_LZ4_COMPRESSION = 0
 
 igzip: Optional[ModuleType]
 isal_zlib: Optional[ModuleType]
@@ -69,6 +70,11 @@ try:
     import zstandard  # type: ignore
 except ImportError:
     zstandard = None  # type: ignore
+
+try:
+    import lz4.frame  # type: ignore
+except ImportError:
+    lz4 = None
 
 try:
     import fcntl
@@ -120,6 +126,7 @@ _PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
     "zstd": _ProgramSettings(("zstd",), tuple(range(1, 20)), "-T"),
     "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
     "gzip": _ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
+    "lz4": _ProgramSettings(("lz4",), tuple(range(0, 17))),
 }
 
 
@@ -551,6 +558,57 @@ def _open_zst(
     return io.BufferedWriter(f)  # mode "ab" and "wb"
 
 
+def _open_lz4(
+    filename: FileOrPath,
+    mode: str,
+    compresslevel: Optional[int],
+    threads: Optional[int],
+):
+    assert mode in ("rb", "ab", "wb")
+    if compresslevel is None:
+        compresslevel = XOPEN_DEFAULT_LZ4_COMPRESSION
+
+    if lz4 is not None and (mode == "rb" or threads == 0):
+        # Use Python bindings
+        return lz4.frame.LZ4FrameFile(filename, mode, compression_level=compresslevel)
+
+    # Attempt to use the CLI program.
+    #
+    # Notes:
+    #
+    # - Multithreading in lz4 is only supported for compression, not for decompression.
+    # - Older versions of lz4 (such as v1.94, which comes with Ubuntu 24.04) do not support
+    #   multithreading. They fail if one tries to pass the -T option.
+    # - The newer versions use a default of -T0, which chooses the number of threads
+    #   automatically (presumably the number of available cores).
+    try:
+        # Try with the -T option first
+        import copy
+
+        program_settings = copy.copy(_PROGRAM_SETTINGS["lz4"])
+        program_settings.threads_flag = "-T"
+        return _PipedCompressionProgram(
+            filename, mode, compresslevel, threads, program_settings=program_settings
+        )
+    except FileNotFoundError:
+        # Binary not found, use Python bindings if available
+        if lz4 is not None:
+            return lz4.frame.LZ4FrameFile(
+                filename, mode, compression_level=compresslevel
+            )
+        else:
+            raise
+    except OSError:
+        # Assume the problem is that the -T option is not supported and re-try without it:
+        return _PipedCompressionProgram(
+            filename,
+            mode,
+            compresslevel,
+            threads,
+            program_settings=_PROGRAM_SETTINGS["lz4"],
+        )
+
+
 def _open_gz(
     filename: FileOrPath,
     mode: str,
@@ -683,6 +741,10 @@ def _detect_format_from_content(filename: FileOrPath) -> Optional[str]:
         elif bs[:4] == b"\x28\xb5\x2f\xfd":
             # https://datatracker.ietf.org/doc/html/rfc8478#section-3.1.1
             return "zst"
+        elif bs[:4] == b"\x04\x22\x4d\x18":
+            # https://github.com/lz4/lz4/blob/dev/doc/lz4_Frame_format.md
+            return "lz4"
+
         return None
     finally:
         if closefd:
@@ -694,7 +756,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
     Attempt to detect file format from the filename extension.
     Return None if no format could be detected.
     """
-    for ext in ("bz2", "xz", "gz", "zst"):
+    for ext in ("bz2", "xz", "gz", "zst", "lz4"):
         if isinstance(filename, bytes):
             if filename.endswith(b"." + ext.encode()):
                 return ext
@@ -717,7 +779,7 @@ def _file_or_path_to_binary_stream(
         # object is not binary, this will crash at a later point.
         return file_or_path, False  # type: ignore
     raise TypeError(
-        f"Unsupported type for {file_or_path}, " f"{file_or_path.__class__.__name__}."
+        f"Unsupported type for {file_or_path}, {file_or_path.__class__.__name__}."
     )
 
 
@@ -797,6 +859,7 @@ def xopen(  # noqa: C901
     - .bz2 uses bzip2 compression
     - .xz uses xz/lzma compression
     - .zst uses zstandard compression
+    - .lz4 uses lz4 compression
     - otherwise, no compression is used
 
     When reading, if a file name extension is available, the format is detected
@@ -808,7 +871,7 @@ def xopen(  # noqa: C901
     compresslevel is the compression level for writing to gzip, xz and zst files.
     This parameter is ignored for the other compression formats.
     If set to None, a default depending on the format is used:
-    gzip: 6, xz: 6, zstd: 3.
+    gzip: 6, xz: 6, zstd: 3, lz4: 0.
 
     When threads is None (the default), compressed file formats are read or written
     using a pipe to a subprocess running an external tool such as,
@@ -828,7 +891,7 @@ def xopen(  # noqa: C901
 
     format overrides the autodetection of input and output formats. This can be
     useful when compressed output needs to be written to a file without an
-    extension. Possible values are "gz", "xz", "bz2", "zst".
+    extension. Possible values are "gz", "xz", "bz2", "zst", "lz4".
     """
     if mode in ("r", "w", "a"):
         mode += "t"  # type: ignore
@@ -844,10 +907,10 @@ def xopen(  # noqa: C901
     elif _file_is_a_socket_or_pipe(filename):
         filename = open(filename, binary_mode)  # type: ignore
 
-    if format not in (None, "gz", "xz", "bz2", "zst"):
+    if format not in (None, "gz", "xz", "bz2", "zst", "lz4"):
         raise ValueError(
             f"Format not supported: {format}. "
-            f"Choose one of: 'gz', 'xz', 'bz2', 'zst'"
+            f"Choose one of: 'gz', 'xz', 'bz2', 'zst', 'lz4'."
         )
     detected_format = format or _detect_format_from_extension(filepath)
     if detected_format is None and "r" in mode:
@@ -861,6 +924,8 @@ def xopen(  # noqa: C901
         opened_file = _open_bz2(filename, binary_mode, compresslevel, threads)
     elif detected_format == "zst":
         opened_file = _open_zst(filename, binary_mode, compresslevel, threads)
+    elif detected_format == "lz4":
+        opened_file = _open_lz4(filename, binary_mode, compresslevel, threads)
     else:
         opened_file, _ = _file_or_path_to_binary_stream(filename, binary_mode)
 

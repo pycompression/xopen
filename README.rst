@@ -26,6 +26,7 @@ Supported compression formats are:
 - gzip (``.gz``)
 - bzip2 (``.bz2``)
 - xz (``.xz``)
+- lz4 (``.lz4``)
 - Zstandard (``.zst``) (optional)
 
 
@@ -71,7 +72,7 @@ The function opens the file using a function suitable for the detected
 file format and returns an open file-like object.
 
 When writing, the file format is chosen based on the file name extension:
-``.gz``, ``.bz2``, ``.xz``, ``.zst``. This can be overriden with ``format``.
+``.gz``, ``.bz2``, ``.xz``, ``.zst``, ``.lz4``. This can be overriden with ``format``.
 If the extension is not recognized, no compression is used.
 
 When reading and a file name extension is available, the format is detected
@@ -99,13 +100,13 @@ preferred locale encoding.
 **compresslevel**:
 The compression level for writing to gzip, xz and Zstandard files.
 If set to None, a default depending on the format is used:
-gzip: 1, xz: 6, Zstandard: 3.
+gzip: 1, xz: 6, Zstandard: 3, lz4: 1.
 
 This parameter is ignored for other compression formats.
 
 **format**:
 Override the autodetection of the input or output format.
-Possible values are: ``"gz"``, ``"xz"``, ``"bz2"``, ``"zst"``.
+Possible values are: ``"gz"``, ``"xz"``, ``"bz2"``, ``"zst"``, ``"lz4"``.
 
 **threads**:
 Set the number of additional threads spawned for compression or decompression.
@@ -137,6 +138,9 @@ For xz files, a pipe to the ``xz`` program is used because it has
 built-in support for multithreaded compression.
 
 For bz2 files, `pbzip2 (parallel bzip2) <http://compression.great-site.net/pbzip2/>`_ is used.
+
+For lz4 files, [python lz4](https://python-lz4.readthedocs.io/en/stable/index.html)
+package is used.
 
 ``xopen`` falls back to Python’s built-in functions
 (``gzip.open``, ``lzma.open``, ``bz2.open``)
