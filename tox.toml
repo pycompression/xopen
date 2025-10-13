@@ -1,4 +1,4 @@
-env_list = ["black", "ruff", "mypy", "3.10", "3.11", "3.12", "3.13"]
+env_list = ["black", "ruff", "mypy", "3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
 
 [env_run_base]
 default_base_python = "3.10"
