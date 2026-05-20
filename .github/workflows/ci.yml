@@ -34,7 +34,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "pypy-3.9"]
+        # TODO: restore "pypy-3.11" once isal and zlib-ng ship PyPy wheels again
+        # (pycompression/python-isal#245, pycompression/python-zlib-ng#78).
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         optional-deps: [true]
         with-libs: [true]
         include:

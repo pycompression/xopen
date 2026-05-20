@@ -72,12 +72,6 @@ except ImportError:
 
 try:
     import fcntl
-
-    # fcntl.F_SETPIPE_SZ will be available in python 3.10.
-    # https://github.com/python/cpython/pull/21921
-    # If not available: set it to the correct value for known platforms.
-    if not hasattr(fcntl, "F_SETPIPE_SZ") and sys.platform == "linux":
-        setattr(fcntl, "F_SETPIPE_SZ", 1031)
 except ImportError:
     fcntl = None  # type: ignore
 
