@@ -76,14 +76,14 @@ jobs:
     - name: Install dependencies
       run: python -m pip install tox
     - name: Test
-      run: tox -e py
+      run: tox run -e ${{ matrix.python-version }}
       if: matrix.with-libs
     - name: Test without python-isal and python-zlib-ng
-      run: tox -e no-libs
+      run: tox run -e no-libs
       if: true && !matrix.with-libs
     - name: Test with zstandard
       if: matrix.with-zstandard
-      run: tox -e zstd
+      run: tox run -e zstd
     - name: Upload coverage report
       uses: codecov/codecov-action@v3
 

@@ -1,0 +1,43 @@
+env_list = ["black", "ruff", "mypy", "3.9", "3.10", "3.11", "3.12", "3.13"]
+
+[env_run_base]
+default_base_python = "3.10"
+deps = [
+    "pytest",
+    "pytest-timeout",
+    "coverage",
+]
+set_env = { PYTHONDEVMODE = "1", PYTHONWARNDEFAULTENCODING = "1" }
+commands = [
+    ["coverage", "run", "--source=xopen,tests", "-m", "pytest", "-v", "--doctest-modules", "tests"],
+    ["coverage", "report"],
+    ["coverage", "xml"],
+    ["coverage", "html"],
+]
+
+[env.zstd]
+deps = [
+    "{[env_run_base]deps}",
+    "zstandard",
+]
+
+[env.no-libs]
+deps = ["{[env_run_base]deps}", "pip"]
+commands = [
+    ["{env_python}", "-m", "pip", "uninstall", "-y", "isal", "zlib-ng"],
+    { replace = "ref", of = ["env_run_base", "commands"], extend = true },
+]
+
+[env.black]
+deps = ["black==22.3.0"]
+skip_install = true
+commands = [["black", "--check", "src/", "tests/"]]
+
+[env.ruff]
+deps = ["ruff"]
+commands = [["ruff", "check", "src/", "tests/"]]
+skip_install = true
+
+[env.mypy]
+deps = ["mypy"]
+commands = [["mypy", "src/"]]
