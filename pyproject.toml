@@ -15,7 +15,7 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = [
     'isal>=1.6.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
@@ -34,3 +34,12 @@ write_to = "src/xopen/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "@overload",
+]
