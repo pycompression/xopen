@@ -34,3 +34,12 @@ write_to = "src/xopen/_version.py"
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_also = [
+    "def __repr__",
+    "@overload",
+]
