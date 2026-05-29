@@ -26,7 +26,7 @@ Supported compression formats are:
 - gzip (``.gz``)
 - bzip2 (``.bz2``)
 - xz (``.xz``)
-- Zstandard (``.zst``) (optional)
+- Zstandard (``.zst``)
 
 
 Example usage
@@ -164,19 +164,18 @@ bzip2 and xz compression methods do not store timestamps in the file headers,
 so output from them is also reproducible.
 
 
-Optional Zstandard support
---------------------------
+Zstandard support
+-----------------
 
-For reading and writing Zstandard (``.zst``) files, either the ``zstd`` command-line
-program or the Python ``zstandard`` package needs to be installed.
+For reading and writing Zstandard (``.zst``) files,
+either the ``zstd`` command-line program,
+the ``backports.zstd`` package or (on Python 3.14+),
+the ``compression.zstd`` module in the standard library is used.
 
 * If the ``threads`` parameter to ``xopen()`` is ``None`` (the default) or any value greater than 0,
   ``xopen`` uses an external ``zstd`` process.
 * If the above fails (because no ``zstd`` program is available) or if ``threads`` is 0,
   the ``zstandard`` package is used.
-
-To ensure that you get the correct ``zstandard`` version, you can specify the ``zstd`` extra for
-``xopen``, that is, install it using ``pip install xopen[zstd]``.
 
 
 Changelog
@@ -185,8 +184,15 @@ Changelog
 development version
 ~~~~~~~~~~~~~~~~~~~
 
+* Zstandard is now supported by using ``compression.zstd``, which is part of the
+  Python standard library since Python 3.14.
+  On Python versions before 3.14, ``backports.zstd`` is used instead.
+* Zstandard support is no longer optional.
+  That is, it is no longer necessary to install ``xopen`` with the ``zstd`` extra.
+  The reason Zstandard was optional was that ``python-zstandard`` are quite large,
+  but ``backports.zstd`` wheels are much smaller.
 * Dropped support for Python 3.8 and 3.9
-* Started supporting Python 3.13
+* Started supporting Python 3.13 and 3.14 (including free-threaded)
 
 v2.0.2 (2024-06-12)
 ~~~~~~~~~~~~~~~~~~~

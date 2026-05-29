@@ -65,10 +65,10 @@ except ImportError:
     gzip_ng_threaded = None
     zlib_ng = None
 
-try:
-    import zstandard  # type: ignore
-except ImportError:
-    zstandard = None  # type: ignore
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:
+    from backports import zstd
 
 try:
     import fcntl
@@ -509,8 +509,8 @@ def _open_zst(
     assert compresslevel != 0
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_ZST_COMPRESSION
-    if zstandard:
-        max_window_bits = zstandard.WINDOWLOG_MAX
+    if zstd:
+        max_window_bits = zstd.DecompressionParameter.window_log_max.bounds()[1]
     else:
         max_window_bits = 31
     if threads != 0:
@@ -531,15 +531,22 @@ def _open_zst(
                 _ProgramSettings(program_args, tuple(range(1, 20)), "-T"),
             )
         except OSError:
-            if zstandard is None:
+            if zstd is None:
                 # No fallback available
                 raise
 
-    if zstandard is None:
-        raise ImportError("zstandard module (python-zstandard) not available")
-    dctx = zstandard.ZstdDecompressor(max_window_size=2**max_window_bits)
-    cctx = zstandard.ZstdCompressor(level=compresslevel)
-    f = zstandard.open(filename, mode, cctx=cctx, dctx=dctx)  # type: ignore
+    if zstd is None:
+        raise ImportError("zstd module not available")
+
+    if "r" in mode:
+        level = None
+        options = {
+            zstd.DecompressionParameter.window_log_max: max_window_bits,
+        }
+    else:
+        level = compresslevel
+        options = None
+    f = zstd.open(filename, mode, options=options, level=level)  # type: ignore
     if mode == "rb":
         return io.BufferedReader(f)
     return io.BufferedWriter(f)  # mode "ab" and "wb"
