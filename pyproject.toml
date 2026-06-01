@@ -19,7 +19,8 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = [
     'isal>=1.6.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
-    'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"'
+    'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
+    'backports.zstd; python_version < "3.14"',
 ]
 
 [project.urls]
@@ -27,7 +28,7 @@ homepage = "https://github.com/pycompression/xopen/"
 
 [project.optional-dependencies]
 dev = ["pytest"]
-zstd = ["zstandard<1"]
+zstd = []  # Leave this in here for backwards compatibility (Zstandard support used to be optional)
 
 [tool.setuptools_scm]
 write_to = "src/xopen/_version.py"

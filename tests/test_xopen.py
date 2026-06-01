@@ -18,10 +18,10 @@ import pytest
 
 from xopen import xopen, _detect_format_from_content
 
-try:
-    import zstandard
-except ImportError:
-    zstandard = None
+if sys.version_info >= (3, 14):
+    from compression import zstd
+else:
+    from backports import zstd
 
 
 # TODO this is duplicated in test_piped.py
@@ -29,7 +29,7 @@ TEST_DIR = Path(__file__).parent
 CONTENT_LINES = ["Testing, testing ...\n", "The second line.\n"]
 CONTENT = "".join(CONTENT_LINES)
 extensions = ["", ".gz", ".bz2", ".xz"]
-if shutil.which("zstd") or zstandard:
+if shutil.which("zstd") or zstd:
     extensions += [".zst"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
@@ -107,7 +107,7 @@ def test_binary(fname):
 @pytest.mark.parametrize("mode", ["b", "", "t"])
 @pytest.mark.parametrize("threads", [None, 0])
 def test_roundtrip(ext, tmp_path, threads, mode):
-    if ext == ".zst" and threads == 0 and zstandard is None:
+    if ext == ".zst" and threads == 0 and zstd is None:
         return
     path = tmp_path / f"file{ext}"
     data = b"Hello" if mode == "b" else "Hello"
@@ -118,7 +118,7 @@ def test_roundtrip(ext, tmp_path, threads, mode):
 
 
 def test_binary_no_isal_no_threads(fname, xopen_without_igzip):
-    if fname.endswith(".zst") and zstandard is None:
+    if fname.endswith(".zst") and zstd is None:
         return
     with xopen_without_igzip(fname, "rb", threads=0) as f:
         lines = list(f)
@@ -268,8 +268,8 @@ def test_invalid_compression_level(tmp_path):
 @pytest.mark.parametrize("ext", extensions)
 @pytest.mark.parametrize("threads", (0, 1))
 def test_append(ext, threads, tmp_path):
-    if ext == ".zst" and zstandard is None and threads == 0:
-        pytest.skip("No zstandard installed")
+    if ext == ".zst" and zstd is None and threads == 0:
+        pytest.skip("No zstd installed")
     text = b"AB"
     reference = text + text
     path = tmp_path / f"the-file{ext}"
@@ -367,7 +367,7 @@ def test_read_no_threads(ext):
         ".zst": io.BufferedReader,
         "": io.BufferedReader,
     }
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
     klass = klasses[ext]
     with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
@@ -398,7 +398,7 @@ def test_write_no_threads(tmp_path, ext):
         "": io.BufferedWriter,
     }
     if ext == ".zst":
-        # Skip zst because if python-zstandard is not installed,
+        # Skip zst because if zstd is not available,
         # we fall back to an external process even when threads=0
         return
     klass = klasses[ext]
@@ -540,7 +540,7 @@ OPENERS = (xopen, functools.partial(xopen, threads=0))
 @pytest.mark.parametrize("opener", OPENERS)
 @pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
-    if extension == ".zst" and zstandard is None:
+    if extension == ".zst" and zstd is None:
         return
     # "Eén ree\nTwee reeën\n" latin-1 encoded with \r for as line separator.
     encoded_text = b"E\xe9n ree\rTwee ree\xebn\r"
@@ -555,7 +555,7 @@ def test_text_encoding_newline_passthrough(opener, extension, tmp_path):
 @pytest.mark.parametrize("opener", OPENERS)
 @pytest.mark.parametrize("extension", extensions)
 def test_text_encoding_errors(opener, extension, tmp_path):
-    if extension == ".zst" and zstandard is None:
+    if extension == ".zst" and zstd is None:
         return
     # "Eén ree\nTwee reeën\n" latin-1 encoded. This is not valid ascii.
     encoded_text = b"E\xe9n ree\nTwee ree\xebn\n"
@@ -583,10 +583,10 @@ def test_read_devnull():
         pass
 
 
-def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
+def test_xopen_zst_fails_when_zstd_not_available(monkeypatch):
     import xopen
 
-    monkeypatch.setattr(xopen, "zstandard", None)
+    monkeypatch.setattr(xopen, "zstd", None)
     with pytest.raises(ImportError):
         with xopen.xopen(TEST_DIR / "file.txt.zst", mode="rb", threads=0) as f:
             f.read()
@@ -594,7 +594,7 @@ def test_xopen_zst_fails_when_zstandard_not_available(monkeypatch):
 
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_zst_long_window_size(threads):
-    if threads == 0 and zstandard is None:
+    if threads == 0 and zstd is None:
         return
     elif threads == 1 and not shutil.which("zstd"):
         return
@@ -611,7 +611,7 @@ def test_xopen_zst_long_window_size(threads):
 @pytest.mark.parametrize("threads", (0, 1))
 @pytest.mark.parametrize("ext", extensions)
 def test_pass_file_object_for_reading(ext, threads):
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
 
     with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
@@ -622,7 +622,7 @@ def test_pass_file_object_for_reading(ext, threads):
 @pytest.mark.parametrize("threads", (0, 1))
 @pytest.mark.parametrize("ext", extensions)
 def test_pass_file_object_for_writing(tmp_path, ext, threads):
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
     first_line = CONTENT_LINES[0].encode("utf-8")
     with open(tmp_path / "out{ext}", "wb") as fh:
@@ -639,7 +639,7 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
     format = ext[1:]
     if ext == "":
         format = None
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
     first_line = CONTENT_LINES[0].encode("utf-8")
     writer = xopen(filelike, "wb", format=format, threads=threads)
@@ -654,7 +654,7 @@ def test_pass_bytesio_for_reading_and_writing(ext, threads):
 
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_stdin(monkeypatch, ext, threads):
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
     # Add encoding to suppress encoding warnings
     with open(TEST_DIR / f"file.txt{ext}", "rt", encoding="latin-1") as in_file:
@@ -677,7 +677,7 @@ def test_xopen_stdout(monkeypatch):
 
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_read_from_pipe(ext, threads):
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
     in_file = TEST_DIR / f"file.txt{ext}"
     process = subprocess.Popen(("cat", str(in_file)), stdout=subprocess.PIPE)
@@ -690,7 +690,7 @@ def test_xopen_read_from_pipe(ext, threads):
 
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_write_to_pipe(threads, ext):
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
     format = ext.lstrip(".")
     if format == "":
@@ -711,7 +711,7 @@ def test_xopen_write_to_pipe(threads, ext):
 )
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_dev_stdin_read(threads, ext):
-    if ext == ".zst" and zstandard is None:
+    if ext == ".zst" and zstd is None:
         return
     file = str(Path(__file__).parent / f"file.txt{ext}")
     result = subprocess.run(
