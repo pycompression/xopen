@@ -175,13 +175,13 @@ the ``compression.zstd`` module in the standard library is used.
 * If the ``threads`` parameter to ``xopen()`` is ``None`` (the default) or any value greater than 0,
   ``xopen`` uses an external ``zstd`` process.
 * If the above fails (because no ``zstd`` program is available) or if ``threads`` is 0,
-  the ``zstandard`` package is used.
+  the ``backports.zstd`` or ``compression.zstd`` package is used.
 
 
 Changelog
 ---------
 
-development version
+v2.1.0 (2026-06-03)
 ~~~~~~~~~~~~~~~~~~~
 
 * Zstandard is now supported by using ``compression.zstd``, which is part of the
@@ -189,14 +189,14 @@ development version
   On Python versions before 3.14, ``backports.zstd`` is used instead.
 * Zstandard support is no longer optional.
   That is, it is no longer necessary to install ``xopen`` with the ``zstd`` extra.
-  The reason Zstandard was optional was that ``python-zstandard`` are quite large,
-  but ``backports.zstd`` wheels are much smaller.
+  The reason Zstandard was optional was that ``python-zstandard`` wheels
+  are quite large, but ``backports.zstd`` wheels are much smaller.
 * Dropped support for Python 3.8 and 3.9
 * Started supporting Python 3.13 and 3.14 (including free-threaded)
 
 v2.0.2 (2024-06-12)
 ~~~~~~~~~~~~~~~~~~~
-* #161: Fix a bug that was triggered when reading large compressed files with
+* #161: Fixed a bug that was triggered when reading large compressed files with
   an external program.
 
 v2.0.1 (2024-03-28)
