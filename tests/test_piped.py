@@ -235,7 +235,7 @@ def test_readers_read(reader):
 
 
 @pytest.mark.skipif(
-    not hasattr(fcntl, "F_GETPIPE_SZ") or _MAX_PIPE_SIZE is None,
+    not hasattr(fcntl, "F_GETPIPE_SZ") or _MAX_PIPE_SIZE == -1,
     reason="Pipe size modifications not available on this platform.",
 )
 def test_pipesize_changed(tmp_path):

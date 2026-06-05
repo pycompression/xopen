@@ -17,7 +17,6 @@ import os
 import bz2
 import lzma
 import signal
-import pathlib
 import subprocess
 import tempfile
 import threading
@@ -71,19 +70,12 @@ else:
     from backports import zstd
 
 try:
-    import fcntl
-except ImportError:
-    fcntl = None  # type: ignore
-
-_MAX_PIPE_SIZE_PATH = pathlib.Path("/proc/sys/fs/pipe-max-size")
-try:
-    _MAX_PIPE_SIZE = int(
-        _MAX_PIPE_SIZE_PATH.read_text(encoding="ascii")
-    )  # type: Optional[int]
-except (
-    OSError
-):  # Catches file not found and permission errors. Possible other errors too.
-    _MAX_PIPE_SIZE = None
+    with open("/proc/sys/fs/pipe-max-size", "rt", encoding="ascii") as f:
+        _MAX_PIPE_SIZE = int(f.read())
+except OSError:
+    # Catches file not found and permission errors. Possible other errors too.
+    # -1 is the default for the Popen pipesize parameter.
+    _MAX_PIPE_SIZE = -1
 
 
 FilePath = Union[str, bytes, os.PathLike]
@@ -140,19 +132,6 @@ def _available_cpu_count() -> int:
         pass
     count = os.cpu_count()
     return 1 if count is None else count
-
-
-def _set_pipe_size_to_max(fd: int) -> None:
-    """
-    Set pipe size to maximum on platforms that support it.
-    :param fd: The file descriptor to increase the pipe size for.
-    """
-    if not hasattr(fcntl, "F_SETPIPE_SZ") or not _MAX_PIPE_SIZE:
-        return
-    try:
-        fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, _MAX_PIPE_SIZE)  # type: ignore
-    except OSError:
-        pass
 
 
 class _PipedCompressionProgram(io.IOBase):
@@ -242,6 +221,7 @@ class _PipedCompressionProgram(io.IOBase):
                 stdout=stdout,
                 stdin=subprocess.PIPE,
                 close_fds=close_fds,
+                pipesize=_MAX_PIPE_SIZE,
             )  # type: ignore
         except OSError:
             if self.closefd:
@@ -267,8 +247,6 @@ class _PipedCompressionProgram(io.IOBase):
             self._raise_if_error()
         else:
             self._file = self.process.stdin  # type: ignore
-
-        _set_pipe_size_to_max(self._file.fileno())
 
     def __repr__(self):
         return (
