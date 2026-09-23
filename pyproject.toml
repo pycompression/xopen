@@ -28,10 +28,14 @@ homepage = "https://github.com/pycompression/xopen/"
 
 [project.optional-dependencies]
 dev = ["pytest"]
+lz4 = ['lz4>=4.4.5; platform_python_implementation != "PyPy"']
 zstd = []  # Leave this in here for backwards compatibility (Zstandard support used to be optional)
 
 [tool.setuptools_scm]
 write_to = "src/xopen/_version.py"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"

@@ -2,27 +2,32 @@
 Tests for the xopen.xopen function
 """
 import bz2
-import subprocess
-import sys
-import tempfile
-from contextlib import contextmanager
 import functools
 import gzip
 import io
 import lzma
 import os
-from pathlib import Path
 import shutil
+import subprocess
+import sys
+import tempfile
+from contextlib import contextmanager
+from pathlib import Path
+
 
 import pytest
 
-from xopen import xopen, _detect_format_from_content
+from xopen import _detect_format_from_content, xopen
 
 if sys.version_info >= (3, 14):
     from compression import zstd
 else:
     from backports import zstd
 
+try:
+    import lz4.frame
+except ImportError:
+    lz4 = None
 
 # TODO this is duplicated in test_piped.py
 TEST_DIR = Path(__file__).parent
@@ -31,6 +36,8 @@ CONTENT = "".join(CONTENT_LINES)
 extensions = ["", ".gz", ".bz2", ".xz"]
 if shutil.which("zstd") or zstd:
     extensions += [".zst"]
+if lz4:
+    extensions += [".lz4"]
 base = os.path.join(os.path.dirname(__file__), "file.txt")
 files = [base + ext for ext in extensions]
 
@@ -369,6 +376,8 @@ def test_read_no_threads(ext):
     }
     if ext == ".zst" and zstd is None:
         return
+    if ext == ".lz4":
+        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(TEST_DIR / f"file.txt{ext}", "rb", threads=0) as f:
         assert isinstance(f, klass), f
@@ -401,6 +410,8 @@ def test_write_no_threads(tmp_path, ext):
         # Skip zst because if zstd is not available,
         # we fall back to an external process even when threads=0
         return
+    if ext == ".lz4":
+        klasses[".lz4"] = lz4.frame.LZ4FrameFile
     klass = klasses[ext]
     with xopen(tmp_path / f"out{ext}", "wb", threads=0) as f:
         if isinstance(f, io.BufferedWriter):
@@ -592,6 +603,20 @@ def test_xopen_zst_fails_when_zstd_not_available(monkeypatch):
             f.read()
 
 
+@pytest.mark.skipif(not shutil.which("lz4"), reason="lz4 program not installed")
+def test_lz4_program_without_bindings(tmp_path, monkeypatch):
+    import xopen as xopen_module
+
+    monkeypatch.setattr(xopen_module, "lz4", None)
+    path = tmp_path / "file.lz4"
+    with xopen_module.xopen(path, "wb", threads=1) as f:
+        f.write(b"hello")
+    with xopen_module.xopen(path, "rb", threads=1) as f:
+        assert f.read() == b"hello"
+    with pytest.raises(ImportError, match="xopen\\[lz4\\]"):
+        xopen_module.xopen(path, "rb", threads=0)
+
+
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_zst_long_window_size(threads):
     if threads == 0 and zstd is None:
@@ -613,7 +638,6 @@ def test_xopen_zst_long_window_size(threads):
 def test_pass_file_object_for_reading(ext, threads):
     if ext == ".zst" and zstd is None:
         return
-
     with open(TEST_DIR / f"file.txt{ext}", "rb") as fh:
         with xopen(fh, mode="rb", threads=threads) as f:
             assert f.readline() == CONTENT_LINES[0].encode("utf-8")

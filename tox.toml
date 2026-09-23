@@ -21,6 +21,9 @@ deps = [
     "zstandard",
 ]
 
+[env.lz4]
+extras = ["lz4"]
+
 [env.no-libs]
 deps = ["{[env_run_base]deps}", "pip"]
 commands = [
