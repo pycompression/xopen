@@ -426,7 +426,7 @@ def test_write_gzip_no_threads_no_isal(tmp_path, xopen_without_igzip):
     import gzip
 
     with xopen_without_igzip(tmp_path / "out.gz", "wb", threads=0) as f:
-        if sys.version_info.major == 3 and sys.version_info.minor >= 12:
+        if sys.version_info >= (3, 12):
             assert isinstance(f, gzip.GzipFile), f
         else:
             assert isinstance(f.raw, gzip.GzipFile)

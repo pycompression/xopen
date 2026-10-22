@@ -41,7 +41,6 @@ ignore = [
     "PLW1510", # `subprocess.run` without explicit `check` argument
     "SIM115",  # Use a context manager for opening files
     "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
-    "YTT204",  # `sys.version_info.minor` compared to integer (python4), compare `sys.version_info` to tuple
 ]
 
 [tool.pytest.ini_options]
