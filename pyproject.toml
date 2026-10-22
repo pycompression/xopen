@@ -35,7 +35,28 @@ zstd = []  # Leave this in here for backwards compatibility (Zstandard support u
 write_to = "src/xopen/_version.py"
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
+ignore = [
+    "B008",    # Do not perform function call `_ProgramSettings` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+    "C408",    # Unnecessary `dict()` call (rewrite as a literal)
+    "F401",    # `typing.Tuple` imported but unused
+    "FURB161", # Use of `bin(int(m.group(1).replace(",", ""), 16)).count('1')`
+    "PLW1510", # `subprocess.run` without explicit `check` argument
+    "SIM115",  # Use a context manager for opening files
+    "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
+    "UP007",   # Use `X | Y` for type annotations
+    "UP035",   # `typing.Tuple` is deprecated, use `tuple` instead
+    "YTT204",  # `sys.version_info.minor` compared to integer (python4), compare `sys.version_info` to tuple
+    # fixable with --fix:
+    "B010",    # Do not call `setattr` with a constant attribute value. It is not any safer than normal property access.
+    "I001",    # Import block is un-sorted or un-formatted
+    "PIE808",  # Unnecessary `start` argument in `range`
+    "RUF022",  # `__all__` is not sorted
+    "RUF100",  # Unused `noqa` directive (non-enabled: `C901`)
+    "SIM114",  # Combine `if` branches using logical `or` operator
+    "UP006",   # Use `dict` instead of `Dict` for type annotation
+    "UP032",   # Use f-string instead of `format` call
+    "UP045",   # Use `X | None` for type annotations
+]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers"

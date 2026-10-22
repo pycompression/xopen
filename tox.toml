@@ -38,7 +38,7 @@ skip_install = true
 commands = [["black", "--check", "src/", "tests/"]]
 
 [env.ruff]
-deps = ["ruff"]
+deps = ["ruff==0.17"]
 commands = [["ruff", "check", "src/", "tests/"]]
 skip_install = true
 
