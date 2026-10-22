@@ -192,6 +192,7 @@ development version
 
 * #181/#168: Added lz4 as supported compression format.
   Contributed by @Dev-iL and @gnzsnz.
+* Dropped support for Python 3.10
 
 v2.1.0 (2026-06-03)
 ~~~~~~~~~~~~~~~~~~~
