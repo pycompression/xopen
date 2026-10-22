@@ -1,6 +1,7 @@
 """
 Tests for the PipedCompression classes
 """
+
 import gzip
 import io
 import os

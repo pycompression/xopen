@@ -32,7 +32,8 @@ commands = [
 ]
 
 [env.black]
-deps = ["black==22.3.0"]
+base_python = "3.14"
+deps = ["black==26.10"]
 skip_install = true
 commands = [["black", "--check", "src/", "tests/"]]
 

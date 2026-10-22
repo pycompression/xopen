@@ -791,8 +791,7 @@ def xopen(
     errors: Optional[str] = ...,
     newline: Optional[str] = ...,
     format: Optional[str] = ...,
-) -> io.TextIOWrapper:
-    ...
+) -> io.TextIOWrapper: ...
 
 
 @overload
@@ -806,8 +805,7 @@ def xopen(
     errors: None = ...,
     newline: None = ...,
     format: Optional[str] = ...,
-) -> BinaryIO:
-    ...
+) -> BinaryIO: ...
 
 
 def xopen(  # noqa: C901

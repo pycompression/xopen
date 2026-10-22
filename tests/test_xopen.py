@@ -1,6 +1,7 @@
 """
 Tests for the xopen.xopen function
 """
+
 import bz2
 import functools
 import gzip
