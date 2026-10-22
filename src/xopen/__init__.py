@@ -22,14 +22,7 @@ import tempfile
 import threading
 import time
 from types import ModuleType
-from typing import (
-    IO,
-    BinaryIO,
-    Literal,
-    Optional,
-    Union,
-    overload,
-)
+from typing import IO, BinaryIO, Literal, overload
 
 from ._version import version as __version__
 

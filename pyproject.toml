@@ -38,7 +38,6 @@ write_to = "src/xopen/_version.py"
 ignore = [
     "B008",    # Do not perform function call `_ProgramSettings` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
     "C408",    # Unnecessary `dict()` call (rewrite as a literal)
-    "F401",    # `typing.Tuple` imported but unused
     "PLW1510", # `subprocess.run` without explicit `check` argument
     "SIM115",  # Use a context manager for opening files
     "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements
