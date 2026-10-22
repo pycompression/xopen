@@ -39,7 +39,6 @@ ignore = [
     "B008",    # Do not perform function call `_ProgramSettings` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
     "C408",    # Unnecessary `dict()` call (rewrite as a literal)
     "F401",    # `typing.Tuple` imported but unused
-    "FURB161", # Use of `bin(int(m.group(1).replace(",", ""), 16)).count('1')`
     "PLW1510", # `subprocess.run` without explicit `check` argument
     "SIM115",  # Use a context manager for opening files
     "SIM117",  # Use a single `with` statement with multiple contexts instead of nested `with` statements

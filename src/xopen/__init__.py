@@ -141,7 +141,7 @@ def _available_cpu_count() -> int:
             status = f.read()
         m = re.search(r"(?m)^Cpus_allowed:\s*(.*)$", status)
         if m:
-            res = bin(int(m.group(1).replace(",", ""), 16)).count("1")
+            res = int(m.group(1).replace(",", ""), 16).bit_count()
             if res > 0:
                 return res
     except OSError:
