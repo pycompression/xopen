@@ -25,10 +25,8 @@ from types import ModuleType
 from typing import (
     IO,
     BinaryIO,
-    Dict,
     Literal,
     Optional,
-    Tuple,
     Union,
     overload,
 )
