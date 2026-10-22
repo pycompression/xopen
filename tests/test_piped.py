@@ -7,16 +7,17 @@ import io
 import os
 import shutil
 import sys
-import pytest
-from pathlib import Path
 from itertools import cycle
+from pathlib import Path
+
+import pytest
 
 from xopen import (
-    xopen,
-    _PipedCompressionProgram,
     _MAX_PIPE_SIZE,
     _PROGRAM_SETTINGS,
+    _PipedCompressionProgram,
     _ProgramSettings,
+    xopen,
 )
 
 extensions = ["", ".gz", ".bz2", ".xz", ".zst", ".lz4"]
@@ -25,7 +26,7 @@ try:
     import fcntl
 
     if not hasattr(fcntl, "F_GETPIPE_SZ") and sys.platform == "linux":
-        setattr(fcntl, "F_GETPIPE_SZ", 1032)
+        fcntl.F_GETPIPE_SZ = 1032
 except ImportError:
     fcntl = None
 

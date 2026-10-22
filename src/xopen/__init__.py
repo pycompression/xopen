@@ -3,35 +3,35 @@ Open compressed files transparently.
 """
 
 __all__ = [
-    "xopen",
     "_PipedCompressionProgram",
     "__version__",
+    "xopen",
 ]
 
+import bz2
 import dataclasses
 import gzip
-import stat
-import sys
 import io
-import os
-import bz2
 import lzma
+import os
 import signal
+import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import time
-from typing import (
-    Dict,
-    Optional,
-    Union,
-    IO,
-    overload,
-    BinaryIO,
-    Literal,
-    Tuple,
-)
 from types import ModuleType
+from typing import (
+    IO,
+    BinaryIO,
+    Dict,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+    overload,
+)
 
 from ._version import version as __version__
 
@@ -43,12 +43,12 @@ XOPEN_DEFAULT_BZ2_COMPRESSION = 9
 XOPEN_DEFAULT_XZ_COMPRESSION = 6
 XOPEN_DEFAULT_ZST_COMPRESSION = 3
 
-igzip: Optional[ModuleType]
-isal_zlib: Optional[ModuleType]
-igzip_threaded: Optional[ModuleType]
-zlib_ng: Optional[ModuleType]
-gzip_ng: Optional[ModuleType]
-gzip_ng_threaded: Optional[ModuleType]
+igzip: ModuleType | None
+isal_zlib: ModuleType | None
+igzip_threaded: ModuleType | None
+zlib_ng: ModuleType | None
+gzip_ng: ModuleType | None
+gzip_ng_threaded: ModuleType | None
 
 try:
     from isal import igzip, igzip_threaded, isal_zlib
@@ -99,17 +99,17 @@ FileOrPath = Union[FilePath, IO]
 
 @dataclasses.dataclass
 class _ProgramSettings:
-    program_args: Tuple[str, ...]
-    acceptable_compression_levels: Tuple[int, ...] = tuple(range(1, 10))
-    threads_flag: Optional[str] = None
+    program_args: tuple[str, ...]
+    acceptable_compression_levels: tuple[int, ...] = tuple(range(1, 10))
+    threads_flag: str | None = None
     # This exit code is not interpreted as an error when terminating the process
-    allowed_exit_code: Optional[int] = -signal.SIGTERM
+    allowed_exit_code: int | None = -signal.SIGTERM
     # If this message is printed on stderr on terminating the process,
     # it is not interpreted as an error
-    allowed_exit_message: Optional[bytes] = None
+    allowed_exit_message: bytes | None = None
 
 
-_PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
+_PROGRAM_SETTINGS: dict[str, _ProgramSettings] = {
     "pbzip2": _ProgramSettings(
         ("pbzip2",),
         tuple(range(1, 10)),
@@ -117,9 +117,9 @@ _PROGRAM_SETTINGS: Dict[str, _ProgramSettings] = {
         allowed_exit_code=None,
         allowed_exit_message=b"\n *Control-C or similar caught [sig=15], quitting...",
     ),
-    "xz": _ProgramSettings(("xz",), tuple(range(0, 10)), "-T"),
+    "xz": _ProgramSettings(("xz",), tuple(range(10)), "-T"),
     "zstd": _ProgramSettings(("zstd",), tuple(range(1, 20)), "-T"),
-    "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(0, 10)) + (11,), "-p"),
+    "pigz": _ProgramSettings(("pigz", "--no-name"), tuple(range(10)) + (11,), "-p"),
     "gzip": _ProgramSettings(("gzip", "--no-name"), tuple(range(1, 10))),
     "lz4": _ProgramSettings(("lz4",), tuple(range(_LZ4_LEVEL_MIN, _LZ4_LEVEL_MAX + 1))),
 }
@@ -159,8 +159,8 @@ class _PipedCompressionProgram(io.IOBase):
         self,
         filename: FileOrPath,
         mode="rb",
-        compresslevel: Optional[int] = None,
-        threads: Optional[int] = None,
+        compresslevel: int | None = None,
+        threads: int | None = None,
         program_settings: _ProgramSettings = _ProgramSettings(("gzip", "--no-name")),
     ):
         """
@@ -195,7 +195,7 @@ class _PipedCompressionProgram(io.IOBase):
         self.name: str = str(self._path)
         self._mode: str = mode
         self._stderr = tempfile.TemporaryFile("w+b")
-        self._threads_flag: Optional[str] = program_settings.threads_flag
+        self._threads_flag: str | None = program_settings.threads_flag
 
         if threads is None:
             if "r" in mode:
@@ -305,7 +305,7 @@ class _PipedCompressionProgram(io.IOBase):
     def tell(self) -> int:
         return self._file.tell()
 
-    def peek(self, n: Optional[int] = None):
+    def peek(self, n: int | None = None):
         return self._file.peek(n)  # type: ignore
 
     def seek(self, offset, whence=0) -> int:
@@ -438,8 +438,8 @@ def _open_stdin_or_out(mode: str) -> BinaryIO:
 def _open_bz2(
     filename: FileOrPath,
     mode: str,
-    compresslevel: Optional[int],
-    threads: Optional[int],
+    compresslevel: int | None,
+    threads: int | None,
 ):
     assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
@@ -467,8 +467,8 @@ def _open_bz2(
 def _open_xz(
     filename: FileOrPath,
     mode: str,
-    compresslevel: Optional[int],
-    threads: Optional[int],
+    compresslevel: int | None,
+    threads: int | None,
 ):
     assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
@@ -496,8 +496,8 @@ def _open_xz(
 def _open_zst(
     filename: FileOrPath,
     mode: str,
-    compresslevel: Optional[int],
-    threads: Optional[int],
+    compresslevel: int | None,
+    threads: int | None,
 ):
     assert mode in ("rb", "ab", "wb")
     assert compresslevel != 0
@@ -510,7 +510,7 @@ def _open_zst(
     if threads != 0:
         try:
             # zstd can compress using multiple cores
-            program_args: Tuple[str, ...] = ("zstd",)
+            program_args: tuple[str, ...] = ("zstd",)
             if "r" in mode:
                 # Only use --long=31 for decompression. Using it for
                 # compression overrides level settings for window size and
@@ -549,8 +549,8 @@ def _open_zst(
 def _open_lz4(
     filename: FileOrPath,
     mode: str,
-    compresslevel: Optional[int],
-    threads: Optional[int],
+    compresslevel: int | None,
+    threads: int | None,
 ):
     assert mode in ("rb", "ab", "wb")
     if compresslevel is None:
@@ -586,8 +586,8 @@ def _open_lz4(
 def _open_gz(
     filename: FileOrPath,
     mode: str,
-    compresslevel: Optional[int],
-    threads: Optional[int],
+    compresslevel: int | None,
+    threads: int | None,
 ):
     """
     Open a gzip file. The ISA-L library is preferred when applicable because
@@ -685,7 +685,7 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
     return gzip_file
 
 
-def _detect_format_from_content(filename: FileOrPath) -> Optional[str]:
+def _detect_format_from_content(filename: FileOrPath) -> str | None:
     """
     Attempts to detect file format from the content by reading the first
     6 bytes. Returns None if no format could be detected.
@@ -725,7 +725,7 @@ def _detect_format_from_content(filename: FileOrPath) -> Optional[str]:
             fileobj.close()
 
 
-def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
+def _detect_format_from_extension(filename: Union[str, bytes]) -> str | None:
     """
     Attempt to detect file format from the filename extension.
     Return None if no format could be detected.
@@ -742,7 +742,7 @@ def _detect_format_from_extension(filename: Union[str, bytes]) -> Optional[str]:
 
 def _file_or_path_to_binary_stream(
     file_or_path: FileOrPath, binary_mode: str
-) -> Tuple[BinaryIO, bool]:
+) -> tuple[BinaryIO, bool]:
     assert binary_mode in ("rb", "wb", "ab")
     if isinstance(file_or_path, (str, bytes)) or hasattr(file_or_path, "__fspath__"):
         return open(os.fspath(file_or_path), binary_mode), True  # type: ignore
@@ -784,13 +784,13 @@ def _file_is_a_socket_or_pipe(filepath):
 def xopen(
     filename: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "wt", "at"] = ...,
-    compresslevel: Optional[int] = ...,
-    threads: Optional[int] = ...,
+    compresslevel: int | None = ...,
+    threads: int | None = ...,
     *,
     encoding: str = ...,
-    errors: Optional[str] = ...,
-    newline: Optional[str] = ...,
-    format: Optional[str] = ...,
+    errors: str | None = ...,
+    newline: str | None = ...,
+    format: str | None = ...,
 ) -> io.TextIOWrapper: ...
 
 
@@ -798,26 +798,26 @@ def xopen(
 def xopen(
     filename: FileOrPath,
     mode: Literal["rb", "wb", "ab"],
-    compresslevel: Optional[int] = ...,
-    threads: Optional[int] = ...,
+    compresslevel: int | None = ...,
+    threads: int | None = ...,
     *,
     encoding: str = ...,
     errors: None = ...,
     newline: None = ...,
-    format: Optional[str] = ...,
+    format: str | None = ...,
 ) -> BinaryIO: ...
 
 
-def xopen(  # noqa: C901
+def xopen(
     filename: FileOrPath,
     mode: Literal["r", "w", "a", "rt", "rb", "wt", "wb", "at", "ab"] = "r",
-    compresslevel: Optional[int] = None,
-    threads: Optional[int] = None,
+    compresslevel: int | None = None,
+    threads: int | None = None,
     *,
     encoding: str = "utf-8",
-    errors: Optional[str] = None,
-    newline: Optional[str] = None,
-    format: Optional[str] = None,
+    errors: str | None = None,
+    newline: str | None = None,
+    format: str | None = None,
 ) -> IO:
     """
     A replacement for the "open" function that can also read and write
@@ -868,7 +868,7 @@ def xopen(  # noqa: C901
     if mode in ("r", "w", "a"):
         mode += "t"  # type: ignore
     if mode not in ("rt", "rb", "wt", "wb", "at", "ab"):
-        raise ValueError("Mode '{}' not supported".format(mode))
+        raise ValueError(f"Mode '{mode}' not supported")
     binary_mode = mode[0] + "b"
     filepath = _filepath_from_path_or_filelike(filename)
 

@@ -15,7 +15,6 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 
-
 import pytest
 
 from xopen import _detect_format_from_content, xopen
@@ -620,9 +619,7 @@ def test_lz4_program_without_bindings(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("threads", (0, 1))
 def test_xopen_zst_long_window_size(threads):
-    if threads == 0 and zstd is None:
-        return
-    elif threads == 1 and not shutil.which("zstd"):
+    if threads == 0 and zstd is None or threads == 1 and not shutil.which("zstd"):
         return
     # File created with:
     # cat /dev/zero | head -c 2147483648 > only_zeroes

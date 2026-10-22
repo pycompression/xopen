@@ -1,6 +1,7 @@
 import os
 import random
 import string
+
 import pytest
 
 from xopen import xopen
