@@ -93,8 +93,8 @@ except OSError:
     _MAX_PIPE_SIZE = -1
 
 
-FilePath = Union[str, bytes, os.PathLike]
-FileOrPath = Union[FilePath, IO]
+FilePath = str | bytes | os.PathLike
+FileOrPath = FilePath | IO
 
 
 @dataclasses.dataclass
@@ -725,7 +725,7 @@ def _detect_format_from_content(filename: FileOrPath) -> str | None:
             fileobj.close()
 
 
-def _detect_format_from_extension(filename: Union[str, bytes]) -> str | None:
+def _detect_format_from_extension(filename: str | bytes) -> str | None:
     """
     Attempt to detect file format from the filename extension.
     Return None if no format could be detected.
