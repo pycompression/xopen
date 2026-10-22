@@ -187,6 +187,12 @@ the ``compression.zstd`` module in the standard library is used.
 Changelog
 ---------
 
+development version
+~~~~~~~~~~~~~~~~~~~
+
+* #181/#168: Added lz4 as supported compression format.
+  Contributed by @Dev-iL and @gnzsnz.
+
 v2.1.0 (2026-06-03)
 ~~~~~~~~~~~~~~~~~~~
 
