@@ -742,5 +742,6 @@ def test_xopen_dev_stdin_read(threads, ext):
         shell=True,
         stdout=subprocess.PIPE,
         encoding="ascii",
+        check=True,
     )
     assert result.stdout == CONTENT + "\n"
