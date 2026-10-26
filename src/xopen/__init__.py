@@ -321,7 +321,6 @@ class _PipedCompressionProgram(io.IOBase):
                 check_allowed_code_and_message = True
                 self.process.wait()
             self._feeding = False
-            self._file.read()
             if self.in_thread:
                 self.in_thread.join()
             self._file.close()
