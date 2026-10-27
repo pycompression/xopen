@@ -1,7 +1,7 @@
-env_list = ["black", "ruff", "mypy", "3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+env_list = ["black", "ruff", "mypy", "3.11", "3.12", "3.13", "3.14", "3.14t"]
 
 [env_run_base]
-default_base_python = "3.10"
+default_base_python = "3.14"
 deps = [
     "pytest",
     "pytest-timeout",
@@ -32,12 +32,13 @@ commands = [
 ]
 
 [env.black]
-deps = ["black==22.3.0"]
+base_python = "3.14"
+deps = ["black==26.10"]
 skip_install = true
 commands = [["black", "--check", "src/", "tests/"]]
 
 [env.ruff]
-deps = ["ruff"]
+deps = ["ruff==0.17"]
 commands = [["ruff", "check", "src/", "tests/"]]
 skip_install = true
 

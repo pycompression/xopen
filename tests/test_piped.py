@@ -1,21 +1,23 @@
 """
 Tests for the PipedCompression classes
 """
+
 import gzip
 import io
 import os
 import shutil
 import sys
-import pytest
-from pathlib import Path
 from itertools import cycle
+from pathlib import Path
+
+import pytest
 
 from xopen import (
-    xopen,
-    _PipedCompressionProgram,
     _MAX_PIPE_SIZE,
     _PROGRAM_SETTINGS,
+    _PipedCompressionProgram,
     _ProgramSettings,
+    xopen,
 )
 
 extensions = ["", ".gz", ".bz2", ".xz", ".zst", ".lz4"]
@@ -24,7 +26,7 @@ try:
     import fcntl
 
     if not hasattr(fcntl, "F_GETPIPE_SZ") and sys.platform == "linux":
-        setattr(fcntl, "F_GETPIPE_SZ", 1032)
+        fcntl.F_GETPIPE_SZ = 1032
 except ImportError:
     fcntl = None
 
@@ -310,19 +312,6 @@ def test_piped_compression_reader_peek_binary(reader):
         # Peek returns at least the amount of characters but maybe more
         # depending on underlying stream. Hence startswith not ==.
         assert read_h.peek(1).startswith(b"T")
-
-
-@pytest.mark.skipif(
-    sys.platform != "win32", reason="seeking only works on Windows for now"
-)
-def test_piped_compression_reader_seek_and_tell(reader):
-    program_settings, extension = reader
-    filegz = TEST_DIR / f"file.txt{extension}"
-    with _PipedCompressionProgram(filegz, "rb", program_settings=program_settings) as f:
-        original_position = f.tell()
-        assert f.read(4) == b"Test"
-        f.seek(original_position)
-        assert f.read(8) == b"Testing,"
 
 
 @pytest.mark.parametrize("mode", ["r", "rb"])

@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10"]
+        python-version: ["3.14"]
         toxenv: [black, ruff, mypy]
     steps:
     - uses: actions/checkout@v6
@@ -34,28 +34,28 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.14t"]
         optional-deps: [true]
         with-libs: [true]
         include:
         - os: macos-latest
-          python-version: "3.10"
+          python-version: "3.14"
           optional-deps: true
         - os: ubuntu-latest
-          python-version: "3.10"
+          python-version: "3.14"
           with-libs: false
           optional-deps: false
         - os: ubuntu-latest
-          python-version: "3.10"
+          python-version: "3.14"
           with-libs: false
           optional-deps: true
         - os: ubuntu-latest
-          python-version: "3.10"
+          python-version: "3.14"
           optional-deps: false
           with-libs: false
           with-zstandard: true
         - os: windows-latest
-          python-version: "3.10"
+          python-version: "3.14"
     steps:
     - name: Install optional tools macOS
       if: runner.os == 'macOS' && matrix.optional-deps
@@ -88,7 +88,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10' && matrix.optional-deps && matrix.with-libs
       run: tox run -e lz4
     - name: Upload coverage report
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v7
 
   deploy:
     timeout-minutes: 10
@@ -102,7 +102,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: "3.10"
+        python-version: "3.14"
     - name: Make distributions
       run: |
         python -m pip install build
