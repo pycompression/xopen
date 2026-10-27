@@ -291,7 +291,7 @@ class _PipedCompressionProgram(io.IOBase):
         return self._file.readline(*args)
 
     def seekable(self) -> bool:
-        return self._file.seekable()
+        return False
 
     def peek(self, n: int | None = None):
         return self._file.peek(n)  # type: ignore

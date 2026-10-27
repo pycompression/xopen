@@ -192,6 +192,8 @@ development version
 
 * #181/#168: Added lz4 as supported compression format.
   Contributed by @Dev-iL and @gnzsnz.
+* PipedCompressionReader no longer has seek/tell methods. This only worked
+  on Windows before (and only sometimes).
 * Dropped support for Python 3.10
 
 v2.1.0 (2026-06-03)
