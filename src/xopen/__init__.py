@@ -293,14 +293,8 @@ class _PipedCompressionProgram(io.IOBase):
     def seekable(self) -> bool:
         return self._file.seekable()
 
-    def tell(self) -> int:
-        return self._file.tell()
-
     def peek(self, n: int | None = None):
         return self._file.peek(n)  # type: ignore
-
-    def seek(self, offset, whence=0) -> int:
-        return self._file.seek(offset, whence)
 
     def close(self) -> None:
         if self.closed:
