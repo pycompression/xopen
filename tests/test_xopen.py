@@ -745,3 +745,135 @@ def test_xopen_dev_stdin_read(threads, ext):
         check=True,
     )
     assert result.stdout == CONTENT + "\n"
+
+
+@pytest.mark.parametrize("threads", [None, 0, 1, 2])
+@pytest.mark.parametrize("file_like", [False, True])
+def test_zst_native_roundtrip_append(tmp_path, monkeypatch, threads, file_like):
+    if threads != 0 and zstd.CompressionParameter.nb_workers.bounds()[1] == 0:
+        pytest.skip("Native Zstandard multithreading not supported")
+    import xopen as xopen_module
+
+    def unexpected_process(*args, **kwargs):
+        pytest.fail("Native Zstandard writing must not spawn a process")
+
+    monkeypatch.setattr(xopen_module, "_PipedCompressionProgram", unexpected_process)
+    # Exceeds the default Zstandard compression job size, including at level 6.
+    payload = bytes(range(256)) * (40 * 1024)
+    target = io.BytesIO() if file_like else tmp_path / "native.zst"
+    frames = []
+    for mode in ("wb", "ab"):
+        with xopen(target, mode, format="zst", threads=threads, compresslevel=6) as f:
+            f.write(payload)
+        data = target.getvalue() if file_like else target.read_bytes()
+        frame = data[sum(map(len, frames)) :]
+        frames.append(frame)
+        assert zstd.decompress(frame) == payload
+        if threads != 0:
+            # Bit 2 of the frame header descriptor is the content checksum flag.
+            assert frame[4] & 4
+            damaged = frame[:-1] + bytes([frame[-1] ^ 1])
+            with pytest.raises(zstd.ZstdError):
+                zstd.decompress(damaged)
+    assert zstd.decompress(data) == payload * 2
+
+
+@pytest.mark.parametrize(
+    "threads,cpus,workers", [(None, 2, 2), (None, 8, 4), (1, 8, 1), (7, 2, 7)]
+)
+@pytest.mark.parametrize("compresslevel", [None, 1, 9])
+def test_zst_native_options(
+    tmp_path, monkeypatch, threads, cpus, workers, compresslevel
+):
+    if zstd.CompressionParameter.nb_workers.bounds()[1] == 0:
+        pytest.skip("Native Zstandard multithreading not supported")
+    import xopen as xopen_module
+
+    original_open = zstd.open
+    calls = []
+
+    def tracked_open(*args, **kwargs):
+        calls.append(kwargs)
+        return original_open(*args, **kwargs)
+
+    def unexpected_process(*args, **kwargs):
+        pytest.fail("Native Zstandard writing must not spawn a process")
+
+    monkeypatch.setattr(zstd, "open", tracked_open)
+    monkeypatch.setattr(xopen_module, "_available_cpu_count", lambda: cpus)
+    monkeypatch.setattr(xopen_module, "_PipedCompressionProgram", unexpected_process)
+    with xopen(
+        tmp_path / "options.zst", "wb", threads=threads, compresslevel=compresslevel
+    ) as f:
+        f.write(b"native options")
+    assert len(calls) == 1
+    assert calls[0].get("level") is None
+    assert calls[0]["options"] == {
+        zstd.CompressionParameter.compression_level: (
+            xopen_module.XOPEN_DEFAULT_ZST_COMPRESSION
+            if compresslevel is None
+            else compresslevel
+        ),
+        zstd.CompressionParameter.nb_workers: workers,
+        zstd.CompressionParameter.checksum_flag: 1,
+    }
+
+
+@pytest.mark.parametrize("backend_missing", [False, True])
+@pytest.mark.parametrize("program_missing", [False, True])
+def test_zst_native_fallback(tmp_path, monkeypatch, backend_missing, program_missing):
+    import xopen as xopen_module
+
+    target = tmp_path / "fallback.zst"
+    target.write_bytes(b"existing contents")
+    original_program = xopen_module._PipedCompressionProgram
+    calls = []
+
+    def tracked_program(*args, **kwargs):
+        # Capability detection must not have opened or truncated the output.
+        assert target.read_bytes() == b"existing contents"
+        calls.append((args, kwargs))
+        if program_missing:
+            raise FileNotFoundError("zstd unavailable")
+        return original_program(*args, **kwargs)
+
+    if not program_missing and not shutil.which("zstd"):
+        pytest.skip("zstd program not installed")
+    monkeypatch.setattr(xopen_module, "_PipedCompressionProgram", tracked_program)
+    if backend_missing:
+        monkeypatch.setattr(xopen_module, "zstd", None)
+    else:
+        monkeypatch.setattr(
+            zstd.CompressionParameter.nb_workers, "bounds", lambda: (0, 0)
+        )
+    if backend_missing and program_missing:
+        with pytest.raises(FileNotFoundError, match="zstd unavailable"):
+            xopen(target, "wb", threads=2)
+        assert target.read_bytes() == b"existing contents"
+    else:
+        with xopen(target, "wb", threads=2) as f:
+            f.write(b"fallback contents")
+        assert zstd.decompress(target.read_bytes()) == b"fallback contents"
+    assert len(calls) == 1
+
+
+def test_zst_native_error_propagates(tmp_path, monkeypatch):
+    if zstd.CompressionParameter.nb_workers.bounds()[1] == 0:
+        pytest.skip("Native Zstandard multithreading not supported")
+    import xopen as xopen_module
+
+    target = tmp_path / "error.zst"
+
+    def failing_open(filename, *args, **kwargs):
+        # Simulate a native error after output has already been opened.
+        filename.write_bytes(b"partially written")
+        raise OSError("native write error")
+
+    def unexpected_process(*args, **kwargs):
+        pytest.fail("Must not retry native errors with an external program")
+
+    monkeypatch.setattr(zstd, "open", failing_open)
+    monkeypatch.setattr(xopen_module, "_PipedCompressionProgram", unexpected_process)
+    with pytest.raises(OSError, match="native write error"):
+        xopen(target, "wb", threads=2)
+    assert target.read_bytes() == b"partially written"
