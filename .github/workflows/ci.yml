@@ -85,7 +85,7 @@ jobs:
       if: matrix.with-zstandard
       run: tox run -e zstd
     - name: Test with LZ4 bindings
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10' && matrix.optional-deps && matrix.with-libs
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14' && matrix.optional-deps && matrix.with-libs
       run: tox run -e lz4
     - name: Upload coverage report
       uses: codecov/codecov-action@v7
