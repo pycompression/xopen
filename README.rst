@@ -178,10 +178,14 @@ either the ``zstd`` command-line program,
 the ``backports.zstd`` package or (on Python 3.14+),
 the ``compression.zstd`` module in the standard library is used.
 
-* If the ``threads`` parameter to ``xopen()`` is ``None`` (the default) or any value greater than 0,
-  ``xopen`` uses an external ``zstd`` process.
-* If the above fails (because no ``zstd`` program is available) or if ``threads`` is 0,
-  the ``backports.zstd`` or ``compression.zstd`` package is used.
+* For writing and appending, ``backports.zstd`` or ``compression.zstd`` is preferred
+  when it supports native multithreading. With ``threads=None`` (the default),
+  up to four available CPUs are used. A positive ``threads`` value selects that
+  many compression workers. Native threaded output includes a content checksum.
+* For reading, or if native multithreaded compression is unavailable,
+  ``threads=None`` or a positive value uses an external ``zstd`` process.
+* If the external program is unavailable, or if ``threads`` is 0, the Python
+  backend is used without compression workers.
 
 
 Changelog
@@ -190,6 +194,7 @@ Changelog
 development version
 ~~~~~~~~~~~~~~~~~~~
 
+* #180: Prefer native multithreaded Zstandard compression for writing and appending.
 * #181/#168: Added lz4 as supported compression format.
   Contributed by @Dev-iL and @gnzsnz.
 * PipedCompressionReader no longer has seek/tell methods. This only worked
