@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.14"]
+        python-version: ["3.15"]
         toxenv: [black, ruff, mypy]
     steps:
     - uses: actions/checkout@v7
@@ -34,28 +34,28 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"]
         optional-deps: [true]
         with-libs: [true]
         include:
         - os: macos-latest
-          python-version: "3.14"
+          python-version: "3.15"
           optional-deps: true
         - os: ubuntu-latest
-          python-version: "3.14"
+          python-version: "3.15"
           with-libs: false
           optional-deps: false
         - os: ubuntu-latest
-          python-version: "3.14"
+          python-version: "3.15"
           with-libs: false
           optional-deps: true
         - os: ubuntu-latest
-          python-version: "3.14"
+          python-version: "3.15"
           optional-deps: false
           with-libs: false
           with-zstandard: true
         - os: windows-latest
-          python-version: "3.14"
+          python-version: "3.15"
     steps:
     - name: Install optional tools macOS
       if: runner.os == 'macOS' && matrix.optional-deps
@@ -85,7 +85,7 @@ jobs:
       if: matrix.with-zstandard
       run: tox run -e zstd
     - name: Test with LZ4 bindings
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.14' && matrix.optional-deps && matrix.with-libs
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.15' && matrix.optional-deps && matrix.with-libs
       run: tox run -e lz4
     - name: Upload coverage report
       uses: codecov/codecov-action@v7
@@ -102,7 +102,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v7
       with:
-        python-version: "3.14"
+        python-version: "3.15"
     - name: Make distributions
       run: |
         python -m pip install build
