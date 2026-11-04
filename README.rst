@@ -195,6 +195,7 @@ development version
 * PipedCompressionReader no longer has seek/tell methods. This only worked
   on Windows before (and only sometimes).
 * Dropped support for Python 3.10
+* Started supporting Python 3.15
 
 v2.1.0 (2026-06-03)
 ~~~~~~~~~~~~~~~~~~~
