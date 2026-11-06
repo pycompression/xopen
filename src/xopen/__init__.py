@@ -487,6 +487,22 @@ def _open_zst(
     assert compresslevel != 0
     if compresslevel is None:
         compresslevel = XOPEN_DEFAULT_ZST_COMPRESSION
+    if (
+        zstd is not None
+        and mode in ("wb", "ab")
+        and threads != 0
+        and zstd.CompressionParameter.nb_workers.bounds()[1] > 0
+    ):
+        # Check threading support before opening (and possibly truncating) output.
+        # Native errors must propagate rather than retrying with a subprocess.
+        compression_options = {
+            zstd.CompressionParameter.compression_level: compresslevel,
+            zstd.CompressionParameter.nb_workers: (
+                min(_available_cpu_count(), 4) if threads is None else threads
+            ),
+            zstd.CompressionParameter.checksum_flag: 1,
+        }
+        return io.BufferedWriter(zstd.open(filename, mode, options=compression_options))  # type: ignore
     if zstd:
         max_window_bits = zstd.DecompressionParameter.window_log_max.bounds()[1]
     else:
@@ -829,16 +845,21 @@ def xopen(
     If set to None, a default depending on the format is used:
     gzip: 6, xz: 6, zstd: 3, lz4: 0.
 
-    When threads is None (the default), compressed file formats are read or written
-    using a pipe to a subprocess running an external tool such as,
-    ``pbzip2``, ``gzip`` etc., see PipedGzipWriter, PipedGzipReader etc.
-    If the external tool supports multiple threads, *threads* can be set to an int
+    When threads is None (the default), compressed file formats may use native
+    compression workers or a pipe to an external tool such as ``pbzip2`` or
+    ``gzip``, depending on the format and available backend.
+    If the backend supports multiple threads, *threads* can be set to an int
     specifying the number of threads to use.
     If no external tool supporting the compression format is available, the file is
     opened calling the appropriate Python function
     (that is, no subprocess is spawned).
 
-    Set threads to 0 to force opening the file without using a subprocess.
+    Zstandard writing and appending prefer native compression threads when the
+    Python backend supports them. With threads=None, up to four available CPUs
+    are used; an explicit positive count selects that many compression workers.
+
+    Set threads to 0 to force opening the file without using a subprocess or
+    native compression workers.
 
     encoding, errors and newline are used when opening a file in text mode.
     The parameters have the same meaning as in the built-in open function,
