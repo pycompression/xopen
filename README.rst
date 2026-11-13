@@ -200,6 +200,11 @@ development version
   architectures, such as ``aarch64``, python-zlib-ng is preferred because it
   decompresses faster there. python-isal is still used on all architectures
   for writing at compression levels 1 and 2.
+* python-isal is now also installed on macOS with Apple Silicon (``arm64``),
+  where it is used for writing gzip files at compression levels 1 and 2.
+  python-isal 1.9.0 or later is required there because earlier versions used
+  the portable C code of ISA-L instead of its aarch64 assembly on that
+  platform.
 
 v2.1.0 (2026-06-03)
 ~~~~~~~~~~~~~~~~~~~
