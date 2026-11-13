@@ -19,6 +19,8 @@ requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [
     'isal>=1.6.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
+    # macOS on Apple Silicon. python-isal uses ISA-L's aarch64 assembly there since 1.9.0.
+    'isal>=1.9.0; platform.machine == "arm64"',
     'zlib-ng>=0.4.1; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"',
     'backports.zstd; python_version < "3.14"',
 ]

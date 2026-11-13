@@ -55,6 +55,16 @@ except ImportError:
     gzip_ng_threaded = None
     zlib_ng = None
 
+# ISA-L decompresses faster than zlib-ng and zlib on x86-64. On ARM (aarch64 on
+# Linux, arm64 on macOS), zlib-ng decompresses faster than ISA-L, and so does
+# the zlib that Apple ships with macOS. platform.machine() is not used here
+# because it takes tens of milliseconds on Windows.
+if sys.platform == "win32":
+    _MACHINE = os.environ.get("PROCESSOR_ARCHITECTURE", "AMD64")
+else:
+    _MACHINE = os.uname().machine
+_ISAL_DECOMPRESSES_FASTEST = _MACHINE.lower() in ("x86_64", "amd64")
+
 if sys.version_info >= (3, 14):
     from compression import zstd
 else:
@@ -567,6 +577,15 @@ def _open_lz4(
         )
 
 
+def _use_isal(mode: str, compresslevel: int) -> bool:
+    """Return whether ISA-L is the preferred gzip backend."""
+    if "r" in mode:
+        return _ISAL_DECOMPRESSES_FASTEST
+    # Igzip level 0 does not output uncompressed deflate blocks as zlib does
+    # and level 3 is slower but does not compress better than level 1 and 2.
+    return compresslevel in (1, 2)
+
+
 def _open_gz(
     filename: FileOrPath,
     mode: str,
@@ -575,7 +594,8 @@ def _open_gz(
 ):
     """
     Open a gzip file. The ISA-L library is preferred when applicable because
-    it is the fastest. Then zlib-ng which is not as fast, but supports all
+    it is the fastest: for compression at levels 1 and 2, and for decompression
+    on x86-64. Then zlib-ng which is not as fast, but supports all
     compression levels. After that comes pigz, which can utilize multiple
     threads and is more efficient than gzip, even on one core. gzip is chosen
     when none of the alternatives are available. Despite it being able to use
@@ -595,9 +615,7 @@ def _open_gz(
         )
 
     if threads != 0:
-        # Igzip level 0 does not output uncompressed deflate blocks as zlib does
-        # and level 3 is slower but does not compress better than level 1 and 2.
-        if igzip_threaded and (compresslevel in (1, 2) or "r" in mode):
+        if igzip_threaded and _use_isal(mode, compresslevel):
             return igzip_threaded.open(  # type: ignore
                 filename,
                 mode,
@@ -647,9 +665,7 @@ def _open_reproducible_gzip(filename, mode: str, compresslevel: int):
         mode=mode,
         mtime=0,
     )
-    # Igzip level 0 does not output uncompressed deflate blocks as zlib does
-    # and level 3 is slower but does not compress better than level 1 and 2.
-    if igzip is not None and (compresslevel in (1, 2) or "r" in mode):
+    if igzip is not None and _use_isal(mode, compresslevel):
         gzip_file = igzip.IGzipFile(**kwargs, compresslevel=compresslevel)
     elif gzip_ng is not None:
         # Zlib-ng level 1 creates much bigger files than zlib level 1.

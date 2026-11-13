@@ -432,6 +432,57 @@ def test_write_gzip_no_threads_no_isal(tmp_path, xopen_without_igzip):
             assert isinstance(f.raw, gzip.GzipFile)
 
 
+def _gzip_backend(f) -> str:
+    """Return the top-level module of the gzip file object that xopen returned"""
+    if isinstance(f, (io.BufferedReader, io.BufferedWriter)):
+        f = f.raw
+    return type(f).__module__.split(".")[0]
+
+
+@pytest.mark.parametrize("threads", [0, 1])
+@pytest.mark.parametrize(
+    ["isal_decompresses_fastest", "expected"], [(True, "isal"), (False, "zlib_ng")]
+)
+def test_gzip_read_backend_depends_on_architecture(
+    monkeypatch, threads, isal_decompresses_fastest, expected
+):
+    import xopen  # xopen local overrides xopen global variable
+
+    if xopen.igzip is None or xopen.gzip_ng is None:
+        pytest.skip("requires python-isal and python-zlib-ng")
+    monkeypatch.setattr(xopen, "_ISAL_DECOMPRESSES_FASTEST", isal_decompresses_fastest)
+    with xopen.xopen(TEST_DIR / "file.txt.gz", "rb", threads=threads) as f:
+        assert _gzip_backend(f) == expected
+        assert f.read() == CONTENT.encode()
+
+
+def test_gzip_read_without_zlib_ng_where_isal_is_slower(monkeypatch):
+    import xopen  # xopen local overrides xopen global variable
+
+    monkeypatch.setattr(xopen, "_ISAL_DECOMPRESSES_FASTEST", False)
+    monkeypatch.setattr(xopen, "gzip_ng", None)
+    with xopen.xopen(TEST_DIR / "file.txt.gz", "rb", threads=0) as f:
+        assert type(f) is gzip.GzipFile
+        assert f.read() == CONTENT.encode()
+
+
+@pytest.mark.parametrize("threads", [0, 1])
+@pytest.mark.parametrize("isal_decompresses_fastest", [True, False])
+def test_gzip_write_backend_at_level_1_is_isal(
+    tmp_path, monkeypatch, threads, isal_decompresses_fastest
+):
+    import xopen  # xopen local overrides xopen global variable
+
+    if xopen.igzip is None:
+        pytest.skip("requires python-isal")
+    monkeypatch.setattr(xopen, "_ISAL_DECOMPRESSES_FASTEST", isal_decompresses_fastest)
+    path = tmp_path / "out.gz"
+    with xopen.xopen(path, "wb", compresslevel=1, threads=threads) as f:
+        assert _gzip_backend(f) == "isal"
+        f.write(b"hello")
+    assert gzip.decompress(path.read_bytes()) == b"hello"
+
+
 def test_write_stdout():
     f = xopen("-", mode="w")
     print("Hello", file=f)
