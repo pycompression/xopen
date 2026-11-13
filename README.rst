@@ -196,6 +196,10 @@ development version
   on Windows before (and only sometimes).
 * Dropped support for Python 3.10
 * Started supporting Python 3.15
+* python-isal is now used for reading gzip files on x86-64 only. On other
+  architectures, such as ``aarch64``, python-zlib-ng is preferred because it
+  decompresses faster there. python-isal is still used on all architectures
+  for writing at compression levels 1 and 2.
 
 v2.1.0 (2026-06-03)
 ~~~~~~~~~~~~~~~~~~~
